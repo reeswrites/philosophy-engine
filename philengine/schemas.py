@@ -83,6 +83,8 @@ class CheckReport(BaseModel):
     # additions (builder step 1, plan section 3 prose):
     unknown_reason: str | None = None
     z3_version: str | None = None
+    suspect_biconditional: list[str] = []  # premise ids: iff with C as a side, others alone do not entail C (soft)
+    sense_mismatch_hint: list[str] = []  # soft: premise text reads like a competing sense of a used symbol
     unknown_probes: list[str] = []  # probes that returned z3 unknown (fail closed: field left None / verdict open)
 
 

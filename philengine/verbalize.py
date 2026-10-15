@@ -114,6 +114,21 @@ def verbalize(f: FormalizationX) -> dict[str, str]:
     return out
 
 
-def verbalization_text(f: FormalizationX) -> str:
-    """`[P1] ...` lines (premises in order, then `[C]`) exactly as judge.v1 expects."""
-    return "\n".join(f"[{k}] {v}" for k, v in verbalize(f).items())
+def symbol_legend(ast, f: FormalizationX) -> str:
+    """`{name=sense, ...}` for the declared symbols a formula uses (order of first appearance); '' if none."""
+    from .senses import symbols_in_order
+    decl = {d.name: d for d in [*f.predicates, *f.constants]}
+    names = symbols_in_order(ast, f)
+    return "{" + ", ".join(f"{n}={decl[n].sense}" for n in names) + "}" if names else ""
+
+
+def verbalization_text(f: FormalizationX, show_symbols: bool = False) -> str:
+    """`[P1] ...` lines (premises in order, then `[C]`) exactly as judge.v1 expects. With show_symbols, each
+    line gets `  {symbol=sense, ...}` appended (two spaces then `{`; consumers parsing `[P1] text` ignore it)."""
+    v = verbalize(f)
+    items = {("C" if it is f.conclusion else it.premise_id): it for it in [*f.premises, f.conclusion]}
+    lines = []
+    for k, text in v.items():
+        leg = symbol_legend(sx.parse(items[k].sexpr), f) if show_symbols else ""
+        lines.append(f"[{k}] {text}" + (f"  {leg}" if leg else ""))
+    return "\n".join(lines)

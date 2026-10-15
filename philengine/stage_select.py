@@ -43,7 +43,23 @@ def has_unknown_probe(chk) -> bool:
     return bool(chk.unknown_probes) or chk.nontrivial is None
 
 
-def score(form, max_preds: int) -> float:
+def biconditional_penalties(form, rec) -> tuple[list[str], list[str]]:
+    """-> (penalized premise ids, notes). A suspect iff premise (check.suspect_biconditional) is penalized when it is
+    implicit in the reconstruction OR not typed definitional; explicit + definitional only yields a note."""
+    chk = form.check
+    sus = list(chk.suspect_biconditional) if chk else []
+    by_id = {p.id: p for p in rec.premises} if rec else {}
+    pen, notes = [], []
+    for pid in sus:
+        p = by_id.get(pid)
+        if p is None or p.implicit or p.type != "definitional":
+            pen.append(pid)
+        else:
+            notes.append(f"{pid}: explicit definitional biconditional carries the conclusion (accepted as a definitional bridge)")
+    return pen, notes
+
+
+def score(form, max_preds: int, penalized: bool = False) -> float:
     w, j, chk = config.SELECT_WEIGHTS, form.judge, form.check
     # NOTE bias: `minimal` is only ever True for valid candidates (None when refuted), so it mildly favours valid.
     # `decided` is symmetric: valid and refuted both count, open (z3 unknown / inconsistent-unknown) does not.
@@ -51,7 +67,8 @@ def score(form, max_preds: int) -> float:
           + w["minimal"] * (1.0 if chk.minimal else 0.0)
           + w["simplicity"] * (1 - _n_preds(form) / max_preds)
           + w["decided"] * (1.0 if checks.verdict_of(chk) in ("valid", "refuted") else 0.0))
-    return sc - (config.UNKNOWN_PROBE_PENALTY if has_unknown_probe(chk) else 0.0)
+    sc -= config.UNKNOWN_PROBE_PENALTY if has_unknown_probe(chk) else 0.0
+    return sc - (config.SUSPECT_BICONDITIONAL_PENALTY if penalized else 0.0)
 
 
 def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResultX:
@@ -59,6 +76,8 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     max_preds = max([_n_preds(f) for f in forms] + [1])
     ranking, survivors, rejected_trivial, rejected_judge = [], [], 0, 0
     unknown_cands = []
+    rec = store.get_reconstruction(recon_id).reconstruction
+    bic_reviews = []
     for f in forms:
         reasons, triv = reject_reasons(f)
         rejected_trivial += triv
@@ -68,8 +87,14 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
         entry = {"formalization_id": f.id, "candidate_idx": f.candidate_idx,
                  "verdict": checks.verdict_of(f.check) if f.check and f.check.parse_ok else None,
                  "rejected_reasons": reasons, "score": None}
+        pen, notes = biconditional_penalties(f, rec)
+        if notes:
+            entry["notes"] = notes
+        if pen:
+            entry["notes"] = [*entry.get("notes", []), f"suspect biconditional penalty {config.SUSPECT_BICONDITIONAL_PENALTY} on {pen}"]
+            bic_reviews.append((f.candidate_idx, pen))
         if not reasons:
-            entry["score"] = round(score(f, max_preds), 6)
+            entry["score"] = round(score(f, max_preds, bool(pen)), 6)
             survivors.append((f, entry))
         ranking.append(entry)
     ranking.sort(key=lambda e: (e["score"] is None, -(e["score"] or 0), e["candidate_idx"]))
@@ -90,6 +115,9 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     store.insert_selection(sel, run_id)
     if contested:
         store.insert_review("selection", str(recon_id), "contested: parsed candidates (survivors and rejected) disagree on verdict")
+    for idx, pen in bic_reviews:
+        store.insert_review("selection", str(recon_id),
+                            f"conclusion via implicit/non-definitional biconditional: candidate {idx} {pen}")
     for idx, probes in unknown_cands:
         store.insert_review("selection", str(recon_id), f"unknown probe: candidate {idx} {probes or ['nontrivial']}")
     return sel

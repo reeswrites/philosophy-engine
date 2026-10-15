@@ -46,7 +46,7 @@ recorded in each report.
 
 `schemas.py` is frozen after builder step 1; add requests below, one line each.
 Step 1 additions to the plan's `CheckReport`: `unknown_reason`, `z3_version`.
-Review-fix additions: `CheckReport.unknown_probes` (z3-unknown probes; fields left None, verdict open), `SelectionResultX.rejected_judge`, `llm_call.stop_reason` (migrated via ALTER TABLE).
+Second-fix additions: `CheckReport.suspect_biconditional`, `CheckReport.sense_mismatch_hint` (both soft, additive). Review-fix additions: `CheckReport.unknown_probes` (z3-unknown probes; fields left None, verdict open), `SelectionResultX.rejected_judge`, `llm_call.stop_reason` (migrated via ALTER TABLE).
 
 ## Usage
 

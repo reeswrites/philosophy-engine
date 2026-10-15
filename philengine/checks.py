@@ -143,7 +143,8 @@ def check_minimality(prem: dict, concl, core: list, unknowns: list | None = None
     return [p for p in prem if p in redundant]
 
 
-def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list | None = None, **kw) -> list[str]:
+def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list | None = None,
+                     suspect: list | None = None, **kw) -> list[str]:
     """Returns trivial_reasons (empty => nontrivial, unless `unknowns` got entries: then undecided).
 
     Bounded probes (O(#premises) solver calls each, no subset search):
@@ -151,8 +152,9 @@ def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list 
       (b) C entailed by one premise alone (only reported when there are >= 2 premises);
       (b') C logically EQUIVALENT to a single premise (both directions unsat), any premise count,
            which catches semantic duplicates such as (and p (or q (not q))) vs p;
-      (b'') `conclusion_via_biconditional`: premise P_i is an iff with one side syntactically C
-           and the remaining premises alone do not entail C (so P_i does the work of smuggling C in);
+      (b'') SOFT: premise P_i is an iff with one side syntactically C and the remaining premises alone do
+           not entail C; P_i's id is appended to `suspect` (NOT a trivial reason: "D; D iff C; so C" can be a
+           legitimate definitional bridge; stage_select decides by implicit/type);
       (c) C or a premise is a tautology; orphan conclusion predicates.
     Does NOT catch: smuggling through other shapes (e.g. (=> d c) with d separately asserted, which is
     ordinary modus ponens), conclusions that need >= 2 premises jointly to be restated (no subset
@@ -180,8 +182,8 @@ def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list 
         if isinstance(a, sx.Iff) and nc in (fol.normalized_text(a.left), fol.normalized_text(a.right)):
             rest = [(k, v) for k, v in prem.items() if k != pid]
             if _unsat([*rest, ("NEG_C", z3.Not(concl))], f"nontrivial:biconditional:{pid}", unknowns, **kw) is False:
-                reasons.append(f"conclusion_via_biconditional: {pid} is an iff with C as one side and the other "
-                               f"premises alone do not entail C")
+                if suspect is not None:
+                    suspect.append(pid)
     # (c) tautologies
     if _unsat([("NEG_C", z3.Not(concl))], "nontrivial:tautology:C", unknowns, **kw):
         reasons.append("C is a tautology (premises irrelevant)")
@@ -242,7 +244,8 @@ def run_all(
         minimal = None if len(unknowns) > n0 else not redundant
 
     n0 = len(unknowns)
-    reasons = check_nontrivial(parsed, env, prem, concl, unknowns, **kw)
+    suspect: list[str] = []
+    reasons = check_nontrivial(parsed, env, prem, concl, unknowns, suspect, **kw)
     nontrivial = False if reasons else (None if len(unknowns) > n0 else True)
     if cons.result == "unsat":
         reasons.insert(0, "premises inconsistent (argument vacuously valid)")
@@ -257,6 +260,7 @@ def run_all(
         redundant_premises=redundant,
         nontrivial=nontrivial,
         unknown_probes=unknowns,
+        suspect_biconditional=suspect,
         trivial_reasons=reasons,
         vacuous=cons.result == "unsat" or tautological_c,
         z3_ms=int((time.monotonic() - t0) * 1000),

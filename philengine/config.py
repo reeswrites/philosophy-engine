@@ -56,6 +56,7 @@ JUDGE_CONCLUSION_SCORE = 0.7
 
 # Selection weights
 UNKNOWN_PROBE_PENALTY = 0.10  # score deduction for a candidate with any z3-unknown probe
+SUSPECT_BICONDITIONAL_PENALTY = 0.15  # implicit / non-definitional biconditional that carries C
 SELECT_WEIGHTS = {"mean": 0.45, "min": 0.25, "minimal": 0.15, "simplicity": 0.10, "decided": 0.05}
 
 # Stage defaults (overridable via Ctx.options)

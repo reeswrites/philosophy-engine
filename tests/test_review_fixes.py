@@ -30,8 +30,9 @@ def rep(f):
 # 1 / 2
 def test_conclusion_smuggled_via_biconditional():
     r = rep(mk([("c", []), ("d", [])], [], ["d", "(iff c d)"], "c"))
-    assert r.valid == "valid" and r.nontrivial is False
-    assert any("conclusion_via_biconditional" in t for t in r.trivial_reasons)
+    assert r.valid == "valid" and r.nontrivial is True  # soft signal only
+    assert r.suspect_biconditional == ["P2"]
+    assert not any("biconditional" in t for t in r.trivial_reasons)
 
 
 def test_single_premise_equivalent_to_conclusion_flagged():

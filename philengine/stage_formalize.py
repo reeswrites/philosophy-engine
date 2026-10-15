@@ -1,7 +1,7 @@
 """Stage: formalize. N independent candidates per argument (unit.candidate_idx >= 0 = just that one)."""
 from __future__ import annotations
 
-from . import checks, config, fol, prompts
+from . import checks, config, fol, prompts, senses
 from .models_ext import FormalizationX
 from .runner import Ctx, Unit, register
 from .stage_common import feedback, n_candidates, opt, pick_reconstruction, validation_errors
@@ -29,6 +29,8 @@ def formalize_one(ctx: Ctx, argument_id: str, rec_row, candidate_idx: int) -> in
             errs = f.slot_errors()
             _, verrs = fol.validate(f, ids)
             errs = errs + verrs
+            if not verrs:
+                errs = errs + senses.gloss_collision_errors(f)
         if not errs:
             break
         retry = feedback(errs)
@@ -39,6 +41,11 @@ def formalize_one(ctx: Ctx, argument_id: str, rec_row, candidate_idx: int) -> in
         if check.parse_ok:  # slot-only problems: record them on the report
             check = check.model_copy(update={"parse_ok": False, "parse_errors": errs})
         return st.insert_formalization(rec_row.id, candidate_idx, "parse_fail", f, check, None, call_ids, ctx.run_id)
+    hints = senses.mismatch_hints(f, rec_row.reconstruction)
+    if hints:
+        check = check.model_copy(update={"sense_mismatch_hint": hints})
+        for h in hints:
+            st.insert_review("formalization", f"{argument_id}:{candidate_idx}", f"sense_mismatch_hint: {h}")
     for w in f.gloss_warnings():
         st.insert_review("formalization", f"{argument_id}:{candidate_idx}", f"gloss warning: {w}")
     for p in f.predicates:

@@ -20,4 +20,8 @@ RECONSTRUCTION
 VERBALIZED FORMALIZATION (read back mechanically from glosses)
 {{verbalization}}
 
+Each verbalized line may end with a LEGEND after two spaces, e.g. `[P1] For every Obj x: if x is human then x is mortal  {human=human:biological, mortal=mortal:ceases-to-live}`. It lists, for the symbols that line uses, `symbol=sense-id`. The legend is NOT part of the claim; it tells you which sense each symbol carries. Raise `sense_drift` when a symbol's sense id or gloss conflicts with how the reconstruction uses the corresponding word in that item (e.g. a symbol whose sense is "exists in reality" used for a premise that says "exists in the understanding"), or when one symbol is used in two items whose reconstruction texts need different senses.
+
+A biconditional ("if and only if") premise in the verbalization that has no counterpart in the reconstruction text is `conclusion_smuggled`: the formalization has added the bridge that makes the conclusion follow. (An explicit biconditional or definition stated in the reconstruction is fine.)
+
 Use the item ids shown in square brackets ([P1], [P2], ..., [C]).

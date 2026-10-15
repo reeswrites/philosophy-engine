@@ -102,6 +102,8 @@ def cmd_show(a) -> int:
         print(f"\n-- candidate {f.candidate_idx} (formalization {f.id}, {f.status})"
               + (f"  rank {pos}  score {e.get('score')}" if pos else "")
               + ("  << CHOSEN" if sel and sel.chosen_formalization_id == f.id else ""))
+        if e.get("notes"):
+            print("   notes: " + " | ".join(e["notes"]))
         if e.get("rejected_reasons"):
             print("   rejected: " + " | ".join(e["rejected_reasons"]))
         if f.formalization:

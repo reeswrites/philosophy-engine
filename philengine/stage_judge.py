@@ -33,7 +33,7 @@ def judge_one(ctx: Ctx, argument_id: str, rec_row, form) -> None:
         return  # nothing to judge
     try:
         bt = verbalize(form.formalization)
-        vtext = verbalization_text(form.formalization)
+        vtext = verbalization_text(form.formalization, show_symbols=True)
     except VerbalizeError as e:
         st.update_formalization(form.id, status="judge_fail")
         raise

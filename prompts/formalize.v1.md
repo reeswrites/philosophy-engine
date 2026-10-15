@@ -15,6 +15,12 @@ Use the single sort `Obj` unless you truly need more. Predicate AND constant nam
 Every predicate and every constant MUST carry:
  (a) `gloss`: an English template with numbered slots, used mechanically to verbalize formulas. Examples: "{0} is mortal", "{0} causes {1}", "{0} knows that {1}". A predicate of arity n has exactly the slots {0}..{n-1}; a constant or a 0-ary predicate has none ("it rains", "Socrates").
  (b) `sense`: a short sense id such as `exists:actual` or `exists:in-the-understanding`, `good:instrumental`, `cause:efficient`. The same English word used with two different meanings in the argument MUST become two different symbols with different senses. NEVER reuse one symbol across senses; never equivocate silently.
+ (c) The gloss MUST carry the sense. Two different senses must NEVER share gloss text, and a gloss must be specific enough that a reader of the verbalization alone can tell the senses apart: write "{0} exists in reality", never just "{0} exists". The judge sees only glosses (and sense ids), so a vague gloss hides equivocation.
+ (d) When an English word is ambiguous in the argument, the symbol NAME should encode the sense: `exists_in_reality` and `exists_in_understanding`, `good_instrumental` and `good_intrinsic`, never a bare `exists` or `good`.
+
+Failure to avoid (Anselm). P1 "God exists in the understanding." P2 "If God exists only in the understanding, something greater can be conceived." C "God exists in reality."
+ WRONG: one predicate `exists` (gloss "{0} exists") used in P1 and in C. It reads identically in both places, but P1 means existence in the understanding and C means existence in reality: silent equivocation.
+ RIGHT: `exists_in_understanding` (gloss "{0} exists in the understanding", sense "exists:in-understanding") in P1, `exists_in_reality` (gloss "{0} exists in reality", sense "exists:in-reality") in C, plus whatever premise actually bridges them. If the bridge needs a premise the reconstruction lacks, the argument is invalid as formalized; do not paper over it.
 
 Fidelity rules:
 - One predicate per distinct concept; reuse the same predicate (same sense) for the same concept across premises.

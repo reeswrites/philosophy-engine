@@ -295,9 +295,32 @@ class Store:
 
     def upsert_concept(self, label: str, gloss: str, sense: str = "", first_seen: str | None = None) -> str:
         cid = hashlib.sha1(f"{label}|{sense}|{norm_text(gloss)}".encode()).hexdigest()
+        is_new = self.one("SELECT 1 FROM concept WHERE id=?", (cid,)) is None
+        if is_new and sense:
+            splits = [r for r in self.concepts_by_label(label) if r["sense"] and r["sense"] != sense]
+            aliases = [r for r in self.concepts_by_sense(sense) if r["label"] != label]
+            if splits:  # never merge: record the split
+                senses = sorted({r["sense"] for r in splits} | {sense})
+                args = sorted({r["first_seen"] for r in splits if r["first_seen"]} | ({first_seen} if first_seen else set()))
+                self.insert_relation("concept", label, "concept", label, "sense-split",
+                                     {"senses": senses, "argument_ids": args})
+                self.insert_review("concept", label, "label reused across senses: " + ", ".join(senses))
+            if aliases:
+                other = sorted({r["label"] for r in aliases})
+                self.insert_relation("concept", label, "concept", other[0], "sense-alias",
+                                     {"sense": sense, "labels": [label, *other],
+                                      "argument_ids": sorted({r["first_seen"] for r in aliases if r["first_seen"]}
+                                                             | ({first_seen} if first_seen else set()))})
+                self.insert_review("concept", label, f"same sense {sense!r} under different labels: {[label, *other]}")
         self.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen) VALUES (?,?,?,?,?)",
                      (cid, label, gloss, sense, first_seen))
         return cid
+
+    def concepts_by_label(self, label: str) -> list[sqlite3.Row]:
+        return self.query("SELECT * FROM concept WHERE label=? ORDER BY rowid", (label,))
+
+    def concepts_by_sense(self, sense: str) -> list[sqlite3.Row]:
+        return self.query("SELECT * FROM concept WHERE sense=? ORDER BY rowid", (sense,))
 
     def insert_review(self, target_kind: str, target_id: str, reason: str) -> int:
         return self.execute("INSERT INTO review(target_kind,target_id,reason,created_at) VALUES (?,?,?,?)",
