@@ -237,7 +237,32 @@ under `--from-human` (its output is simply not picked), which is where run 1's r
 - `conftest.py` skip check runs before `config.load_env`, so `.env` alone does not enable `-m llm`.
 - Candidate diversity now depends on API-default sampling (temperature no longer sent).
 
-## Fix round after Phase 0 (not yet re-run live)
+### Re-run after fixes (run 8, 2026-10-15, `--from-human --n-candidates 3`, engine 7329580)
+
+Report: `runs/report-live-3.md`. Gate: **FAIL** on criterion (b) only — all five stages ran with 0 failed
+jobs, but `rejected_trivial` is now 0 because the orphan-conclusion check became a soft penalty and the only
+vacuous candidates were the expected-inconsistent ones, which the gate no longer counts. Criterion (b) is
+effectively unreachable with the fixed engine and needs restating.
+
+| run | agree | contested | rejected_trivial | rejected_judge | est. $ |
+|---|---|---|---|---|---|
+| 1 (from human, n=2) | 11/15 | 0 | 2 | 4 | 0.72 |
+| 3 (from human, n=3, fixed) | **12/15** | 1 (induction-circular) | 0 | 6 | 0.94 |
+
+Changes vs run 1: `induction-circular` now `valid` (one candidate drops the `method` guard; contested 2–1
+with the refuted ones), `mill-desirable` still `open` (all three candidates judge-rejected rather than
+trivial-rejected), `sorites-heap` and `ship-of-theseus-gradual` still `refuted` — no candidate makes the
+chain premise explicit, so neither comes out `inconsistent`.
+
+Isomorphism: precision n/a, recall 0.00. The three strong human pairs are all missed again; the richness
+gate now files `cogito~kalam`, `cogito~induction-circular` and `induction-circular~kalam` as shape-only
+weak-isomorphic, and all three are graded weak in the data, so there are no false positives. Concept
+registry for the run: 149 (label, sense) rows, 37 labels with more than one sense. Review queue for the
+run: 38 label-reused-across-senses, 17 same-sense-different-label, 11 gloss warnings, 5 sense-mismatch
+hints, 3 orphan-conclusion-predicate, 1 contested. The `candidates` column still counts formalizations
+across runs for the same human reconstruction row (5–7 shown instead of 3).
+
+## Fix round after Phase 0 (re-run live: see "Re-run after fixes" above)
 
 1. Candidate diversity: `config.STRATEGY_HINTS[candidate_idx % 4]` is appended to the formalize user prompt and stored in `formalization.strategy_hint`.
 2. Orphan conclusion predicate is a soft flag (`CheckReport.orphan_conclusion_predicate`, select penalty `ORPHAN_CONCLUSION_PENALTY`=0.10, review row); a hard trivial reason only if C is also a tautology.
