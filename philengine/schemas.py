@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 Type = Literal["logical", "definitional", "empirical", "normative", "metaphysical"]
-Verdict = Literal["valid", "refuted", "open"]
+Verdict = Literal["valid", "refuted", "open", "inconsistent"]
 
 
 # ---- Reconstruction (LLM emits this; also the human GT shape) ----
@@ -86,6 +86,7 @@ class CheckReport(BaseModel):
     suspect_biconditional: list[str] = []  # premise ids: iff with C as a side, others alone do not entail C (soft)
     sense_mismatch_hint: list[str] = []  # soft: premise text reads like a competing sense of a used symbol
     unknown_probes: list[str] = []  # probes that returned z3 unknown (fail closed: field left None / verdict open)
+    orphan_conclusion_predicate: list[str] = []  # soft: predicates in C but in no premise (select penalty + review row)
 
 
 class JudgeReport(BaseModel):
@@ -117,6 +118,7 @@ class FormalizationRecord(BaseModel):
     judge: JudgeReport | None
     status: Literal["ok", "parse_fail", "check_fail", "judge_fail"]
     llm_call_ids: list[int]
+    strategy_hint: str = ""  # formalize: the per-candidate diversity hint appended to the prompt
 
 
 class SelectionResult(BaseModel):

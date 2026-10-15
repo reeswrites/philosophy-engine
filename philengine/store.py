@@ -94,9 +94,56 @@ class Store:
             cols = {r["name"] for r in self.db.execute("PRAGMA table_info(llm_call)")}
             if "stop_reason" not in cols:  # migrate DBs created before stop_reason existed
                 self.db.execute("ALTER TABLE llm_call ADD COLUMN stop_reason TEXT")
+            self._migrate()
             if not self.db.execute("SELECT 1 FROM schema_version").fetchone():
                 self.db.execute("INSERT INTO schema_version VALUES (?)", (SCHEMA_VERSION,))
             self.db.commit()
+
+    def _migrate(self) -> None:
+        """Additive, guarded ALTERs for DBs created by earlier versions (caller holds the lock)."""
+        def cols(t):
+            return {r["name"] for r in self.db.execute(f"PRAGMA table_info({t})")}
+        fresh_scope = "run_id" not in cols("concept")
+        for table, col, ddl in (("formalization", "strategy_hint", "TEXT"), ("concept", "raw_label", "TEXT"),
+                                ("concept", "run_id", "INTEGER"), ("review", "run_id", "INTEGER")):
+            if col not in cols(table):
+                self.db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+        if fresh_scope:
+            self._backfill_run_ids()
+
+    def _backfill_run_ids(self) -> None:
+        """One-time: give pre-run_id concept/review rows a run. Concepts go to every run whose formalizations
+        declare that (label, sense), re-keyed per run and normalized (raw label kept); reviews go to the run whose
+        job window contains their created_at."""
+        from . import senses
+        runs = {r["id"]: r for r in self.db.execute("SELECT id FROM run")}
+        used: dict[tuple, set] = {}
+        for r in self.db.execute("SELECT run_id, formalization_json FROM formalization WHERE run_id IS NOT NULL "
+                                 "AND formalization_json IS NOT NULL"):
+            try:
+                preds = json.loads(r["formalization_json"]).get("predicates", [])
+            except json.JSONDecodeError:
+                continue
+            for p in preds:
+                used.setdefault((p.get("name"), p.get("sense", "")), set()).add(r["run_id"])
+        for c in self.db.execute("SELECT * FROM concept WHERE run_id IS NULL").fetchall():
+            rids = [x for x in sorted(used.get((c["label"], c["sense"] or ""), ())) if x in runs]
+            if not rids:
+                continue
+            for rid in rids:
+                lab, sen = senses.normalize_label(c["label"]), senses.normalize_sense(c["sense"] or "")
+                cid = self.concept_id(lab, sen, c["gloss"] or "", rid)
+                self.db.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen,raw_label,run_id) "
+                                "VALUES (?,?,?,?,?,?,?)", (cid, lab, c["gloss"], sen, c["first_seen"], c["label"], rid))
+            self.db.execute("DELETE FROM concept WHERE id=?", (c["id"],))
+        win = {r["run_id"]: (r["a"], r["b"]) for r in self.db.execute(
+            "SELECT run_id, min(started_at) a, max(finished_at) b FROM job WHERE started_at IS NOT NULL "
+            "GROUP BY run_id")}
+        for q in self.db.execute("SELECT id, created_at FROM review WHERE run_id IS NULL").fetchall():
+            for rid, (a, b) in win.items():
+                if a is not None and b is not None and a - 1 <= (q["created_at"] or 0) <= b + 1:
+                    self.db.execute("UPDATE review SET run_id=? WHERE id=?", (rid, q["id"]))
+                    break
 
     def close(self):
         self.db.close()
@@ -225,12 +272,12 @@ class Store:
     def insert_formalization(self, reconstruction_id: int, candidate_idx: int, status: str,
                              formalization: FormalizationX | None = None, check: CheckReport | None = None,
                              judge: JudgeReport | None = None, llm_call_ids: list[int] | None = None,
-                             run_id: int | None = None) -> int:
+                             run_id: int | None = None, strategy_hint: str = "") -> int:
         return self.execute(
-            "INSERT INTO formalization(reconstruction_id,candidate_idx,run_id,status,formalization_json,check_json,judge_json,llm_call_ids_json) VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO formalization(reconstruction_id,candidate_idx,run_id,status,formalization_json,check_json,judge_json,llm_call_ids_json,strategy_hint) VALUES (?,?,?,?,?,?,?,?,?)",
             (reconstruction_id, candidate_idx, run_id, status,
              _j(formalization) if formalization else None, _j(check) if check else None,
-             _j(judge) if judge else None, json.dumps(llm_call_ids or []))).lastrowid
+             _j(judge) if judge else None, json.dumps(llm_call_ids or []), strategy_hint)).lastrowid
 
     def update_formalization(self, fid: int, *, status: str | None = None, check: CheckReport | None = None,
                              judge: JudgeReport | None = None, llm_call_ids: list[int] | None = None) -> None:
@@ -250,7 +297,8 @@ class Store:
             formalization=FormalizationX.model_validate_json(r["formalization_json"]) if r["formalization_json"] else None,
             check=CheckReport.model_validate_json(r["check_json"]) if r["check_json"] else None,
             judge=JudgeReportX.model_validate_json(r["judge_json"]) if r["judge_json"] else None,
-            status=r["status"], llm_call_ids=json.loads(r["llm_call_ids_json"] or "[]"))
+            status=r["status"], llm_call_ids=json.loads(r["llm_call_ids_json"] or "[]"),
+            strategy_hint=r["strategy_hint"] or "")
 
     def get_formalization(self, fid: int) -> FormalizationRecord:
         r = self.one("SELECT * FROM formalization WHERE id=?", (fid,))
@@ -293,38 +341,60 @@ class Store:
             out.append(d)
         return out
 
-    def upsert_concept(self, label: str, gloss: str, sense: str = "", first_seen: str | None = None) -> str:
-        cid = hashlib.sha1(f"{label}|{sense}|{norm_text(gloss)}".encode()).hexdigest()
+    @staticmethod
+    def concept_id(label: str, sense: str, gloss: str, run_id: int | None = None) -> str:
+        scope = f"{run_id}|" if run_id is not None else ""
+        return hashlib.sha1(f"{scope}{label}|{sense}|{norm_text(gloss)}".encode()).hexdigest()
+
+    def upsert_concept(self, label: str, gloss: str, sense: str = "", first_seen: str | None = None,
+                       run_id: int | None = None) -> str:
+        """Register (label, sense) after normalization (senses.normalize_*; the raw label is kept in raw_label).
+        Concepts are scoped per run when run_id is given, so each run has its own registry."""
+        from . import senses
+        raw_label = label
+        label, sense = senses.normalize_label(label), senses.normalize_sense(sense)
+        cid = self.concept_id(label, sense, gloss, run_id)
         is_new = self.one("SELECT 1 FROM concept WHERE id=?", (cid,)) is None
         if is_new and sense:
-            splits = [r for r in self.concepts_by_label(label) if r["sense"] and r["sense"] != sense]
-            aliases = [r for r in self.concepts_by_sense(sense) if r["label"] != label]
+            splits = [r for r in self.concepts_by_label(label, run_id) if r["sense"] and r["sense"] != sense]
+            aliases = [r for r in self.concepts_by_sense(sense, run_id) if r["label"] != label]
             if splits:  # never merge: record the split
-                senses = sorted({r["sense"] for r in splits} | {sense})
+                senses_ = sorted({r["sense"] for r in splits} | {sense})
                 args = sorted({r["first_seen"] for r in splits if r["first_seen"]} | ({first_seen} if first_seen else set()))
                 self.insert_relation("concept", label, "concept", label, "sense-split",
-                                     {"senses": senses, "argument_ids": args})
-                self.insert_review("concept", label, "label reused across senses: " + ", ".join(senses))
+                                     {"senses": senses_, "argument_ids": args}, run_id)
+                self.insert_review("concept", label, "label reused across senses: " + ", ".join(senses_), run_id)
             if aliases:
                 other = sorted({r["label"] for r in aliases})
                 self.insert_relation("concept", label, "concept", other[0], "sense-alias",
                                      {"sense": sense, "labels": [label, *other],
                                       "argument_ids": sorted({r["first_seen"] for r in aliases if r["first_seen"]}
-                                                             | ({first_seen} if first_seen else set()))})
-                self.insert_review("concept", label, f"same sense {sense!r} under different labels: {[label, *other]}")
-        self.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen) VALUES (?,?,?,?,?)",
-                     (cid, label, gloss, sense, first_seen))
+                                                             | ({first_seen} if first_seen else set()))}, run_id)
+                self.insert_review("concept", label, f"same sense {sense!r} under different labels: {[label, *other]}", run_id)
+        self.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen,raw_label,run_id) VALUES (?,?,?,?,?,?,?)",
+                     (cid, label, gloss, sense, first_seen, raw_label, run_id))
         return cid
 
-    def concepts_by_label(self, label: str) -> list[sqlite3.Row]:
-        return self.query("SELECT * FROM concept WHERE label=? ORDER BY rowid", (label,))
+    def concepts_by_label(self, label: str, run_id: int | None = None) -> list[sqlite3.Row]:
+        return self.query("SELECT * FROM concept WHERE label=? AND run_id IS ? ORDER BY rowid", (label, run_id))
 
-    def concepts_by_sense(self, sense: str) -> list[sqlite3.Row]:
-        return self.query("SELECT * FROM concept WHERE sense=? ORDER BY rowid", (sense,))
+    def concepts_by_sense(self, sense: str, run_id: int | None = None) -> list[sqlite3.Row]:
+        return self.query("SELECT * FROM concept WHERE sense=? AND run_id IS ? ORDER BY rowid", (sense, run_id))
 
-    def insert_review(self, target_kind: str, target_id: str, reason: str) -> int:
-        return self.execute("INSERT INTO review(target_kind,target_id,reason,created_at) VALUES (?,?,?,?)",
-                            (target_kind, target_id, reason, time.time())).lastrowid
+    def concepts(self, run_id: int | None = None) -> list[sqlite3.Row]:
+        """Registry rows of one run (None = all runs, un-scoped)."""
+        if run_id is None:
+            return self.query("SELECT * FROM concept ORDER BY label, sense")
+        return self.query("SELECT * FROM concept WHERE run_id=? ORDER BY label, sense", (run_id,))
+
+    def reviews(self, run_id: int | None = None) -> list[sqlite3.Row]:
+        if run_id is None:
+            return self.query("SELECT * FROM review ORDER BY id")
+        return self.query("SELECT * FROM review WHERE run_id=? ORDER BY id", (run_id,))
+
+    def insert_review(self, target_kind: str, target_id: str, reason: str, run_id: int | None = None) -> int:
+        return self.execute("INSERT INTO review(target_kind,target_id,reason,created_at,run_id) VALUES (?,?,?,?,?)",
+                            (target_kind, target_id, reason, time.time(), run_id)).lastrowid
 
     # ---- llm_call
     def insert_llm_call(self, **f) -> int:

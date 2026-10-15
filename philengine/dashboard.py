@@ -6,7 +6,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from . import report, stage_iso
+from . import report, senses, stage_iso
 from .pipeline import ALL_STAGES
 from .store import Store
 from .verbalize import symbol_legend, verbalize
@@ -73,7 +73,7 @@ def build_data(store: Store, run_id: int) -> dict:
             cands = [_cand(f, sel, rec) for f in store.list_formalizations(rec.id)]
             for f in store.list_formalizations(rec.id):
                 for p in (f.formalization.predicates if f.formalization else []):
-                    uses.setdefault((p.name, p.sense), set()).add(aid)
+                    uses.setdefault((senses.normalize_label(p.name), senses.normalize_sense(p.sense)), set()).add(aid)
         for x in ap:
             if x["argument_id"] == aid:
                 pmap[x["label"]] = x["premise_id"]
@@ -90,25 +90,24 @@ def build_data(store: Store, run_id: int) -> dict:
             "objections": a.get("objections", []), "hash": hashes.get(aid)})
 
     concepts = []
-    for c in store.query("SELECT * FROM concept ORDER BY label, sense"):
+    for c in store.concepts(run_id):
         n = len(uses.get((c["label"], c["sense"]), ())) or (1 if c["first_seen"] else 0)
         concepts.append({"id": f"{c['label']}:{c['sense']}", "label": c["label"], "sense": c["sense"],
                          "gloss": c["gloss"], "n_args": n, "args": sorted(uses.get((c["label"], c["sense"]), ())),
                          "split": False, "alias": False})
     cby = {c["id"]: c for c in concepts}
     cedges = []
-    for r in store.relations("sense-split"):
-        senses = (r["evidence"] or {}).get("senses", [])
-        ids = [f"{r['src_id']}:{s}" for s in senses if f"{r['src_id']}:{s}" in cby]
-        for i in ids:
-            cby[i]["split"] = True
-        cedges += [{"s": x, "t": y, "kind": "sense-split"} for k, x in enumerate(ids) for y in ids[k + 1:]]
-    for r in store.relations("sense-alias"):
-        ev_ = r["evidence"] or {}
-        ids = [c["id"] for c in concepts if c["sense"] == ev_.get("sense") and c["label"] in ev_.get("labels", [])]
-        for i in ids:
-            cby[i]["alias"] = True
-        cedges += [{"s": x, "t": y, "kind": "sense-alias"} for k, x in enumerate(ids) for y in ids[k + 1:]]
+    by_label: dict[str, list] = {}
+    by_sense: dict[str, list] = {}
+    for c in concepts:  # sense-split / sense-alias derived from this run's own registry rows
+        by_label.setdefault(c["label"], []).append(c["id"])
+        by_sense.setdefault(c["sense"], []).append(c["id"])
+    for kind, groups in (("sense-split", by_label), ("sense-alias", by_sense)):
+        for ids in groups.values():
+            if len(ids) > 1:
+                for i in ids:
+                    cby[i]["split" if kind == "sense-split" else "alias"] = True
+                cedges += [{"s": x, "t": y, "kind": kind} for k, x in enumerate(ids) for y in ids[k + 1:]]
 
     objections = []
     for r in store.relations("attacks"):
@@ -118,7 +117,7 @@ def build_data(store: Store, run_id: int) -> dict:
                            "target": e.get("target")})
     isos = [{"a": sorted(k)[0], "b": sorted(k)[1], "evidence": v["evidence"]} for k, v in iso_rel.items()]
 
-    reviews = [dict(r) for r in store.query("SELECT * FROM review ORDER BY id")]
+    reviews = [dict(r) for r in store.reviews(run_id)]
     calls: dict[tuple, dict] = {}
     for r in store.llm_calls():
         kind = "mock" if r["model"] == "mock" else ("cached" if r["latency_ms"] == 0 else "live")
@@ -142,7 +141,8 @@ def build_data(store: Store, run_id: int) -> dict:
                      f"rejected_trivial total = {g['rejected_trivial']})",
         "iso": {"precision": ev["precision"], "recall": ev["recall"], "truth": _pairs(ev["truth"]),
                 "found": _pairs(ev["found"]), "tp": _pairs(ev["tp"]), "fp": _pairs(ev["fp"]),
-                "fn": _pairs(ev["fn"]), "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
+                "fn": _pairs(ev["fn"]), "weak_found": _pairs(ev["weak_found"]), "weak_correct": _pairs(ev["weak_correct"]),
+                "weak_other": _pairs(ev["weak_other"]), "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
         "arguments": args, "premises": list(premises.values()), "concepts": concepts, "concept_edges": cedges,
         "objections": objections, "isos": isos, "reviews": reviews, "calls": list(calls.values()),
     }
@@ -245,7 +245,7 @@ let curArg=D.arguments[0]?.id;
  let h=`<div class="gate ${g.passed?'PASS':'FAIL'}">${esc(D.gate_line)}</div>`;
  h+=`<h2>Stage jobs</h2><table><tr><th>stage</th><th>done</th><th>failed</th><th>pending/running</th><th>skipped</th></tr>`;
  for(const s of D.stages){const c=D.stage_counts[s]||{};h+=`<tr><td>${s}</td><td>${c.done||0}</td><td>${c.failed||0}</td><td>${(c.pending||0)+(c.running||0)}</td><td>${c.skipped||0}</td></tr>`}
- h+=`</table><h2>Verdict agreement</h2><p class="muted">Verdicts are validity as formalized; refuted = invalid as formalized, not unsound. Expected "inconsistent" counts as agreed when some candidate's premises were unsat.</p>
+ h+=`</table><h2>Verdict agreement</h2><p class="muted">Verdicts are validity as formalized; refuted = invalid as formalized, not unsound. `inconsistent` = the selected formalization's premises are unsat; it is scored against expected `inconsistent` directly.</p>
  <table><tr><th>argument</th><th>expected</th><th>selected</th><th>agree</th><th>contested</th><th>rejected_trivial</th><th>rejected_judge</th><th>candidates</th></tr>`;
  for(const a of D.arguments){h+=`<tr class="click" onclick="openArg('${esc(a.id)}')"><td>${esc(a.id)}</td><td>${pill(a.expected)}</td><td>${pill(a.selected)}</td>
   <td>${a.agree===true?'<span class="pill yes">yes</span>':a.agree===false?'<span class="pill NO">NO</span>':'-'}</td><td>${a.contested?'yes':''}</td><td>${a.rejected_trivial}</td><td>${a.rejected_judge}</td><td>${a.n_candidates}</td></tr>`}
@@ -254,7 +254,8 @@ let curArg=D.arguments[0]?.id;
  const I=D.iso;
  h+=`<h2>Isomorphism</h2><div class="cards"><div class="card">precision<b>${fmt(I.precision)}</b></div><div class="card">recall<b>${fmt(I.recall)}</b></div></div>
  <table><tr><th>truth</th><td>${esc(pairs(I.truth))}</td></tr><tr><th>found</th><td>${esc(pairs(I.found))}</td></tr><tr><th>false positives</th><td>${esc(pairs(I.fp))}</td></tr>
- <tr><th>false negatives</th><td>${esc(pairs(I.fn))}</td></tr><tr><th>false friends</th><td>${esc(pairs(I.false_friends))}</td></tr><tr><th>weak (graded)</th><td>${esc(pairs(I.weak))}</td></tr></table>`;
+ <tr><th>false negatives</th><td>${esc(pairs(I.fn))}</td></tr><tr><th>false friends</th><td>${esc(pairs(I.false_friends))}</td></tr><tr><th>weak (graded)</th><td>${esc(pairs(I.weak))}</td></tr>
+ <tr><th>shape-only (weak-isomorphic)</th><td>${esc(pairs(I.weak_found))}</td></tr><tr><th>weak-correct</th><td>${esc(pairs(I.weak_correct))}</td></tr></table>`;
  $('#overview').innerHTML=h;
 })();
 
@@ -320,7 +321,7 @@ renderDetail();
 })();
 
 // ---- graph
-function verdictColor(v){return v==='valid'?'var(--n-valid)':v==='refuted'?'var(--n-refuted)':v==='open'?'var(--n-open)':'var(--n-none)'}
+function verdictColor(v){return v==='valid'?'var(--n-valid)':v==='refuted'?'var(--n-refuted)':(v==='open'||v==='inconsistent')?'var(--n-open)':'var(--n-none)'}
 function drawGraph(){
  const svgEl=$('#gsvg');
  if(typeof d3==='undefined'){$('#gmsg').textContent='d3 failed to load (needs network access to cdnjs.cloudflare.com once); other tabs work offline.';return}

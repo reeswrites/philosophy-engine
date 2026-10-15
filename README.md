@@ -33,7 +33,7 @@ lowered to z3 (`fol.lower`).
 ## Z3 core API (step 1)
 
 - `checks.run_all(f: FormalizationJSON, reconstruction_ids: list[str] | None = None, timeout_ms=5000, retry_unknown=True) -> CheckReport`
-- `checks.verdict_of(report) -> "valid" | "refuted" | "open"`
+- `checks.verdict_of(report) -> "valid" | "refuted" | "open" | "inconsistent"`
 - `fol.validate(f, reconstruction_ids=None) -> (Parsed | None, errors: list[str])` (errors are retry-feedback text)
 - `fol.build_env(f) -> Env`, `fol.lower(ast, env) -> z3.ExprRef`, `fol.rename(ast, mapping)`,
   `fol.normalize(ast)`, `fol.normalized_text(ast)`, `fol.conjuncts(ast)`, `fol.predicates_used(ast, f)`
@@ -65,9 +65,9 @@ uv run phil dashboard [--run ID] [--out runs/dashboard.html]  # one self-contain
 ```
 
 One-liner (live, needs `ANTHROPIC_API_KEY` in `.env`): `phil run --from-human --n-candidates 2 && phil report --out runs/report-live-1.md && phil gate`.
-Offline: `phil run --mock`. Live golden test: `uv run pytest -m llm` (skipped without a key; runs 4 arguments
+Offline: `phil run --mock`. Live golden test: `uv run pytest -m llm` (live tests run only with `-m llm`, and `.env` is loaded first; skipped without a key; runs 4 arguments
 from the human reconstructions and needs >=3 selected verdicts to match `expected_verdict`).
-Expected `inconsistent` is scored as "some candidate's premises were unsat".
+`checks.verdict_of` returns `inconsistent` when the premises are unsat; expected `inconsistent` is scored against that verdict directly.
 
 ## Private instance
 
@@ -236,3 +236,13 @@ under `--from-human` (its output is simply not picked), which is where run 1's r
 - `concept` / `review` tables lack `run_id`; report sections mix runs.
 - `conftest.py` skip check runs before `config.load_env`, so `.env` alone does not enable `-m llm`.
 - Candidate diversity now depends on API-default sampling (temperature no longer sent).
+
+## Fix round after Phase 0 (not yet re-run live)
+
+1. Candidate diversity: `config.STRATEGY_HINTS[candidate_idx % 4]` is appended to the formalize user prompt and stored in `formalization.strategy_hint`.
+2. Orphan conclusion predicate is a soft flag (`CheckReport.orphan_conclusion_predicate`, select penalty `ORPHAN_CONCLUSION_PENALTY`=0.10, review row); a hard trivial reason only if C is also a tautology.
+3. Verdict `inconsistent` (premises unsat). Select keeps unsat candidates when the human `expected_verdict` is `inconsistent` or >= 2 candidates agree; the gate does not count those as trivialization; report/dashboard score against `inconsistent` directly. iso also considers `inconsistent` selections.
+4. Iso richness (`stage_iso.is_rich`): bare shapes are recorded as `weak-isomorphic` ("shape-only"); in `iso_eval` they are never FP (`weak_correct` when graded in `weak_isomorphic_to`) and are outside precision/recall.
+5. `senses.normalize_label/normalize_sense` run inside `Store.upsert_concept` (`concept.raw_label` keeps the original); `concept` and `review` have `run_id` (concepts are scoped per run); old DBs are migrated and backfilled on open; report/dashboard filter by run.
+6. Judge samples `JUDGE_SAMPLES`=2 (sample_idx 0, 1), scores averaged, `hard_reject` only if every sample has a hard flag; `JudgeReportX.judge_call_ids`.
+7. conftest loads `.env` first; live tests are skipped unless `-m llm` is given.

@@ -18,6 +18,28 @@ for as by with from there some every any all no one has have had do does so such
 about into onto""".split())
 
 
+# Tiny alias table for common doubles (NOT stemming). Token aliases apply inside a normalized label/sense part;
+# whole-part aliases apply to the entire part.
+TOKEN_ALIASES = {"actually": "actual", "existence": "exists", "exist": "exists", "existing": "exists"}
+PART_ALIASES = {"moral_person": "moral", "moral_agent": "moral", "human_being": "human"}
+
+
+def _norm_part(s: str) -> str:
+    s = re.sub(r"_+", "_", re.sub(r"[^a-z0-9]", "_", s.strip().lower())).strip("_")
+    s = PART_ALIASES.get(s, s)
+    return "_".join(TOKEN_ALIASES.get(t, t) for t in s.split("_")) if s else s
+
+
+def normalize_label(label: str) -> str:
+    """Case/punctuation/underscore normalization + alias table: `Exists-Actually` -> `exists_actual`."""
+    return _norm_part(label)
+
+
+def normalize_sense(sense: str) -> str:
+    """Like normalize_label, but ':' stays the separator between sense parts: `Person:Moral-Person` -> `person:moral`."""
+    return ":".join(p for p in (_norm_part(x) for x in sense.split(":")) if p)
+
+
 def norm_gloss(g: str) -> str:
     return re.sub(r"\s+", " ", g.strip().lower())
 

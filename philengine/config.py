@@ -75,10 +75,20 @@ Z3_SEED = 0
 JUDGE_MIN_SCORE = 0.6
 JUDGE_MEAN_SCORE = 0.8
 JUDGE_CONCLUSION_SCORE = 0.7
+JUDGE_SAMPLES = 2   # judge calls per candidate (sample_idx 0..n-1); scores averaged, hard reject only if all flag it
+
+# Candidate diversity: the SDK no longer takes temperature, so each candidate idx gets a fixed prompt hint.
+STRATEGY_HINTS = (
+    "Use the minimal set of predicates: reuse one predicate wherever the English allows it.",
+    "Use the finest-grained predicates, and declare an explicit sort for every kind of thing (persons, acts, states, ...).",
+    "Make every implicit premise its own formula: do not fold any background assumption into another premise.",
+    "Prefer binary relations over unary predicates wherever the English relates two things.",
+)
 
 # Selection weights
 UNKNOWN_PROBE_PENALTY = 0.10  # score deduction for a candidate with any z3-unknown probe
 SUSPECT_BICONDITIONAL_PENALTY = 0.15  # implicit / non-definitional biconditional that carries C
+ORPHAN_CONCLUSION_PENALTY = 0.10  # soft: a conclusion predicate that appears in no premise
 SELECT_WEIGHTS = {"mean": 0.45, "min": 0.25, "minimal": 0.15, "simplicity": 0.10, "decided": 0.05}
 
 # Stage defaults (overridable via Ctx.options)

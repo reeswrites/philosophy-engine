@@ -47,7 +47,7 @@ def test_affirming_consequent_fol_countermodel():
 def test_inconsistent_premises_vacuous():
     r = run("inconsistent")
     assert r.consistent == "unsat" and r.vacuous is True
-    assert r.nontrivial is False
+    assert checks.verdict_of(r) == "inconsistent"
     assert any("inconsistent" in x for x in r.trivial_reasons)
     assert set(r.unsat_core) == {"P1", "P2"}
 
@@ -82,8 +82,9 @@ def test_parse_failure_reported():
 
 def test_orphan_conclusion_predicate():
     r = run("orphan_conclusion_predicate")
-    assert r.nontrivial is False
-    assert any("orphan" in x and "conclusion_holds" in x for x in r.trivial_reasons)
+    # soft flag only (fix round): not a trivial reason unless C is also a tautology
+    assert r.nontrivial is True and not any("orphan" in x for x in r.trivial_reasons)
+    assert r.orphan_conclusion_predicate == ["conclusion_holds"]
 
 
 def test_report_is_schema_valid_json():

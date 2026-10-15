@@ -21,7 +21,8 @@ def test_trivialized_candidate_rejected_and_good_selected():
     rec = st.latest_reconstruction("cogito", "human")
     forms = {f.candidate_idx: f for f in st.list_formalizations(rec.id)}
     # sample 1 is trivialized (C == P2) and the mock judge says 1.0 for it
-    assert forms[1].judge.min_score == 1.0 and forms[1].judge.conclusion_score == 1.0
+    # 2 judge samples averaged (mock: sample 0 -> 0.95, sample 1 -> 1.0)
+    assert forms[1].judge.min_score >= 0.95 and forms[1].judge.conclusion_score >= 0.95
     assert forms[1].check.nontrivial is False
     sel = st.get_selection(rec.id)
     assert sel.chosen_formalization_id == forms[0].id

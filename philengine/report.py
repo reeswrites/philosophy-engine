@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import json
 
-from . import stage_iso
+from . import senses, stage_iso
 from .pipeline import ALL_STAGES
 from .runner import Ctx
 from .stage_common import pick_reconstruction
 from .store import Store
 
-AGREE = {"valid": "valid", "invalid": "refuted"}  # expected_verdict -> engine verdict
+AGREE = {"valid": "valid", "invalid": "refuted", "inconsistent": "inconsistent"}  # expected_verdict -> engine verdict
 
 
 def run_options(store: Store, run_id: int) -> dict:
@@ -34,17 +34,36 @@ def per_argument(store: Store, run_id: int) -> list[dict]:
         rec = _recon(store, run_id, aid)
         sel = store.get_selection(rec.id) if rec else None
         forms = store.list_formalizations(rec.id) if rec else []
-        any_unsat = any(f.check and f.check.consistent == "unsat" for f in forms)
         exp = a.get("expected_verdict")
         got = sel.verdict if sel else None
-        if exp == "inconsistent":
-            agree = any_unsat
-        else:
-            agree = got == AGREE.get(exp, exp) if got else None
-        rows.append({"id": aid, "expected": exp, "selected": got, "agree": agree,
-                     "contested": bool(sel and sel.contested), "rejected_trivial": sel.rejected_trivial if sel else 0,
-                     "n_candidates": len(forms), "inconsistent_seen": any_unsat, "sel": sel, "rec": rec})
+        agree = got == AGREE.get(exp, exp) if got else None
+        row = {"id": aid, "expected": exp, "selected": got, "agree": agree,
+               "contested": bool(sel and sel.contested), "n_candidates": len(forms), "sel": sel, "rec": rec}
+        row["rejected_trivial"] = trivial_rejects(row)
+        rows.append(row)
     return rows
+
+
+def trivial_rejects(row: dict) -> int:
+    """rejected_trivial for the gate. For an argument whose expected verdict is `inconsistent`, a candidate rejected
+    only because its premises were unsat (a real finding, not trivialization) does not count; this also corrects
+    selections stored before inconsistent candidates stopped being rejected."""
+    sel = row["sel"]
+    if sel is None:
+        return 0
+    if row["expected"] != "inconsistent":
+        return sel.rejected_trivial
+    n = 0
+    for e in sel.ranking:
+        for reason in e.get("rejected_reasons", []):
+            if reason == "vacuous":
+                continue
+            if reason.startswith("trivial: "):
+                rest = [x for x in reason[len("trivial: "):].split("; ") if not x.startswith("premises inconsistent")]
+                if rest:
+                    n += 1
+                    break
+    return n
 
 
 def gate(store: Store, run_id: int) -> dict:
@@ -73,7 +92,8 @@ def build_report(store: Store, run_id: int) -> str:
             f"rejected_trivial total = {g['rejected_trivial']})", ""]
     out += ["## Arguments", "",
             "Verdicts are validity *as formalized*; `refuted` = invalid as formalized, not unsound. "
-            "`inconsistent` expected = some candidate's premises were unsat.", "",
+            "`inconsistent` = the selected formalization's premises are unsat (a finding, scored against expected "
+            "`inconsistent` directly).", "",
             "| argument | expected | selected | agree | contested | rejected_trivial | candidates |", "|---|---|---|---|---|---|---|"]
     for r in rows:
         ag = {True: "yes", False: "NO", None: "-"}[r["agree"]]
@@ -99,6 +119,9 @@ def build_report(store: Store, run_id: int) -> str:
             f"| truth pairs | {_pairs(ev['truth'])} |", f"| found pairs | {_pairs(ev['found'])} |",
             f"| true positives | {_pairs(ev['tp'])} |", f"| false positives | {_pairs(ev['fp'])} |",
             f"| false negatives | {_pairs(ev['fn'])} |",
+            f"| shape-only (weak-isomorphic, not counted above) | {_pairs(ev['weak_found'])} |",
+            f"| shape-only, graded weak (weak-correct) | {_pairs(ev['weak_correct'])} |",
+            f"| shape-only, ungraded | {_pairs(ev['weak_other'])} |",
             f"| precision | {fmt(ev['precision'])} |", f"| recall | {fmt(ev['recall'])} |", "",
             "False friends (same skeleton hash, not in truth) vs `weak_isomorphic_to`:", "",
             "| pair | graded weak? |", "|---|---|"]
@@ -117,13 +140,13 @@ def build_report(store: Store, run_id: int) -> str:
             continue
         for f in store.list_formalizations(r["rec"].id):
             for p in (f.formalization.predicates if f.formalization else []):
-                uses.setdefault((p.name, p.sense), set()).add(r["id"])
-    out += ["", "## Concept registry", "", "| label | sense | gloss | #args |", "|---|---|---|---|"]
-    for c in store.query("SELECT * FROM concept ORDER BY label, sense"):
+                uses.setdefault((senses.normalize_label(p.name), senses.normalize_sense(p.sense)), set()).add(r["id"])
+    out += ["", f"## Concept registry (run {run_id})", "", "| label | sense | gloss | #args |", "|---|---|---|---|"]
+    for c in store.concepts(run_id):
         n = len(uses.get((c["label"], c["sense"]), ())) or (1 if c["first_seen"] else 0)
         out.append(f"| {c['label']} | {c['sense']} | {(c['gloss'] or '').replace('|', '/')} | {n} |")
 
-    out += ["", "## Review queue", "", "| target | reason | state |", "|---|---|---|"]
-    for q in store.query("SELECT * FROM review ORDER BY id"):
+    out += ["", f"## Review queue (run {run_id})", "", "| target | reason | state |", "|---|---|---|"]
+    for q in store.reviews(run_id):
         out.append(f"| {q['target_kind']}:{q['target_id']} | {q['reason']} | {q['state']} |")
     return "\n".join(out) + "\n"

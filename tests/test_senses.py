@@ -94,13 +94,13 @@ def test_registry_sense_split_and_alias():
     st.upsert_concept("exists", "{0} exists in thought", "exists:in-understanding", "descartes")
     assert len(st.concepts_by_label("exists")) == 2  # not merged
     (rel,) = st.relations("sense-split")
-    assert rel["src_id"] == "exists" and rel["evidence"]["senses"] == ["exists:in-reality", "exists:in-understanding"]
+    assert rel["src_id"] == "exists" and rel["evidence"]["senses"] == ["exists:in_reality", "exists:in_understanding"]
     assert rel["evidence"]["argument_ids"] == ["anselm", "descartes"]
     assert any("label reused across senses" in r["reason"] for r in st.query("SELECT reason FROM review"))
     st.upsert_concept("real_existence", "{0} is real", "exists:in-reality", "kant")
     (al,) = st.relations("sense-alias")
-    assert al["src_id"] == "real_existence" and al["dst_id"] == "exists"
-    assert len(st.concepts_by_sense("exists:in-reality")) == 2
+    assert al["src_id"] == "real_exists" and al["dst_id"] == "exists"
+    assert len(st.concepts_by_sense("exists:in_reality")) == 2
     n = len(st.relations())
     st.upsert_concept("exists", "{0} exists in reality", "exists:in-reality", "anselm")  # idempotent
     assert len(st.relations()) == n

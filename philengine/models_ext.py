@@ -97,6 +97,8 @@ class JudgeReportX(JudgeReport):
     ]] = []
     hard_reject: bool = False
     verbalization: str = ""
+    n_samples: int = 1
+    judge_call_ids: list[int] = []  # one llm_call id per judge sample used
 
 
 class SelectionResultX(SelectionResult):

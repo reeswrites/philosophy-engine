@@ -79,6 +79,29 @@ def _has_quant(ast) -> bool:
     return False
 
 
+def _nested_quant(ast) -> bool:
+    """A quantifier whose body (at any depth) contains another quantifier."""
+    if isinstance(ast, sx.Quant):
+        return _has_quant(ast.body) or _nested_quant(ast.body)
+    if isinstance(ast, sx.Not):
+        return _nested_quant(ast.arg)
+    if isinstance(ast, (sx.And, sx.Or)):
+        return any(_nested_quant(a) for a in ast.args)
+    if isinstance(ast, (sx.Implies, sx.Iff)):
+        return _nested_quant(ast.left) or _nested_quant(ast.right)
+    return False
+
+
+def is_rich(s: "Skel") -> bool:
+    """Structural-richness gate for a strong isomorphism claim: >= 3 premises, OR >= 2 distinct predicates of
+    arity >= 1 together with a nested quantifier or a binary-or-higher predicate. Bare `forall x (A->B), A(c) |- B(c)`
+    shapes fail it (they match every modus-ponens-over-a-universal and say little)."""
+    if len(s.parsed.premises) >= 3:
+        return True
+    live = [v for v in s.preds.values() if len(v) >= 1]
+    return len(live) >= 2 and (any(len(v) >= 2 for v in live) or any(_nested_quant(a) for a in s.norm.values()))
+
+
 def _sort_occurrences(ast, pdecl, cdecl, bound, out):
     """Sorts in order of first mention: predicate argument sorts, constant sorts, quantified variable sorts."""
     if isinstance(ast, sx.Sym):
@@ -288,7 +311,7 @@ def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
 
 def selected_skeletons(store, argument_ids: list[str], options: dict | None = None,
                        skipped: list | None = None) -> list[Skel]:
-    """Skeletons of selected formalizations whose selection verdict is "valid" and that have real structure
+    """Skeletons of selected formalizations whose selection verdict is "valid" (or "inconsistent") and that have real structure
     (a quantifier or a predicate of arity >= 1). Others are appended to `skipped` as (argument_id, reason)."""
     def skip(aid, why):
         if skipped is not None:
@@ -305,8 +328,8 @@ def selected_skeletons(store, argument_ids: list[str], options: dict | None = No
         if not sel or sel.chosen_formalization_id is None:
             skip(aid, "no selected formalization")
             continue
-        if sel.verdict != "valid":
-            skip(aid, f"selection verdict is {sel.verdict!r}, not 'valid'")
+        if sel.verdict not in ("valid", "inconsistent"):
+            skip(aid, f"selection verdict is {sel.verdict!r}, not 'valid' or 'inconsistent'")
             continue
         form = store.get_formalization(sel.chosen_formalization_id)
         if form.formalization is None:
@@ -326,7 +349,7 @@ def selected_skeletons(store, argument_ids: list[str], options: dict | None = No
 def iso(ctx: Ctx, unit: Unit) -> None:
     """Whole-corpus stage: run via pipeline with the single pseudo-argument '*' (argument_id is ignored)."""
     st = ctx.store
-    st.execute("DELETE FROM relation WHERE run_id=? AND kind IN ('isomorphic-to','skeleton-hash','iso-skipped')", (ctx.run_id,))
+    st.execute("DELETE FROM relation WHERE run_id=? AND kind IN ('isomorphic-to','weak-isomorphic','skeleton-hash','iso-skipped')", (ctx.run_id,))
     skipped_args: list = []
     skels = selected_skeletons(st, st.argument_ids(), ctx.options, skipped_args)
     for aid, why in skipped_args:
@@ -339,7 +362,11 @@ def iso(ctx: Ctx, unit: Unit) -> None:
     for x, y, why in skipped_pairs:
         st.insert_relation("argument", x, "argument", y, "iso-skipped", {"reason": why}, ctx.run_id)
     for a, b, ev in matches:
-        st.insert_relation("argument", a.argument_id, "argument", b.argument_id, "isomorphic-to", ev, ctx.run_id)
+        if is_rich(a) and is_rich(b):
+            st.insert_relation("argument", a.argument_id, "argument", b.argument_id, "isomorphic-to", ev, ctx.run_id)
+        else:  # confirmed, but the shared shape is too bare to be evidence of a shared argument form
+            st.insert_relation("argument", a.argument_id, "argument", b.argument_id, "weak-isomorphic",
+                               {**ev, "rich": {a.argument_id: is_rich(a), b.argument_id: is_rich(b)}}, ctx.run_id)
 
 
 # ---- query helpers for reports
@@ -366,11 +393,20 @@ def same_hash_pairs(store, run_id: int | None = None) -> set[frozenset]:
     return {frozenset((a, b)) for a, b in itertools.combinations(sorted(hs), 2) if hs[a] == hs[b]}
 
 
+def weak_iso_pairs(store, run_id: int | None = None) -> set[frozenset]:
+    rels = store.relations("weak-isomorphic", **({"run_id": run_id} if run_id is not None else {}))
+    return {frozenset((r["src_id"], r["dst_id"])) for r in rels}
+
+
 def iso_eval(store, run_id: int | None = None) -> dict:
-    """precision/recall of confirmed pairs vs iso_truth; false_friends = same-hash pairs that are not truth."""
+    """precision/recall of confirmed (rich) pairs vs iso_truth; false_friends = same-hash pairs that are not truth.
+    `weak_found` = confirmed but too bare (`weak-isomorphic`, "shape-only"): never FP when graded in the human
+    `weak_isomorphic_to` list (`weak_correct`); not counted in precision/recall either way."""
     found, truth = iso_pairs(store, run_id), store.iso_truth()
+    wf, wt = weak_iso_pairs(store, run_id), weak_truth(store)
     tp = found & truth
     return {"found": found, "truth": truth, "tp": tp, "fp": found - truth, "fn": truth - found,
             "precision": len(tp) / len(found) if found else None,
             "recall": len(tp) / len(truth) if truth else None,
-            "false_friends": same_hash_pairs(store, run_id) - truth, "weak": weak_truth(store)}
+            "false_friends": same_hash_pairs(store, run_id) - truth, "weak": wt,
+            "weak_found": wf, "weak_correct": wf & wt, "weak_other": wf - wt}

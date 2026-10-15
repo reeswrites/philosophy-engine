@@ -22,7 +22,10 @@ _PRE = fol.TRACKER_PREFIX
 
 
 def verdict_of(r: CheckReport) -> Verdict:
-    """valid->valid; refuted->refuted ("invalid as formalized", NOT "unsound"); unknown/parse fail->open."""
+    """inconsistent premises (consistency unsat) -> inconsistent (a finding, not vacuity); valid->valid;
+    refuted->refuted ("invalid as formalized", NOT "unsound"); unknown/parse fail->open."""
+    if r.consistent == "unsat":
+        return "inconsistent"
     if r.valid == "valid" and r.consistent == "unknown":
         return "open"  # cannot rule out vacuity -> fail closed
     return {"valid": "valid", "refuted": "refuted"}.get(r.valid, "open")
@@ -144,7 +147,7 @@ def check_minimality(prem: dict, concl, core: list, unknowns: list | None = None
 
 
 def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list | None = None,
-                     suspect: list | None = None, **kw) -> list[str]:
+                     suspect: list | None = None, orphans: list | None = None, **kw) -> list[str]:
     """Returns trivial_reasons (empty => nontrivial, unless `unknowns` got entries: then undecided).
 
     Bounded probes (O(#premises) solver calls each, no subset search):
@@ -155,7 +158,9 @@ def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list 
       (b'') SOFT: premise P_i is an iff with one side syntactically C and the remaining premises alone do
            not entail C; P_i's id is appended to `suspect` (NOT a trivial reason: "D; D iff C; so C" can be a
            legitimate definitional bridge; stage_select decides by implicit/type);
-      (c) C or a premise is a tautology; orphan conclusion predicates.
+      (c) C or a premise is a tautology;
+      (d) orphan conclusion predicates (in C, in no premise): a trivial reason ONLY when C is also a tautology
+          (entailed by zero premises); otherwise SOFT: names are appended to `orphans` (select penalty + review).
     Does NOT catch: smuggling through other shapes (e.g. (=> d c) with d separately asserted, which is
     ordinary modus ponens), conclusions that need >= 2 premises jointly to be restated (no subset
     search), or biconditionals whose side is only semantically (not syntactically) C.
@@ -194,9 +199,12 @@ def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list 
     in_prem = set()
     for a in parsed.premises.values():
         in_prem |= fol.predicates_used(a, f)
-    orphans = sorted(fol.predicates_used(parsed.conclusion, f) - in_prem)
-    if orphans:
-        reasons.append(f"orphan conclusion predicate(s) {orphans}: appear in C but in no premise")
+    orphan_names = sorted(fol.predicates_used(parsed.conclusion, f) - in_prem)
+    if orphan_names:
+        if any(r.startswith("C is a tautology") for r in reasons):
+            reasons.append(f"orphan conclusion predicate(s) {orphan_names}: appear in C but in no premise, and C is entailed by zero premises")
+        elif orphans is not None:
+            orphans.extend(orphan_names)
     return list(dict.fromkeys(reasons))
 
 
@@ -245,7 +253,8 @@ def run_all(
 
     n0 = len(unknowns)
     suspect: list[str] = []
-    reasons = check_nontrivial(parsed, env, prem, concl, unknowns, suspect, **kw)
+    orphans: list[str] = []
+    reasons = check_nontrivial(parsed, env, prem, concl, unknowns, suspect, orphans, **kw)
     nontrivial = False if reasons else (None if len(unknowns) > n0 else True)
     if cons.result == "unsat":
         reasons.insert(0, "premises inconsistent (argument vacuously valid)")
@@ -261,6 +270,7 @@ def run_all(
         nontrivial=nontrivial,
         unknown_probes=unknowns,
         suspect_biconditional=suspect,
+        orphan_conclusion_predicate=orphans,
         trivial_reasons=reasons,
         vacuous=cons.result == "unsat" or tautological_c,
         z3_ms=int((time.monotonic() - t0) * 1000),
