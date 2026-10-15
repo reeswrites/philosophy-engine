@@ -197,6 +197,17 @@ def cmd_gate(a) -> int:
     return 0 if g["passed"] else 1
 
 
+def cmd_dashboard(a) -> int:
+    from . import dashboard
+    st = _store(a)
+    rid = _run_id(st, a)
+    if rid is None:
+        print("no runs", file=sys.stderr)
+        return 1
+    print(f"wrote {dashboard.write_dashboard(st, rid, a.out)}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="phil", description="philosophy-engine Phase 0")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -224,6 +235,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("calls"); db(s)
     s.add_argument("--stage"); s.add_argument("--arg"); s.set_defaults(fn=cmd_calls)
     s = sub.add_parser("report"); db(s, True); s.add_argument("--out"); s.set_defaults(fn=cmd_report)
+    s = sub.add_parser("dashboard"); db(s, True)
+    s.add_argument("--out", default="runs/dashboard.html"); s.set_defaults(fn=cmd_dashboard)
     s = sub.add_parser("gate"); db(s, True); s.set_defaults(fn=cmd_gate)
     return p
 

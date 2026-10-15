@@ -61,6 +61,7 @@ uv run phil show ARG_ID [--run ID]       # reconstruction, candidates, check, ju
 uv run phil calls [--stage S] [--arg ID] # LLM call/token summary (cost only if config.PRICES is set)
 uv run phil report [--run ID] [--out FILE.md]
 uv run phil gate [--run ID]              # exit 0 = PASS
+uv run phil dashboard [--run ID] [--out runs/dashboard.html]  # one self-contained HTML file (open via file://; graph loads d3 7.9.0 from cdnjs)
 ```
 
 One-liner (live, needs `ANTHROPIC_API_KEY` in `.env`): `phil run --from-human --n-candidates 2 && phil report --out runs/report-live-1.md && phil gate`.
