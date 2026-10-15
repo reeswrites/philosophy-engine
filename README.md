@@ -318,3 +318,47 @@ across runs for the same human reconstruction row (5–7 shown instead of 3).
    All nine candidate combinations of the rees pair match under the relaxed pass (none strictly).
 5. Shared reliance: `open` arguments count through their best parsed valid/inconsistent candidate
    (`stage_iso.top_parsed_candidate`), tagged unverified (`*` in the table; `idle` vs `idle_verified`), as iso does.
+
+## Fix round 4 (after rees family run 3, engine 356117f)
+
+1. Self-confessed bridges. `stage_select.confession_in_notes` parses the formalizer's `notes` clause by clause
+   (parentheticals stripped) for admissions that a formula goes beyond / adds to / strengthens / "puts the bridge
+   inside" a stated premise, with negation patterns so "the bridge is missing and was not added", "a bridge such as
+   X is not added, because that would strengthen P3" and "rather than add a premise" do not count. The judge now
+   also sees a FORMALIZER NOTES block (`prompts/judge.v1.md`) and may raise `formalization_adds_bridge`; it counts
+   only when every sample raises it (`confession_in_judge`). The flag is neither hard nor soft: it is a confession
+   signal. Bridge rule in `select_for`: a confessed candidate is never selected while a faithful sibling is
+   Z3-decided (rejected with reason `confessed bridge (...)`, counted in `SelectionResultX.rejected_bridge`); if
+   every surviving candidate confesses, the best is chosen but the verdict is `open` with status
+   `needs bridge: <quote>`. `SelectionResultX.confessed` keeps the quotes; review rows on the formalization
+   (`confessed bridge:`) and, for the withheld case, on the reconstruction (`needs bridge:`).
+   Control redundancy: for an expected-invalid argument, a Z3-valid candidate with redundant premises is flagged
+   `control_valid_via_redundancy` ("valid without [P3]") with a review row.
+   On run 3 the heuristic fires on exactly 1 of 87 candidates: `never-die` candidate 2 ("I therefore put the
+   bridge inside P2"), which is the control that went false-valid. Re-selecting rees3.db: never-die `valid` ->
+   `open: decided candidates all rejected` (its two faithful siblings are Z3-refuted but rejected on
+   conclusion_score 0.65 / 0.60, so the control still does not reach `refuted`); no other row changes
+   (agreement 20/29 unchanged). Regression: `tests/test_fix_round4.py` (mock candidate whose notes say
+   "I put the bridge inside P2").
+2. Iso third pass (`stage_iso.match_projected`, after the relaxed pass). Diagnosis of the run-3 selected pair
+   `commitment-reauthoring ~ evaluator-drift`: skeleton hashes differ on three counts (2 sorts vs 1; 5 binary
+   predicates vs 3 binary + 1 unary, `costly_to_keep_for/2` vs `costly_to_keep/1`; a two-atom substantive
+   antecedent `(and (evaluates_loop r l) (belongs_to_loop r l))` in P1 and C vs one atom). The relaxed pass erases
+   the sorts but cannot cross the other two: both atoms also occur in C so neither is guard-only, and nothing
+   equates a unary with a binary predicate. All three premises are in both unsat cores (`redundant_premises` empty
+   on both sides), so matching on the core subset cannot help either. The projected pass applies two
+   content-neutral rewrites to the relaxed skeletons: cluster collapse (atoms that always occur together as
+   co-conjuncts with identical arguments, and nowhere else, become one predicate: equivalence-preserving) and
+   arity projection (drop one argument position of a predicate when that position is uniformly a bound variable or
+   one constant, tried only to make the two arity profiles equal: a specialization, so stored as
+   `method: projected` with `arity-projected:` in the abstractions, never as a strict match). The result is run
+   through the relaxed matcher (binder-canonical text, binary flips, Z3 confirmation); among several matching
+   projections the one with the fewest flips wins. On rees3.db the pair is found with 0 flips
+   (`cluster-collapsed:belongs_to_loop+evaluates_loop`, `arity-projected:costly_to_keep_for/2->1@1`); recall incl.
+   passes 0.00 -> 1.00, the false friend unchanged. Fixture pair `tests/fixtures/iso/iso_projected_{a,b}.json`
+   reproduces the shape with neutral vocabulary (strict: no; relaxed: no; projected: yes). For pairs in the human
+   iso / weak-iso truth that no pass matches, an `iso-skipped` row `projected: declined: <which signature component
+   differs>` is written and listed under the report's Isomorphism table.
+3. Report / dashboard: `confessed bridges` column (per candidate: confessed + rejected / chosen-verdict-withheld,
+   and `control valid without [P..]`), a "Confessed bridges (round 4)" summary line, `projected pass` rows in the
+   Isomorphism table (and `precision/recall incl. unverified + relaxed + projected`).

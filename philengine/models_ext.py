@@ -78,6 +78,7 @@ class JudgeOut(BaseModel):
         "quantifier_error", "predicate_collapse",
         "conclusion_smuggled", "sense_drift", "formalization_omits_premise",
         "reconstruction_gap", "missing_implicit_premise",  # the last one is the pre-round-3 name (legacy, soft)
+        "formalization_adds_bridge",  # round 4: the formalizer's own notes admit a bridge was written into a premise
     ]] = []
     per_item_comments: dict[str, str] = {}
 
@@ -89,6 +90,12 @@ class JudgeOut(BaseModel):
 # The legacy flag is still accepted (old judge reports, old prompts) and treated as the soft one.
 HARD_REJECT_FLAGS = ("conclusion_smuggled", "sense_drift", "formalization_omits_premise")
 SOFT_REVIEW_FLAGS = ("reconstruction_gap", "missing_implicit_premise")
+# Round 4: `formalization_adds_bridge` is neither hard nor soft. It is a CONFESSION signal (the judge now sees the
+# formalizer's notes and raises it when they admit a formula goes beyond the stated premise); stage_select combines it
+# with its own notes heuristic (stage_select.confessed_bridge) and applies the bridge rule: never selected over a
+# faithful Z3-decided sibling; if every candidate confesses, the best is chosen but the verdict is `open` with status
+# "needs bridge: <quote>".
+BRIDGE_FLAG = "formalization_adds_bridge"
 
 
 def hard_rejects(j, ignore: tuple[str, ...] = ()) -> bool:
@@ -118,7 +125,7 @@ class JudgeReportX(JudgeReport):
         "strengthened", "weakened", "dropped_content", "added_content", "scope_shift",
         "quantifier_error", "predicate_collapse",
         "conclusion_smuggled", "sense_drift", "formalization_omits_premise",
-        "reconstruction_gap", "missing_implicit_premise",
+        "reconstruction_gap", "missing_implicit_premise", "formalization_adds_bridge",
     ]] = []
     hard_reject: bool = False
     verbalization: str = ""
@@ -129,7 +136,7 @@ class JudgeReportX(JudgeReport):
 
 
 SELECTION_STATUSES = ("selected", "judge-weak", "open: decided candidates all rejected", "open: no decided candidate",
-                      "open: no candidates")
+                      "open: no candidates", "needs bridge: <quote>")  # the last one (round 4) carries the confession
 
 
 class SelectionResultX(SelectionResult):
@@ -139,3 +146,6 @@ class SelectionResultX(SelectionResult):
     judge_weak: bool = False  # chosen candidate's judge mean_score < JUDGE_MEAN_SCORE (penalized, not filtered)
     status: str = ""  # one of SELECTION_STATUSES ("" for selections stored before round 3)
     diversity: dict = {}  # {n, distinct, distinct_pred_sets, ratio}: how different the candidates actually were
+    # round 4
+    rejected_bridge: int = 0  # candidates rejected for a confessed bridge while a faithful sibling was Z3-decided
+    confessed: dict = {}  # candidate_idx (as str) -> the confessing sentence (notes heuristic or agreed judge flag)

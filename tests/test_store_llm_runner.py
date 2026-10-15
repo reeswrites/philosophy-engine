@@ -48,7 +48,7 @@ def test_store_roundtrip(store):
 
 
 def test_prompts_render():
-    sys_, user = prompts.load_split("judge", "v1", reconstruction="[P1] a", verbalization="[C] b")
+    sys_, user = prompts.load_split("judge", "v1", reconstruction="[P1] a", verbalization="[C] b", formalizer_notes="(none)")
     assert "fidelity judge" in sys_ and "[C] b" in user
     with pytest.raises(KeyError):
         prompts.render("{{ nope }}")

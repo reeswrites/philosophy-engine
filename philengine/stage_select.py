@@ -1,8 +1,10 @@
 """Stage: select. Z3-side hard filters first (judge can never rescue a trivial candidate), then weighted score."""
 from __future__ import annotations
 
+import re
+
 from . import checks, config
-from .models_ext import SelectionResultX, hard_rejects
+from .models_ext import BRIDGE_FLAG, SelectionResultX, hard_rejects
 from .runner import Ctx, Unit, register
 from .stage_common import diversity, latest_by_candidate, pick_reconstruction
 
@@ -12,6 +14,86 @@ def _n_preds(form) -> int:
 
 
 INCONSISTENT_REASON = "premises inconsistent"
+
+# ---- round 4: self-confessed bridges ----------------------------------------------------------------------------
+# A control (never-die) went `valid` in live run 3 because the formalizer wrote the missing bridge into P2 and SAID SO
+# in its `notes` ("I therefore put the bridge ... inside P2, which goes beyond the stated P2"); the judge only raised
+# soft flags. The notes are parsed clause by clause (parentheticals stripped): a clause that matches a confession
+# pattern and carries no negation is a confession. "The bridge is missing and was not added" and "a bridge such as X
+# is not added, because that would strengthen P3" are NOT confessions.
+CONFESSION_PATTERNS = [re.compile(x) for x in (
+    r"\bgo(es|ing)? beyond\b",
+    r"\bbeyond (the |what the |what is )?(stated|reconstruction|text|premise)",
+    r"\b(put|puts|added|add|adding|insert(ed|s)?|introduc(ed|es|ing)|built|build|fold(ed|s|ing)?|wrote|writ(e|es|ing)|"
+    r"suppl(y|ied|ies)|smuggl(ed|es|ing)|encod(ed|es|ing)|includ(ed|es|ing)|bak(ed|es|ing))\b[^.;]{0,80}\bbridge",
+    r"\bbridge\b[^.;]{0,60}\b(inside|into|within|in)\s+p\d",
+    r"\b(strengthen(ed|s|ing)?|stronger than)\b[^.;]{0,60}\b(p\d|premise|stated|reconstruction)",
+    r"\b(adds?|added|adding)\b (a |an |the |one )?(bridge|premise|assumption|link|step|claim|condition|conjunct)\b",
+    r"\b(not|never) (stated|said|given|present|listed|supplied) (in|by) the reconstruction\b[^.;]{0,40}\b(so|and) i\b",
+)]
+# "the reconstruction does not STATE it" negates the reconstruction's content, not the confession: those verbs are
+# excluded from the negation match.
+_CONTENT_VERBS = (r"(?! (state|states|stated|say|says|said|mention|mentions|make|makes|give|gives|list|lists|supply|"
+                  r"supplies|provide|provides|contain|contains|include|includes|have|has|license|licenses|warrant|"
+                  r"warrants|assert|asserts|spell|spells|express|expresses|articulate|articulates)\b)")
+NEGATION_PATTERNS = [re.compile(x) for x in (
+    r"\b(not|never|no|without|cannot|can't|didn't|wasn't|isn't|don't|doesn't|nor)\b" + _CONTENT_VERBS + r"[^.;]{0,50}"
+    r"\b(add|added|adding|bridge|strengthen|beyond|insert|put|fold|smuggl|introduc|suppl|includ|encod)",
+    r"\b(add|added|adding|bridge|strengthen|beyond|insert|put|fold|smuggl|introduc|suppl|includ|encod)\w*"
+    r"[^.;]{0,50}\b(not|never|n't|nor)\b" + _CONTENT_VERBS,
+    r"\b(would|could|might) (have )?(be |strengthen|go beyond|add|require)",
+    r"\b(rather than|instead of|in place of|as opposed to|short of)\b[^.;]{0,50}"
+    r"\b(add|added|adding|bridge|strengthen|beyond|insert|put|fold|smuggl|introduc|suppl|includ|encod)",
+    r"\b(declin|refrain|avoid|omit|resist|refus|left out|is missing|was missing|remains missing|needs? a bridge|"
+    r"requires? a bridge|lacks? a bridge)",
+)]
+
+
+def _clauses(text: str) -> list[str]:
+    text = re.sub(r"\([^()]*\)", " ", text or "")  # strip parentheticals (they often quote the bridge itself)
+    text = re.sub(r"\s+", " ", text)
+    return [c.strip() for c in re.split(r"[.;:]\s+|,\s+(?=(?:which|so|and|but) )", text) if c.strip()]
+
+
+def confession_in_notes(notes: str) -> str | None:
+    """The first clause of the formalizer's notes that confesses a bridge (keyword heuristic, no LLM), or None."""
+    for c in _clauses(notes):
+        low = c.lower()
+        if any(p.search(low) for p in CONFESSION_PATTERNS) and not any(n.search(low) for n in NEGATION_PATTERNS):
+            return c[:200]
+    return None
+
+
+def confession_in_judge(j) -> str | None:
+    """The judge's `formalization_adds_bridge` flag counts only when EVERY sample raised it (same rule as hard flags);
+    the quote is its comment on the item it named, else on C, else the flag name."""
+    if j is None:
+        return None
+    sf = getattr(j, "sample_flags", None) or []
+    agreed = all(BRIDGE_FLAG in s for s in sf) if sf else (BRIDGE_FLAG in getattr(j, "flags", []))
+    if not agreed:
+        return None
+    cm = getattr(j, "per_item_comments", {}) or {}
+    for k, v in cm.items():
+        if "bridge" in v.lower() or "beyond" in v.lower():
+            return f"judge {k}: {v}"[:200]
+    return f"judge: {BRIDGE_FLAG}"
+
+
+def confessed_bridge(form) -> str | None:
+    """-> the confessing sentence (notes heuristic first, then an agreed judge flag), or None."""
+    if form.formalization is None:
+        return None
+    return confession_in_notes(form.formalization.notes) or confession_in_judge(form.judge)
+
+
+def control_redundancy(form, expected: str | None) -> list[str]:
+    """Round 4: for an expected-INVALID control, a candidate that is Z3-valid with redundant premises is valid without
+    the control's own premise(s) -> the premise ids it did not need (surfaced in the report), else []."""
+    chk = form.check
+    if expected != "invalid" or chk is None or not chk.parse_ok or chk.valid != "valid":
+        return []
+    return list(chk.redundant_premises)
 
 
 def inconsistency_allowed(forms, expected: str | None) -> bool:
@@ -116,8 +198,11 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     row = store.one("SELECT a.expected_verdict e FROM reconstruction r JOIN argument a ON a.id=r.argument_id WHERE r.id=?",
                     (recon_id,))
     allow_incons = inconsistency_allowed(forms, row["e"] if row else None)
+    expected = row["e"] if row else None
+    confessed = {f.candidate_idx: q for f in forms if (q := confessed_bridge(f))}
+    redundancy_reviews, rejected_bridge = [], 0
     for f in forms:
-        reasons, triv = reject_reasons(f, allow_incons, row["e"] if row else None)
+        reasons, triv = reject_reasons(f, allow_incons, expected)
         rejected_trivial += triv
         rejected_judge += any(r.startswith("judge hard reject") for r in reasons)
         if f.check is not None and f.check.parse_ok and has_unknown_probe(f.check):
@@ -141,20 +226,47 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
                                   f"judge mean_score penalty {judge_mean_penalty(f.judge):.2f} ({f.judge.mean_score:.2f} < {config.JUDGE_MEAN_SCORE})"]
         orph = list(f.check.orphan_conclusion_predicate) if f.check else []
         if orph:
-            entry["flags"] = ["orphan_conclusion_predicate"]
+            entry["flags"] = [*entry.get("flags", []), "orphan_conclusion_predicate"]
             entry["notes"] = [*entry.get("notes", []), f"orphan_conclusion_predicate penalty {config.ORPHAN_CONCLUSION_PENALTY} on {orph}"]
             orphan_reviews.append((f.candidate_idx, orph))
+        if f.candidate_idx in confessed:
+            entry["flags"] = [*entry.get("flags", []), BRIDGE_FLAG]
+            entry["notes"] = [*entry.get("notes", []), f"confessed bridge: {confessed[f.candidate_idx]}"]
+        red = control_redundancy(f, expected)
+        if red:
+            entry["flags"] = [*entry.get("flags", []), "control_valid_via_redundancy"]
+            entry["notes"] = [*entry.get("notes", []),
+                              f"control valid via redundancy: Z3-valid without {red} (expected invalid)"]
+            redundancy_reviews.append((f.candidate_idx, red))
         if not reasons:
             entry["score"] = round(score(f, max_preds, bool(pen), bool(orph)), 6)
             survivors.append((f, entry))
         ranking.append(entry)
+    # round 4 bridge rule: a confessed-bridge candidate is never selected over a FAITHFUL Z3-decided sibling
+    faithful_decided = any(e.get("verdict") in ("valid", "refuted", "inconsistent") and e["candidate_idx"] not in confessed
+                           for e in ranking if e.get("candidate_idx") is not None)
+    if faithful_decided and confessed:
+        kept = []
+        for f, entry in survivors:
+            if f.candidate_idx in confessed:
+                entry["rejected_reasons"] = [*entry["rejected_reasons"],
+                                             f"confessed bridge (a faithful sibling is Z3-decided): {confessed[f.candidate_idx]}"]
+                entry["score"] = None
+                rejected_bridge += 1
+            else:
+                kept.append((f, entry))
+        survivors = kept
     ranking.sort(key=lambda e: (e["score"] is None, -(e["score"] or 0), e["candidate_idx"]))
     chosen = None
     contested = False
+    needs_bridge = None
     if survivors:
         survivors.sort(key=lambda t: (-t[1]["score"], len(t[0].check.redundant_premises), t[0].candidate_idx))
         chosen = survivors[0][0]
         verdict = checks.verdict_of(chosen.check)
+        if chosen.candidate_idx in confessed:  # every surviving candidate confesses: keep the best, withhold the verdict
+            needs_bridge = confessed[chosen.candidate_idx]
+            verdict = "open"
     else:
         verdict = "open"
         if not forms:
@@ -162,11 +274,20 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     # contested over ALL parsed candidates (a rejected candidate with a different verdict still matters)
     contested = len({e["verdict"] for e in ranking if e.get("verdict")}) > 1
     weak = bool(chosen and judge_weak(chosen.judge))
-    status = selection_status(chosen, ranking, forms, weak)
+    status = selection_status(chosen, ranking, forms, weak, needs_bridge)
     sel = SelectionResultX(reconstruction_id=recon_id, chosen_formalization_id=chosen.id if chosen else None,
                            verdict=verdict, ranking=ranking, rejected_trivial=rejected_trivial, rejected_judge=rejected_judge,
-                           contested=contested, judge_weak=weak, status=status, diversity=diversity(forms))
+                           contested=contested, judge_weak=weak, status=status, diversity=diversity(forms),
+                           rejected_bridge=rejected_bridge, confessed={str(k): v for k, v in sorted(confessed.items())})
     store.insert_selection(sel, run_id)
+    for idx, q in sorted(confessed.items()):
+        store.insert_review("formalization", f"{rec_aid(store, recon_id)}:{idx}", f"confessed bridge: {q}", run_id)
+    if needs_bridge is not None:
+        store.insert_review("reconstruction", rec_aid(store, recon_id),
+                            f"needs bridge: every candidate confesses one; chosen candidate {chosen.candidate_idx}: {needs_bridge}", run_id)
+    for idx, red in redundancy_reviews:
+        store.insert_review("selection", str(recon_id),
+                            f"control valid via redundancy: candidate {idx} is Z3-valid without {red} (expected invalid)", run_id)
     if contested:
         store.insert_review("selection", str(recon_id), "contested: parsed candidates (survivors and rejected) disagree on verdict", run_id)
     if weak:
@@ -184,10 +305,18 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     return sel
 
 
-def selection_status(chosen, ranking, forms, weak: bool) -> str:
+def rec_aid(store, recon_id: int) -> str:
+    r = store.one("SELECT argument_id FROM reconstruction WHERE id=?", (recon_id,))
+    return r["argument_id"] if r else str(recon_id)
+
+
+def selection_status(chosen, ranking, forms, weak: bool, needs_bridge: str | None = None) -> str:
     """Round 3: one of models_ext.SELECTION_STATUSES. `judge-weak` = decided by Z3, selected, but judge mean below
     threshold; `open: decided candidates all rejected` = a Z3-decided (valid/refuted/inconsistent) candidate existed
-    and every one was rejected (hard flag, triviality, parse) -- the row to look at when agreement is low."""
+    and every one was rejected (hard flag, triviality, parse) -- the row to look at when agreement is low.
+    Round 4: `needs bridge: <quote>` = the chosen candidate (and every other survivor) confesses a bridge."""
+    if needs_bridge is not None:
+        return f"needs bridge: {needs_bridge[:120]}"
     if chosen is not None:
         return "judge-weak" if weak else "selected"
     if not forms:

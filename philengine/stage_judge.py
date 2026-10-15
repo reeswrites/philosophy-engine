@@ -73,7 +73,8 @@ def judge_one(ctx: Ctx, argument_id: str, rec_row, form) -> None:
         st.update_formalization(form.id, status="judge_fail")
         raise
     prem_text, concl = format_reconstruction(rec_row.reconstruction)
-    system, user = prompts.load_split("judge", "v1", reconstruction=f"{prem_text}\n[C] {concl}", verbalization=vtext)
+    system, user = prompts.load_split("judge", "v1", reconstruction=f"{prem_text}\n[C] {concl}", verbalization=vtext,
+                                      formalizer_notes=(form.formalization.notes or "").strip() or "(none)")
     schema = JudgeOut.model_json_schema()
     ids, outs, judge_ids = list(form.llm_call_ids), [], []
     for sample in range(int(opt(ctx, "judge_samples", config.JUDGE_SAMPLES))):

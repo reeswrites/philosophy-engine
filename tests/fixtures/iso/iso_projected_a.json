@@ -1,0 +1,77 @@
+{
+ "sorts": [
+  {
+   "name": "Loop"
+  },
+  {
+   "name": "Rule"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "guards",
+   "arg_sorts": [
+    "Rule",
+    "Loop"
+   ],
+   "gloss": "{0} guards {1}",
+   "sense": "t:guards"
+  },
+  {
+   "name": "holds_for",
+   "arg_sorts": [
+    "Loop",
+    "Rule"
+   ],
+   "gloss": "{0} holds {1}",
+   "sense": "t:holds"
+  },
+  {
+   "name": "heavy_for",
+   "arg_sorts": [
+    "Rule",
+    "Loop"
+   ],
+   "gloss": "{0} is heavy for {1}",
+   "sense": "t:heavy"
+  },
+  {
+   "name": "checks",
+   "arg_sorts": [
+    "Rule",
+    "Loop"
+   ],
+   "gloss": "{0} checks {1}",
+   "sense": "t:checks"
+  },
+  {
+   "name": "inside",
+   "arg_sorts": [
+    "Rule",
+    "Loop"
+   ],
+   "gloss": "{0} is inside {1}",
+   "sense": "t:inside"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((l Loop) (r Rule)) (=> (and (checks r l) (inside r l)) (holds_for l r)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(forall ((l Loop) (r Rule)) (=> (and (holds_for l r) (heavy_for r l)) (not (guards r l))))"
+  },
+  {
+   "premise_id": "P3",
+   "sexpr": "(forall ((l Loop) (r Rule)) (=> (guards r l) (heavy_for r l)))"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(forall ((l Loop) (r Rule)) (=> (and (checks r l) (inside r l)) (not (guards r l))))"
+ },
+ "notes": "fixture: rich band shape (two sorts, a two-atom substantive antecedent, a binary cost relation)"
+}

@@ -42,8 +42,51 @@ def per_argument(store: Store, run_id: int) -> list[dict]:
                "status": selection_status(sel), "judge_weak": bool(sel and getattr(sel, "judge_weak", False)),
                "diversity": (sel.diversity if sel and getattr(sel, "diversity", None) else None)}
         row["rejected_trivial"] = trivial_rejects(row)
+        row["bridges"] = bridges_of(sel)
+        row["bridges_text"] = bridges_text(row["bridges"])
         rows.append(row)
     return rows
+
+
+def bridges_of(sel) -> list[dict]:
+    """Round 4: per candidate, confessed bridges (formalizer notes / agreed judge flag) and, for expected-invalid
+    controls, Z3-valid candidates that drop the control's own premise. [] when nothing was flagged."""
+    if sel is None:
+        return []
+    out = []
+    confessed = dict(getattr(sel, "confessed", {}) or {})
+    for e in sel.ranking:
+        idx = e.get("candidate_idx")
+        if idx is None:
+            continue
+        flags = e.get("flags", [])
+        q = confessed.get(str(idx)) or next((n[len("confessed bridge: "):] for n in e.get("notes", [])
+                                             if n.startswith("confessed bridge: ")), None)
+        if q or "formalization_adds_bridge" in flags:
+            out.append({"candidate": idx, "kind": "confessed", "quote": q or "", "chosen": False,
+                        "rejected": any(r.startswith("confessed bridge") for r in e.get("rejected_reasons", []))})
+        red = next((n for n in e.get("notes", []) if n.startswith("control valid via redundancy")), None)
+        if red:
+            out.append({"candidate": idx, "kind": "control-redundancy", "quote": red, "chosen": False, "rejected": False})
+    for b in out:
+        fid = next((e.get("formalization_id") for e in sel.ranking if e.get("candidate_idx") == b["candidate"]), None)
+        b["chosen"] = fid is not None and fid == sel.chosen_formalization_id
+    return out
+
+
+def bridges_text(bs: list[dict]) -> str:
+    if not bs:
+        return "-"
+    parts = []
+    for b in bs:
+        tag = "chosen, verdict withheld" if b["chosen"] else ("rejected" if b["rejected"] else "flagged")
+        if b["kind"] == "confessed":
+            q = b["quote"].replace("|", "/")
+            parts.append(f"c{b['candidate']} confessed ({tag}): \"{q[:80]}{'…' if len(q) > 80 else ''}\"")
+        else:
+            m = b["quote"].split("without ", 1)
+            parts.append(f"c{b['candidate']} control valid without {m[1].split(' (')[0] if len(m) > 1 else '?'}")
+    return "; ".join(parts)
 
 
 def selection_status(sel) -> str:
@@ -187,14 +230,18 @@ def build_report(store: Store, run_id: int) -> str:
             "`status`: `selected`; `judge-weak` = decided by Z3 and selected, but the judge mean score is below "
             f"{config.JUDGE_MEAN_SCORE} (a penalty, not a filter); `open: decided candidates all rejected` = a "
             "Z3-decided candidate existed and every candidate was rejected (hard judge flag, triviality, parse). "
-            "`diversity` = distinct candidates (by normalized formulas + predicate set) / candidates.", "",
-            "| argument | expected | selected | agree | status | contested | rejected_trivial | candidates | diversity |",
-            "|---|---|---|---|---|---|---|---|---|"]
+            "`diversity` = distinct candidates (by normalized formulas + predicate set) / candidates. "
+            "`confessed bridges` (round 4) = candidates whose formalizer notes (or an agreed judge "
+            "`formalization_adds_bridge` flag) admit a formula goes beyond a stated premise: never selected over a "
+            "faithful Z3-decided sibling; `needs bridge: <quote>` status = every survivor confesses, verdict withheld. "
+            "Also lists, for expected-invalid controls, candidates Z3-valid without the control's own premise.", "",
+            "| argument | expected | selected | agree | status | contested | rejected_trivial | candidates | diversity | confessed bridges |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         ag = {True: "yes", False: "NO", None: "-"}[r["agree"]]
         out.append(f"| {r['id']} | {r['expected']} | {r['selected'] or '-'} | {ag} | {r['status']} | "
                    f"{'yes' if r['contested'] else ''} | {r['rejected_trivial']} | {r['n_candidates']} | "
-                   f"{diversity_text(r['diversity'])} |")
+                   f"{diversity_text(r['diversity'])} | {r['bridges_text']} |")
     dec = [r for r in rows if r["agree"] is not None]
     out += ["", f"Agreement: {sum(1 for r in dec if r['agree'])}/{len(rows)} "
                 f"(undecided/no selection: {len(rows) - len(dec)})", ""]
@@ -202,8 +249,13 @@ def build_report(store: Store, run_id: int) -> str:
     out += [f"Contested: {', '.join(contested) or 'none'}", ""]
     weak = [r["id"] for r in rows if r["status"] == "judge-weak"]
     rej = [r["id"] for r in rows if r["status"] == "open: decided candidates all rejected"]
+    bridged = [r["id"] for r in rows if r["status"].startswith("needs bridge")]
+    conf = [r["id"] for r in rows if any(b["kind"] == "confessed" for b in r["bridges"])]
+    ctrl = [r["id"] for r in rows if any(b["kind"] == "control-redundancy" for b in r["bridges"])]
     out += [f"Decided by Z3 but judge-weak (selected, mean < {config.JUDGE_MEAN_SCORE}): {', '.join(weak) or 'none'}", "",
-            f"Open with a Z3-decided candidate (all rejected): {', '.join(rej) or 'none'}", ""]
+            f"Open with a Z3-decided candidate (all rejected): {', '.join(rej) or 'none'}", "",
+            f"Confessed bridges (round 4): {', '.join(conf) or 'none'}; verdict withheld (needs bridge): "
+            f"{', '.join(bridged) or 'none'}; controls valid only by dropping their own premise: {', '.join(ctrl) or 'none'}", ""]
     divs = [r["diversity"] for r in rows if r["diversity"] and r["diversity"].get("n")]
     if divs:
         ident = [r["id"] for r in rows if r["diversity"] and r["diversity"].get("n", 0) > 1 and r["diversity"].get("distinct") == 1]
@@ -253,11 +305,25 @@ def build_report(store: Store, run_id: int) -> str:
             f"| relaxed, in truth | {_pairs(ev['relaxed_tp'])} |",
             f"| relaxed, not in truth | {_pairs(ev['relaxed_fp'])} |",
             f"| relaxed, shape-only | {_pairs(ev['relaxed_weak'])} |",
-            f"| precision incl. unverified + relaxed | {fmt(ev['precision_all'])} |",
-            f"| recall incl. unverified + relaxed | {fmt(ev['recall_all'])} |", "",
+            f"| projected pass (cluster-collapsed / arity-projected, Z3-confirmed) | {_pairs(ev['projected'])} |",
+            f"| projected, in truth | {_pairs(ev['projected_tp'])} |",
+            f"| projected, not in truth | {_pairs(ev['projected_fp'])} |",
+            f"| precision incl. unverified + relaxed + projected | {fmt(ev['precision_all'])} |",
+            f"| recall incl. unverified + relaxed + projected | {fmt(ev['recall_all'])} |", "",
             "Relaxed pass (round 3): sorts erased, curried implications flattened, guard-only atoms dropped from "
             "antecedents that keep a substantive conjunct, Z3-redundant premises dropped, binder order canonicalized, "
             "binary argument order free; still Z3-confirmed on the relaxed formulas. Strict precision/recall exclude it.", "",
+            "Projected pass (round 4, after the relaxed pass): atoms that always occur together as co-conjuncts with "
+            "the same arguments are collapsed into one predicate (equivalence-preserving), then one argument position "
+            "of a predicate is dropped where that makes the two arity profiles agree (a SPECIALIZATION, listed in the "
+            "evidence as `arity-projected:`); Z3-confirmed on the projected formulas. Weaker than relaxed; reported "
+            "separately.", ""]
+    for r in store.relations("iso-skipped", **({"run_id": run_id} if run_id is not None else {})):
+        why = (r["evidence"] or {}).get("reason", "")
+        if r["dst_kind"] == "argument" and "declined" in why:
+            out.append(f"- `{r['src_id']}~{r['dst_id']}` {why}")
+    out += [""]
+    out += [
             "False friends (same skeleton hash, not in truth) vs `weak_isomorphic_to`:", "",
             "| pair | graded weak? |", "|---|---|"]
     ff = ev["false_friends"]

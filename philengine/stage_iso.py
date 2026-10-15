@@ -303,9 +303,13 @@ def match(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS, notes: list 
 
 
 def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
-              skipped: list | None = None, relaxed: bool = True) -> list[tuple[Skel, Skel, dict]]:
-    """Strict pass over every pair, then (round 3) the relaxed pass over the pairs the strict pass did not match.
-    `skipped` (optional) collects (a_id, b_id, reason) for cap skips and z3 problems."""
+              skipped: list | None = None, relaxed: bool = True,
+              diagnose: set | None = None) -> list[tuple[Skel, Skel, dict]]:
+    """Strict pass over every pair, then (round 3) the relaxed pass over the pairs the strict pass did not match,
+    then (round 4) the projected pass over what the relaxed pass still missed.
+    `skipped` (optional) collects (a_id, b_id, reason) for cap skips and z3 problems. `diagnose` (round 4): pairs
+    (frozensets of argument ids, normally the human iso truth) that get a `projected: declined ...` note saying
+    exactly which signature component still differs when every pass fails, so a miss is visible in the report."""
     out = []
     missed = []
     for a, b in itertools.combinations(sorted(skels, key=lambda s: s.argument_id), 2):
@@ -319,6 +323,7 @@ def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
             skipped.extend((a.argument_id, b.argument_id, n) for n in notes)
     if relaxed and missed:
         rel = {s.argument_id: relax_skeleton(s) for s in skels}
+        still = []
         for a, b in missed:
             ra, rb = rel[a.argument_id], rel[b.argument_id]
             if ra is None or rb is None:
@@ -327,8 +332,21 @@ def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
             ev = match_relaxed(ra, rb, timeout_ms, notes)
             if ev:
                 out.append((a, b, ev))
+            else:
+                still.append((a, b))
             if skipped is not None:
                 skipped.extend((a.argument_id, b.argument_id, "relaxed: " + n) for n in notes)
+        # round 4: projected pass (cluster collapse + arity projection) over what the relaxed pass still missed
+        for a, b in still:
+            ra, rb = rel[a.argument_id], rel[b.argument_id]
+            notes = []
+            ev = match_projected(ra, rb, timeout_ms, notes)
+            if ev:
+                out.append((a, b, ev))
+            elif diagnose is not None and frozenset((a.argument_id, b.argument_id)) in diagnose:
+                notes.append(decline_reason(ra, rb))
+            if skipped is not None:
+                skipped.extend((a.argument_id, b.argument_id, "projected: " + n) for n in notes)
     return out
 
 
@@ -559,6 +577,298 @@ def match_relaxed(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS, note
     return None
 
 
+# ---- round 4: projected third pass ----------------------------------------------------------------------------
+# Why: with the round-3 diversity hints the two selected candidates of the human pair commitment-reauthoring ~
+# evaluator-drift differ in ways the relaxed pass cannot cross: one side renders "own evaluator" as TWO substantive
+# atoms `(and (evaluates_loop r l) (belongs_to_loop r l))` in P1 and C (neither is guard-only), and renders cost as
+# a BINARY `costly_to_keep_for r l` where the other side has a UNARY `costly_to_keep r`. Every premise is in both
+# unsat cores, so a core-subset match cannot help either. Two content-neutral rewrites close the gap:
+#   cluster collapse   a set of >= 2 atoms that ALWAYS occur together as conjuncts with identical argument tuples,
+#                      and nowhere else, is one concept spelled as two predicates; replace it by one fresh predicate
+#                      (a definitional abbreviation: equivalence-preserving).
+#   arity projection   a predicate of arity >= 2 whose dropped argument position is filled by the same kind of term
+#                      in every occurrence (a bound variable of the enclosing quantifier, or one fixed constant) is
+#                      read with that position ignored. This is a SPECIALIZATION (cost independent of the loop), not
+#                      an equivalence, so matches are stored with method='projected' and the projections listed.
+# Projections are only tried to make the two arity profiles equal; the match is then the relaxed machinery
+# (binder-canonical text, binary flips, Z3 confirmation on the projected formulas).
+
+def _atoms_of_and(ast) -> list:
+    return [a for a in ast.args if isinstance(a, sx.App) and a.args]
+
+
+def _cluster_candidates(ast, out: dict, pdecl: dict) -> None:
+    """out[frozenset(preds)] -> list of arg tuples at which that exact group of atoms appeared as co-conjuncts."""
+    if isinstance(ast, sx.And):
+        by_args: dict = {}
+        for a in _atoms_of_and(ast):
+            by_args.setdefault(a.args, []).append(a.pred)
+        for args, preds in by_args.items():
+            if len(set(preds)) >= 2:
+                out.setdefault(frozenset(preds), []).append(args)
+        for a in ast.args:
+            _cluster_candidates(a, out, pdecl)
+    elif isinstance(ast, sx.Not):
+        _cluster_candidates(ast.arg, out, pdecl)
+    elif isinstance(ast, sx.Or):
+        for a in ast.args:
+            _cluster_candidates(a, out, pdecl)
+    elif isinstance(ast, (sx.Implies, sx.Iff)):
+        _cluster_candidates(ast.left, out, pdecl)
+        _cluster_candidates(ast.right, out, pdecl)
+    elif isinstance(ast, sx.Quant):
+        _cluster_candidates(ast.body, out, pdecl)
+
+
+def _pred_occurrences(ast, out: dict) -> None:
+    """out[pred] -> number of applications of pred anywhere in ast."""
+    if isinstance(ast, sx.App):
+        out[ast.pred] = out.get(ast.pred, 0) + 1
+    elif isinstance(ast, sx.Not):
+        _pred_occurrences(ast.arg, out)
+    elif isinstance(ast, (sx.And, sx.Or)):
+        for a in ast.args:
+            _pred_occurrences(a, out)
+    elif isinstance(ast, (sx.Implies, sx.Iff)):
+        _pred_occurrences(ast.left, out)
+        _pred_occurrences(ast.right, out)
+    elif isinstance(ast, sx.Quant):
+        _pred_occurrences(ast.body, out)
+
+
+def find_clusters(formulas: dict, pdecl: dict) -> list[frozenset]:
+    """Predicate groups (>= 2 members, arity >= 1) that occur ONLY as co-conjuncts of each other with identical
+    argument tuples, across every formula. Disjoint groups, largest first."""
+    cands: dict = {}
+    occ: dict = {}
+    for a in formulas.values():
+        _cluster_candidates(_flatten_curry(a), cands, pdecl)
+        _pred_occurrences(a, occ)
+    out: list = []
+    used: set = set()
+    for group in sorted(cands, key=lambda g: (-len(g), sorted(g))):
+        if group & used:
+            continue
+        n = len(cands[group])
+        if all(occ.get(p, 0) == n for p in group) and all(len(pdecl.get(p, ())) >= 1 for p in group):
+            out.append(group)
+            used |= group
+    return out
+
+
+def _collapse(ast, group: frozenset, name: str):
+    """Replace every co-conjunct occurrence of `group` (same args) by a single App(name, args)."""
+    def go(x):
+        if isinstance(x, sx.And):
+            keep, done = [], set()
+            for a in x.args:
+                if isinstance(a, sx.App) and a.pred in group:
+                    if a.args not in done:
+                        done.add(a.args)
+                        keep.append(sx.App(name, a.args))
+                    continue
+                keep.append(go(a))
+            return keep[0] if len(keep) == 1 else sx.And(tuple(keep))
+        if isinstance(x, sx.Not):
+            return sx.Not(go(x.arg))
+        if isinstance(x, sx.Or):
+            return sx.Or(tuple(go(a) for a in x.args))
+        if isinstance(x, (sx.Implies, sx.Iff)):
+            return type(x)(go(x.left), go(x.right))
+        if isinstance(x, sx.Quant):
+            return sx.Quant(x.kind, x.vars, go(x.body))
+        return x
+    return go(_flatten_curry(ast))
+
+
+def _project(ast, pred: str, pos: int):
+    """Drop argument position `pos` of every application of `pred`."""
+    def go(x):
+        if isinstance(x, sx.App):
+            if x.pred == pred and len(x.args) > pos:
+                return sx.App(pred, tuple(t for i, t in enumerate(x.args) if i != pos))
+            return x
+        if isinstance(x, sx.Not):
+            return sx.Not(go(x.arg))
+        if isinstance(x, (sx.And, sx.Or)):
+            return type(x)(tuple(go(a) for a in x.args))
+        if isinstance(x, (sx.Implies, sx.Iff)):
+            return type(x)(go(x.left), go(x.right))
+        if isinstance(x, sx.Quant):
+            return sx.Quant(x.kind, x.vars, go(x.body))
+        return x
+    return go(ast)
+
+
+def _position_terms(ast, pred: str, pos: int, bound: frozenset, out: list) -> None:
+    """Collect ('var', None) / ('const', name) for the term at `pos` of every application of `pred`."""
+    if isinstance(ast, sx.App):
+        if ast.pred == pred and len(ast.args) > pos:
+            t = ast.args[pos]
+            out.append(("var", None) if isinstance(t, sx.Sym) and t.name in bound else ("const", getattr(t, "name", None)))
+    elif isinstance(ast, sx.Not):
+        _position_terms(ast.arg, pred, pos, bound, out)
+    elif isinstance(ast, (sx.And, sx.Or)):
+        for a in ast.args:
+            _position_terms(a, pred, pos, bound, out)
+    elif isinstance(ast, (sx.Implies, sx.Iff)):
+        _position_terms(ast.left, pred, pos, bound, out)
+        _position_terms(ast.right, pred, pos, bound, out)
+    elif isinstance(ast, sx.Quant):
+        _position_terms(ast.body, pred, pos, bound | {v for v, _ in ast.vars}, out)
+
+
+def projectable_positions(formulas: dict, pdecl: dict) -> list[tuple[str, int]]:
+    """(pred, pos) pairs whose position is uniformly a bound variable, or uniformly one constant, in every
+    occurrence (arity >= 2 only)."""
+    out = []
+    for p, sorts in pdecl.items():
+        if len(sorts) < 2:
+            continue
+        for pos in range(len(sorts)):
+            terms: list = []
+            for a in formulas.values():
+                _position_terms(a, p, pos, frozenset(), terms)
+            if terms and len(set(terms)) == 1:
+                out.append((p, pos))
+    return out
+
+
+def project(f, projections: tuple = (), collapse: bool = True) -> tuple[object | None, list[str]]:
+    """Projected copy of a (relaxed, single-sort) FormalizationX -> (f', abstractions). `projections` = (pred, pos)
+    pairs to drop; clusters are collapsed first when `collapse`."""
+    from .models_ext import ConstDeclX, FormalizationX, PredDeclX
+    from .schemas import FormulaItem, SortDecl
+    parsed, _ = fol.validate(f)
+    if parsed is None:
+        return None, []
+    pdecl = {p.name: list(p.arg_sorts) for p in f.predicates}
+    gloss = {p.name: p.gloss for p in f.predicates}
+    sense = {p.name: getattr(p, "sense", "") for p in f.predicates}
+    formulas = dict(parsed.formulas)
+    abstractions: list[str] = []
+    if collapse:
+        for group in find_clusters(formulas, pdecl):
+            members = sorted(group)
+            name = "__".join(members)
+            formulas = {k: _collapse(a, group, name) for k, a in formulas.items()}
+            pdecl[name] = pdecl[members[0]]
+            gloss[name] = " and ".join(gloss[m] for m in members)
+            sense[name] = "+".join(sense[m] for m in members)
+            for m in members:
+                pdecl.pop(m, None)
+            abstractions.append("cluster-collapsed:" + "+".join(members))
+    for pred, pos in projections:
+        if pred not in pdecl or len(pdecl[pred]) <= pos:
+            continue
+        formulas = {k: _project(a, pred, pos) for k, a in formulas.items()}
+        pdecl[pred] = [s for i, s in enumerate(pdecl[pred]) if i != pos]
+        slots = [i for i in range(len(pdecl[pred]) + 1) if i != pos]
+        g = gloss[pred]
+        for new_i, old_i in enumerate(slots):
+            g = g.replace("{%d}" % old_i, "{%d}" % new_i)
+        gloss[pred] = g.replace("{%d}" % pos, "")
+        abstractions.append(f"arity-projected:{pred}/{len(pdecl[pred]) + 1}->{len(pdecl[pred])}@{pos}")
+    used = set()
+    for a in formulas.values():
+        p, c = fol.symbols(a)
+        used |= p | c
+    preds = [PredDeclX(name=n, arg_sorts=list(s), gloss=gloss[n], sense=sense[n]) for n, s in pdecl.items() if n in used]
+    consts = [ConstDeclX(name=c.name, sort=c.sort, gloss=c.gloss, sense=getattr(c, "sense", ""))
+              for c in f.constants if c.name in used]
+    f2 = FormalizationX(sorts=[SortDecl(name=s.name) for s in f.sorts], predicates=preds, constants=consts,
+                        premises=[FormulaItem(premise_id=k, sexpr=sx.to_sexpr(a)) for k, a in formulas.items() if k != "C"],
+                        conclusion=FormulaItem(premise_id="C", sexpr=sx.to_sexpr(formulas["C"])), notes=f.notes)
+    return f2, abstractions
+
+
+def project_skeleton(s: Skel, projections: tuple = ()) -> Skel | None:
+    f2, abstractions = project(s.f, projections)
+    if f2 is None:
+        return None
+    r = skeleton(s.argument_id, f2)
+    if r is None:
+        return None
+    r.unverified = s.unverified
+    r.redundant = s.redundant
+    r.abstractions = tuple(s.abstractions) + tuple(abstractions)
+    return r
+
+
+def _arity_profile(s: Skel) -> tuple:
+    return tuple(sorted(len(v) for v in s.preds.values()))
+
+
+def _projection_sets(s: Skel, k: int):
+    """Every way to project exactly k distinct predicates of s (one position each)."""
+    parsed, _ = fol.validate(s.f)
+    pdecl = {p.name: tuple(p.arg_sorts) for p in s.f.predicates}
+    opts = projectable_positions(dict(parsed.formulas), pdecl) if parsed else []
+    by_pred: dict = {}
+    for p, pos in opts:
+        by_pred.setdefault(p, []).append(pos)
+    for preds in itertools.combinations(sorted(by_pred), k):
+        for poss in itertools.product(*[by_pred[p] for p in preds]):
+            yield tuple(zip(preds, poss))
+
+
+def match_projected(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS, notes: list | None = None) -> dict | None:
+    """Third pass over RELAXED skeletons: collapse clusters on both sides, then try arity projections (bounded) until
+    the arity profiles agree, and run the relaxed matcher on the result. Evidence: method='projected'."""
+    notes = [] if notes is None else notes
+    if len(a.parsed.premises) != len(b.parsed.premises):
+        return None
+    ca, cb = project_skeleton(a), project_skeleton(b)
+    if ca is None or cb is None:
+        return None
+    tried = 0
+    best = None
+    for ka in range(0, len(ca.preds) + 1):
+        for kb in range(0, len(cb.preds) + 1):
+            if ka and kb:
+                continue  # project one side only: the other side already has the lower profile
+            for pa in (_projection_sets(ca, ka) if ka else [()]):
+                sa = project_skeleton(ca, pa) if pa else ca
+                if sa is None:
+                    continue
+                for pb in (_projection_sets(cb, kb) if kb else [()]):
+                    tried += 1
+                    if tried > config.ISO_MAX_PERMS:
+                        notes.append(f"projection search skipped: > ISO_MAX_PERMS={config.ISO_MAX_PERMS} projection sets")
+                        return best
+                    sb = project_skeleton(cb, pb) if pb else cb
+                    if sb is None or _arity_profile(sa) != _arity_profile(sb):
+                        continue
+                    ev = match_relaxed(sa, sb, timeout_ms, notes)
+                    if ev:
+                        ev = {**ev, "method": "projected", "projected": True,
+                              "abstractions": {a.argument_id: list(sa.abstractions), b.argument_id: list(sb.abstractions)}}
+                        # several projections can match (dropping the other position + flipping every relation is the
+                        # mirror reading); keep the one with the fewest flips, then the fewest abstractions
+                        key = (len(ev["flips"]), sum(len(v) for v in ev["abstractions"].values()))
+                        if best is None or key < best[0]:
+                            best = (key, ev)
+                        if key == (0, 0):
+                            return ev
+    return best[1] if best else None
+
+
+def decline_reason(a: Skel, b: Skel) -> str:
+    """Why no pass could match a and b, in signature terms (round 4; written for pairs in `diagnose`)."""
+    ca, cb = project_skeleton(a), project_skeleton(b)
+    parts = []
+    if len(a.parsed.premises) != len(b.parsed.premises):
+        parts.append(f"premise count {len(a.parsed.premises)} vs {len(b.parsed.premises)}")
+    if ca is not None and cb is not None:
+        if _arity_profile(ca) != _arity_profile(cb):
+            parts.append(f"arity profile {list(_arity_profile(ca))} vs {list(_arity_profile(cb))} after cluster collapse")
+        if len(ca.consts) != len(cb.consts):
+            parts.append(f"constants {len(ca.consts)} vs {len(cb.consts)}")
+    if not parts:
+        parts.append("same signature; no predicate bijection (with flips / binder order) made the formulas equal")
+    return "declined: " + "; ".join(parts)
+
+
 def top_parsed_candidate(store, reconstruction_id: int):
     """For an `open` argument: the best parsed candidate whose Z3 verdict is valid/inconsistent, ranked by judge
     mean score (candidate_idx breaks ties). None if there is none."""
@@ -632,7 +942,8 @@ def iso(ctx: Ctx, unit: Unit) -> None:
         st.insert_relation("argument", s.argument_id, "skeleton", s.hash, "skeleton-hash",
                            {"canonical": s.canonical, **({"unverified": True} if s.unverified else {})}, ctx.run_id)
     skipped_pairs: list = []
-    matches = match_all(skels, ctx.options.get("z3_timeout_ms") or config.Z3_TIMEOUT_MS, skipped_pairs)
+    matches = match_all(skels, ctx.options.get("z3_timeout_ms") or config.Z3_TIMEOUT_MS, skipped_pairs,
+                        diagnose=st.iso_truth() | weak_truth(st))
     for x, y, why in skipped_pairs:
         st.insert_relation("argument", x, "argument", y, "iso-skipped", {"reason": why}, ctx.run_id)
     for a, b, ev in matches:
@@ -701,6 +1012,10 @@ def iso_eval(store, run_id: int | None = None) -> dict:
     unv_weak = weak_iso_pairs(store, run_id, True, None)
     rel = iso_pairs(store, run_id, None, True)          # round 3: relaxed-pass matches (selected or unverified)
     rel_weak = weak_iso_pairs(store, run_id, None, True)
+    # round 4: projected-pass matches carry relaxed=True too (they are a relaxed match on projected formulas) and
+    # method='projected'; listed on their own line as well
+    proj = {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "isomorphic-to", run_id, None, True)
+            if (r["evidence"] or {}).get("projected")}
     found_all = found | unv | rel
     tp_all = found_all & truth
     return {"found": found, "truth": truth, "tp": tp, "fp": found - truth, "fn": truth - found,
@@ -712,6 +1027,7 @@ def iso_eval(store, run_id: int | None = None) -> dict:
             "unverified_weak": unv_weak, "unverified_weak_correct": unv_weak & wt,
             "relaxed": rel, "relaxed_tp": rel & truth, "relaxed_fp": rel - truth,
             "relaxed_weak": rel_weak, "relaxed_weak_correct": rel_weak & wt,
+            "projected": proj, "projected_tp": proj & truth, "projected_fp": proj - truth,
             "tp_all": tp_all, "fp_all": found_all - truth, "fn_all": truth - found_all,
             "precision_all": len(tp_all) / len(found_all) if found_all else None,
             "recall_all": len(tp_all) / len(truth) if truth else None}

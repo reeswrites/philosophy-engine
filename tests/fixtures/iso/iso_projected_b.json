@@ -1,0 +1,64 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "made_by",
+   "arg_sorts": [
+    "Obj",
+    "Obj"
+   ],
+   "gloss": "{0} is made by {1}",
+   "sense": "t:made"
+  },
+  {
+   "name": "holds_for",
+   "arg_sorts": [
+    "Obj",
+    "Obj"
+   ],
+   "gloss": "{0} holds {1}",
+   "sense": "t:holds"
+  },
+  {
+   "name": "guards",
+   "arg_sorts": [
+    "Obj",
+    "Obj"
+   ],
+   "gloss": "{0} guards {1}",
+   "sense": "t:guards"
+  },
+  {
+   "name": "heavy",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "{0} is heavy",
+   "sense": "t:heavy1"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((r Obj) (a Obj)) (=> (made_by r a) (holds_for a r)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(forall ((r Obj) (a Obj)) (=> (and (holds_for a r) (heavy r)) (not (guards r a))))"
+  },
+  {
+   "premise_id": "P3",
+   "sexpr": "(forall ((r Obj) (a Obj)) (=> (guards r a) (heavy r)))"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(forall ((r Obj) (a Obj)) (=> (made_by r a) (not (guards r a))))"
+ },
+ "notes": "fixture: lean band shape (one sort, one-atom antecedent, a unary cost predicate)"
+}

@@ -84,6 +84,7 @@ def build_data(store: Store, run_id: int) -> dict:
             "rejected_trivial": r["rejected_trivial"], "rejected_judge": sel.rejected_judge if sel else 0,
             "status": r["status"], "judge_weak": r["judge_weak"], "diversity": r["diversity"],
             "diversity_text": report.diversity_text(r["diversity"]),
+            "bridges": r["bridges"], "bridges_text": r["bridges_text"],
             "n_candidates": r["n_candidates"], "chosen_formalization_id": sel.chosen_formalization_id if sel else None,
             "reconstruction": ({"source": rec.source, "conclusion": rec.reconstruction.conclusion,
                                 "conclusion_type": rec.reconstruction.conclusion_type,
@@ -119,7 +120,8 @@ def build_data(store: Store, run_id: int) -> dict:
                            "target": e.get("target")})
     isos = [{"a": sorted(k)[0], "b": sorted(k)[1], "evidence": v["evidence"],
               "unverified": bool((v["evidence"] or {}).get("unverified")),
-              "relaxed": bool((v["evidence"] or {}).get("relaxed"))} for k, v in iso_rel.items()]
+              "relaxed": bool((v["evidence"] or {}).get("relaxed")),
+              "projected": bool((v["evidence"] or {}).get("projected"))} for k, v in iso_rel.items()]
 
     reviews = [dict(r) for r in store.reviews(run_id)]
     calls: dict[tuple, dict] = {}
@@ -151,6 +153,8 @@ def build_data(store: Store, run_id: int) -> dict:
                 "unverified": _pairs(ev["unverified"]), "unverified_weak": _pairs(ev["unverified_weak"]),
                 "relaxed": _pairs(ev["relaxed"]), "relaxed_tp": _pairs(ev["relaxed_tp"]), "relaxed_fp": _pairs(ev["relaxed_fp"]),
                 "relaxed_weak": _pairs(ev["relaxed_weak"]),
+                "projected": _pairs(ev["projected"]), "projected_tp": _pairs(ev["projected_tp"]),
+                "projected_fp": _pairs(ev["projected_fp"]),
                 "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
         "statuses": dict(Counter(r["status"] for r in rows)),
         "arguments": args, "premises": list(premises.values()), "concepts": concepts, "concept_edges": cedges,
@@ -256,11 +260,11 @@ let curArg=D.arguments[0]?.id;
  h+=`<h2>Stage jobs</h2><table><tr><th>stage</th><th>done</th><th>failed</th><th>pending/running</th><th>skipped</th></tr>`;
  for(const s of D.stages){const c=D.stage_counts[s]||{};h+=`<tr><td>${s}</td><td>${c.done||0}</td><td>${c.failed||0}</td><td>${(c.pending||0)+(c.running||0)}</td><td>${c.skipped||0}</td></tr>`}
  h+=`</table><h2>Verdict agreement</h2><p class="muted">Verdicts are validity as formalized; refuted = invalid as formalized, not unsound. <code>inconsistent</code> = the selected formalization's premises are unsat; it is scored against expected <code>inconsistent</code> directly.</p>
- <p class="muted">status: <b>selected</b>; <b>judge-weak</b> = decided by Z3 and selected, but judge mean below threshold (a penalty, not a filter); <b>open: decided candidates all rejected</b> = a Z3-decided candidate existed and every candidate was rejected. diversity = distinct candidates (normalized formulas + predicate set) / candidates.</p>
- <table><tr><th>argument</th><th>expected</th><th>selected</th><th>agree</th><th>status</th><th>contested</th><th>rejected_trivial</th><th>rejected_judge</th><th>candidates</th><th>diversity</th></tr>`;
- const stPill=s=>s==='judge-weak'?`<span class="pill open">${esc(s)}</span>`:s.startsWith('open')?`<span class="pill refuted">${esc(s)}</span>`:esc(s);
+ <p class="muted">status: <b>selected</b>; <b>judge-weak</b> = decided by Z3 and selected, but judge mean below threshold (a penalty, not a filter); <b>open: decided candidates all rejected</b> = a Z3-decided candidate existed and every candidate was rejected. diversity = distinct candidates (normalized formulas + predicate set) / candidates. <b>confessed bridges</b> (round 4) = candidates whose formalizer notes (or an agreed judge <code>formalization_adds_bridge</code> flag) admit a formula goes beyond a stated premise (never selected over a faithful Z3-decided sibling; <b>needs bridge</b> status = every survivor confesses, verdict withheld), plus expected-invalid controls that are Z3-valid only without their own premise.</p>
+ <table><tr><th>argument</th><th>expected</th><th>selected</th><th>agree</th><th>status</th><th>contested</th><th>rejected_trivial</th><th>rejected_judge</th><th>candidates</th><th>diversity</th><th>confessed bridges</th></tr>`;
+ const stPill=s=>s==='judge-weak'?`<span class="pill open">${esc(s)}</span>`:(s.startsWith('open')||s.startsWith('needs bridge'))?`<span class="pill refuted">${esc(s)}</span>`:esc(s);
  for(const a of D.arguments){h+=`<tr class="click" onclick="openArg('${esc(a.id)}')"><td>${esc(a.id)}</td><td>${pill(a.expected)}</td><td>${pill(a.selected)}</td>
-  <td>${a.agree===true?'<span class="pill yes">yes</span>':a.agree===false?'<span class="pill NO">NO</span>':'-'}</td><td>${stPill(a.status||'')}</td><td>${a.contested?'yes':''}</td><td>${a.rejected_trivial}</td><td>${a.rejected_judge}</td><td>${a.n_candidates}</td><td>${esc(a.diversity_text||'-')}</td></tr>`}
+  <td>${a.agree===true?'<span class="pill yes">yes</span>':a.agree===false?'<span class="pill NO">NO</span>':'-'}</td><td>${stPill(a.status||'')}</td><td>${a.contested?'yes':''}</td><td>${a.rejected_trivial}</td><td>${a.rejected_judge}</td><td>${a.n_candidates}</td><td>${esc(a.diversity_text||'-')}</td><td>${esc(a.bridges_text||'-')}</td></tr>`}
  const dec=D.arguments.filter(a=>a.agree!=null);
  h+=`</table><p>Agreement: ${dec.filter(a=>a.agree).length}/${tr} (undecided: ${tr-dec.length})</p>`;
  h+=`<p>Statuses: ${esc(Object.entries(D.statuses||{}).map(([k,v])=>k+' '+v).join(' · '))}</p>`;
@@ -278,7 +282,7 @@ let curArg=D.arguments[0]?.id;
  <table><tr><th>truth</th><td>${esc(pairs(I.truth))}</td></tr><tr><th>found</th><td>${esc(pairs(I.found))}</td></tr><tr><th>false positives</th><td>${esc(pairs(I.fp))}</td></tr>
  <tr><th>false negatives</th><td>${esc(pairs(I.fn))}</td></tr><tr><th>false friends</th><td>${esc(pairs(I.false_friends))}</td></tr><tr><th>weak (graded)</th><td>${esc(pairs(I.weak))}</td></tr>
  <tr><th>unverified (candidate not selected)</th><td>${esc(pairs(I.unverified))}</td></tr><tr><th>unverified, shape-only</th><td>${esc(pairs(I.unverified_weak))}</td></tr>
- <tr><th>relaxed pass (guard-abstracted)</th><td>${esc(pairs(I.relaxed||[]))}</td></tr><tr><th>relaxed, in truth</th><td>${esc(pairs(I.relaxed_tp||[]))}</td></tr><tr><th>relaxed, not in truth</th><td>${esc(pairs(I.relaxed_fp||[]))}</td></tr><tr><th>relaxed, shape-only</th><td>${esc(pairs(I.relaxed_weak||[]))}</td></tr>
+ <tr><th>projected pass (cluster-collapsed / arity-projected)</th><td>${esc(pairs(I.projected||[]))}</td></tr><tr><th>relaxed pass (guard-abstracted)</th><td>${esc(pairs(I.relaxed||[]))}</td></tr><tr><th>relaxed, in truth</th><td>${esc(pairs(I.relaxed_tp||[]))}</td></tr><tr><th>relaxed, not in truth</th><td>${esc(pairs(I.relaxed_fp||[]))}</td></tr><tr><th>relaxed, shape-only</th><td>${esc(pairs(I.relaxed_weak||[]))}</td></tr>
  <tr><th>shape-only (weak-isomorphic)</th><td>${esc(pairs(I.weak_found))}</td></tr><tr><th>weak-correct</th><td>${esc(pairs(I.weak_correct))}</td></tr></table>`;
  $('#overview').innerHTML=h;
 })();
