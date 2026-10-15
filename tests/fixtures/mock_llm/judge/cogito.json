@@ -1,0 +1,22 @@
+[
+ {
+  "scores": {
+   "P1": 0.95,
+   "P2": 0.95
+  },
+  "conclusion_score": 0.95,
+  "flags": [],
+  "per_item_comments": {}
+ },
+ {
+  "scores": {
+   "P1": 1.0,
+   "P2": 1.0
+  },
+  "conclusion_score": 1.0,
+  "flags": [],
+  "per_item_comments": {
+   "C": "mock judge fooled: says faithful"
+  }
+ }
+]

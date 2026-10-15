@@ -1,0 +1,861 @@
+[
+ {
+  "id": "cogito",
+  "name": "Cogito (Descartes)",
+  "roles": [
+   "valid",
+   "tricky"
+  ],
+  "author": "Rene Descartes",
+  "work": "Meditations on First Philosophy II (1641); Principles of Philosophy I.7 (1644)",
+  "source_text": "\"I think, therefore I am\" (Principles I.7, Latin: cogito, ergo sum). Descartes (Second Replies) denies it is a syllogism; the major premise is implicit.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Whatever thinks exists.",
+     "implicit": true,
+     "type": "metaphysical",
+     "fol_hint": "forall x. Thinks(x) -> Exists(x)"
+    },
+    {
+     "id": "P2",
+     "text": "I am thinking.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "Thinks(i)   [introspective datum]"
+    }
+   ],
+   "conclusion": "I exist.  [Exists(i)]"
+  },
+  "expected_verdict": "valid",
+  "expected_flags": [
+   "tricky-implicit-premise"
+  ],
+  "weak_isomorphic_to": [
+   "kalam",
+   "induction-circular"
+  ],
+  "notes": "Skeleton = universal instantiation + modus ponens (all 2-premise 'forall x (A->B), A(c) |- B(c)'). Pitfall: Exists as a predicate vs. FOL's built-in existence (free-logic issue; 'exists x. x=i' is a theorem of classical FOL so a naive encoding makes the conclusion trivially true). Grade: LLM must (1) flag P1 as implicit, (2) NOT encode C as exists x. x=i without noting triviality. FOL suffices: one monadic predicate pair and one constant.",
+  "isomorphic_to": [],
+  "objections": []
+ },
+ {
+  "id": "aristotle-function",
+  "name": "Function argument (Aristotle)",
+  "roles": [
+   "valid",
+   "objection-target"
+  ],
+  "author": "Aristotle",
+  "work": "Nicomachean Ethics I.7, 1097b22-1098a18",
+  "source_text": "Paraphrase: the good of a flute-player, sculptor or any craftsman lies in their function; so too for a human, whose function is activity of soul according to reason.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "For any kind with a characteristic function, a member of that kind does well (has its good) exactly when it performs that function excellently.",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall x,k,f. Kind(k)&Func(k,f)&Mem(x,k) -> (GoodFor(x,f) <-> Exc(x,f))"
+    },
+    {
+     "id": "P2",
+     "text": "Human beings have some characteristic function.",
+     "implicit": false,
+     "type": "metaphysical",
+     "fol_hint": "exists f. Func(Human,f)"
+    },
+    {
+     "id": "P3",
+     "text": "The only characteristic function of human beings is rational activity of the soul.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "forall f. Func(Human,f) -> f = RA"
+    },
+    {
+     "id": "P4",
+     "text": "Human beings are a kind (species).",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "Kind(Human)"
+    }
+   ],
+   "conclusion": "For every human, doing well consists in performing rational activity excellently."
+  },
+  "expected_verdict": "valid",
+  "objections": [
+   {
+    "id": "aristotle-function.O1",
+    "objector": "Bernard Williams",
+    "work": "Ethics and the Limits of Philosophy (1985), ch.3; also Hume-style is-ought worry",
+    "target": "P1",
+    "move": "deny",
+    "text": "Doing a kind's function well does not by itself fix an individual's good (a good assassin performs a function well); the function-to-good bridge is unsupported.",
+    "shared_premises": [
+     "P2",
+     "P3"
+    ]
+   }
+  ],
+  "notes": "Z3-verified: all 4 premises needed (P4 and the existence premise P2 are the usual LLM omissions; without P2 the conclusion is vacuous). Kinds are reified as individuals so no second-order logic is needed. FOL suffices: dyadic relations over a sort of kinds/individuals.",
+  "isomorphic_to": [],
+  "weak_isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "gettier-counterexample",
+  "name": "Gettier case against JTB",
+  "roles": [
+   "valid",
+   "counterexample-form",
+   "objection-target"
+  ],
+  "author": "Edmund Gettier",
+  "work": "Is Justified True Belief Knowledge?, Analysis 23(6), 1963",
+  "source_text": "Paraphrase: Smith has strong evidence for e (Jones will get the job and has ten coins), deduces f (the man who gets the job has ten coins); f is true only because Smith gets the job. Smith does not know f.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Smith believes f, having competently deduced it from e.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "Bel(smith,f) & Ded(smith,f,e)"
+    },
+    {
+     "id": "P2",
+     "text": "Justification is transmitted across competent deduction: if S is justified in p and deduces q from p, S is justified in q.",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "forall s,p,q. J(s,p)&Ded(s,q,p) -> J(s,q)"
+    },
+    {
+     "id": "P3",
+     "text": "Smith is justified in believing e.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "J(smith,e)"
+    },
+    {
+     "id": "P4",
+     "text": "f is true.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "T(f)"
+    },
+    {
+     "id": "P5",
+     "text": "Smith does not know f.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "~K(smith,f)   [an intuition about the case; tag as intuition]"
+    }
+   ],
+   "conclusion": "It is not the case that, for all S and p, justified true belief that p suffices for S's knowing that p."
+  },
+  "expected_verdict": "valid",
+  "objections": [
+   {
+    "id": "gettier-counterexample.O1",
+    "objector": "Weinberg, Nichols & Stich",
+    "work": "Normativity and Epistemic Intuitions, Philosophical Topics 29 (2001)",
+    "target": "P5",
+    "move": "deny/undercut",
+    "text": "The no-knowledge verdict is a culturally variable intuition, not a datum.",
+    "shared_premises": [
+     "P1",
+     "P2",
+     "P3",
+     "P4"
+    ]
+   }
+  ],
+  "notes": "Counterexample form: instance contradicts a universal (the JTB analysis), so the target analysis appears only in C, never as a premise. Z3-verified, no redundant premise. Watch for LLMs that put the JTB analysis in as a premise (then the set is inconsistent). FOL suffices: universal vs instance.",
+  "isomorphic_to": [],
+  "weak_isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "epicurus-death",
+  "name": "Death is nothing to us (Epicurus)",
+  "roles": [
+   "valid",
+   "objection-target"
+  ],
+  "author": "Epicurus",
+  "work": "Letter to Menoeceus, sec. 124-125 (via Diogenes Laertius X)",
+  "source_text": "\"Death is nothing to us\" (sec. 125); good and evil consist in sensation, and death is the privation of sensation.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Whatever is good or bad for a person involves that person's sensation.",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall e,x. (GoodFor(e,x)|BadFor(e,x)) -> Sens(e,x)"
+    },
+    {
+     "id": "P2",
+     "text": "Death involves no sensation for the one who dies.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall e,x. Death(e,x) -> ~Sens(e,x)"
+    }
+   ],
+   "conclusion": "Death is neither good nor bad for the one who dies."
+  },
+  "expected_verdict": "valid",
+  "objections": [
+   {
+    "id": "epicurus-death.O1",
+    "objector": "Thomas Nagel",
+    "work": "Death, Nous 4 (1970); reprinted in Mortal Questions",
+    "target": "P1",
+    "move": "deny",
+    "text": "Some things are bad for a person without involving their sensation (betrayal never discovered); death is bad as deprivation of the goods life would have held.",
+    "shared_premises": [
+     "P2"
+    ]
+   }
+  ],
+  "weak_isomorphic_to": [],
+  "notes": "Skeleton: forall(A->B), forall(C->~B) |- forall(C->~A) (Camestres). Nagel ACCEPTS P2 and attacks P1: the canonical shared-premise/attacked-premise test. FOL suffices: monadic/dyadic predicates, no modality.",
+  "isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "singer-drowning-child",
+  "name": "Famine, affluence and morality (Singer)",
+  "roles": [
+   "valid",
+   "objection-target"
+  ],
+  "author": "Peter Singer",
+  "work": "Famine, Affluence, and Morality, Philosophy & Public Affairs 1(3), 1972",
+  "source_text": "Paraphrase: if we can prevent something bad without sacrificing anything of comparable moral importance, we ought to; analogized by a child drowning in a shallow pond.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Suffering and death from lack of food are bad.",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall e. Famine(e) -> Bad(e)"
+    },
+    {
+     "id": "P2",
+     "text": "If one can prevent something bad without sacrificing anything of comparable moral importance, one ought to do so.",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall a,e. Bad(e)&CanPrevent(a,e)&~Sacr(a,e) -> Ought(a,e)"
+    },
+    {
+     "id": "P3",
+     "text": "There is some such famine suffering that we can prevent without sacrificing anything of comparable moral importance.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "exists e. Famine(e)&CanPrevent(we,e)&~Sacr(we,e)"
+    }
+   ],
+   "conclusion": "We ought to prevent some famine suffering."
+  },
+  "expected_verdict": "valid",
+  "objections": [
+   {
+    "id": "singer-drowning-child.O1",
+    "objector": "Bernard Williams",
+    "work": "A Critique of Utilitarianism, in Utilitarianism: For and Against (1973)",
+    "target": "P2",
+    "move": "deny",
+    "text": "P2 generalizes to a demand that overrides each agent's integral personal projects; a principle with that consequence cannot be a moral requirement.",
+    "shared_premises": [
+     "P1",
+     "P3"
+    ]
+   }
+  ],
+  "notes": "Z3-verified minimal. The 'drowning child' analogy is a separate intuition-pump supporting P2, not a premise of the core argument; do not require it. Shares the 'bad + can prevent -> ought' pattern with epicurean-trilemma only loosely. FOL suffices: one existential witness plus two universals.",
+  "isomorphic_to": [],
+  "weak_isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "kalam",
+  "name": "Kalam cosmological argument",
+  "roles": [
+   "valid",
+   "objection-target"
+  ],
+  "author": "al-Ghazali (and later W. L. Craig)",
+  "work": "al-Iqtisad fi'l-I'tiqad (c.1095), on the temporal origination of the world",
+  "source_text": "Paraphrase: whatever begins to exist has a cause of its beginning; the world began to exist; so the world has a cause.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Everything that begins to exist has a cause.",
+     "implicit": false,
+     "type": "metaphysical",
+     "fol_hint": "forall x. Begins(x) -> exists y. Causes(y,x)"
+    },
+    {
+     "id": "P2",
+     "text": "The universe began to exist.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "Begins(univ)"
+    }
+   ],
+   "conclusion": "The universe has a cause."
+  },
+  "expected_verdict": "valid",
+  "weak_isomorphic_to": [
+   "cogito",
+   "induction-circular"
+  ],
+  "objections": [
+   {
+    "id": "kalam.O1",
+    "objector": "David Hume",
+    "work": "A Treatise of Human Nature I.iii.3",
+    "target": "P1",
+    "move": "deny",
+    "text": "That every beginning needs a cause is neither intuitively nor demonstratively certain.",
+    "shared_premises": [
+     "P2"
+    ]
+   },
+   {
+    "id": "kalam.O2",
+    "objector": "Immanuel Kant",
+    "work": "Critique of Pure Reason, First Antinomy",
+    "target": "P2",
+    "move": "deny",
+    "text": "Reason can equally argue that the world has no beginning in time.",
+    "shared_premises": [
+     "P1"
+    ]
+   }
+  ],
+  "notes": "Two objections hitting different premises (P1 vs P2) make this ideal for premise-level library tests. Pure UI+MP; skeleton is shared with cogito and the induction argument (weak isomorphs; should be distinguished by the matcher from the strong pairs by size/shape only trivially). 'Causes' is not temporal; 'begins to exist' is left as primitive.",
+  "isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "thomson-violinist",
+  "name": "The violinist (Thomson)",
+  "roles": [
+   "valid",
+   "analogical",
+   "objection-target"
+  ],
+  "author": "Judith Jarvis Thomson",
+  "work": "A Defense of Abortion, Philosophy & Public Affairs 1(1), 1971",
+  "source_text": "Paraphrase: you wake plugged into a famous violinist who needs your kidneys for nine months; you are not thereby required to stay connected; pregnancy from rape is relevantly similar.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Suppose, for the sake of argument, that the fetus is a person.",
+     "implicit": false,
+     "type": "metaphysical",
+     "fol_hint": "Person(fetus)   [concession, not endorsement]"
+    },
+    {
+     "id": "P2",
+     "text": "A person's right to life does not include a right to use another person's body when the other has not granted that use (generalized from the violinist case).",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall x,y. Person(x)&Person(y)&Need(x,y)&~Granted(y,x) -> ~RightUse(x,y)"
+    },
+    {
+     "id": "P3",
+     "text": "In pregnancy from rape the fetus needs the woman's body and she has not granted its use.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "Need(fetus,woman) & ~Granted(woman,fetus)"
+    },
+    {
+     "id": "P4",
+     "text": "The woman is a person.",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "Person(woman)"
+    },
+    {
+     "id": "P5",
+     "text": "If x has no right to use y's body, then it is permissible for y to detach from x.",
+     "implicit": true,
+     "type": "normative",
+     "fol_hint": "forall x,y. ~RightUse(x,y) -> PermDetach(y,x)"
+    }
+   ],
+   "conclusion": "It is permissible for the woman to detach from (abort) the fetus."
+  },
+  "expected_verdict": "valid",
+  "objections": [
+   {
+    "id": "thomson-violinist.O1",
+    "objector": "Francis Beckwith / John Finnis",
+    "work": "Politically Correct Death (1993); The Rights and Wrongs of Abortion, PPA 2(2), 1973",
+    "target": "P5",
+    "move": "deny/undercut",
+    "text": "Detaching the violinist is letting die; abortion is killing, and parental responsibility differs from stranger-obligation, so permissibility does not transfer.",
+    "shared_premises": [
+     "P1",
+     "P2",
+     "P3"
+    ]
+   }
+  ],
+  "notes": "Real argument is analogical; the flattened FOL form puts the analogy's work into generalized P2 plus implicit bridge P5. Z3-verified minimal on this reconstruction. A faithful LLM may legitimately choose a different decomposition (e.g. with an explicit similarity premise); grade on whether the analogical step is made an explicit premise, not on exact wording. Sensitive topic; used strictly as academic example.",
+  "isomorphic_to": [],
+  "weak_isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "epicurean-trilemma",
+  "name": "Epicurean trilemma / problem of evil",
+  "roles": [
+   "valid",
+   "pair-A"
+  ],
+  "author": "Epicurus as reported by Hume (Philo); formal refinements by Mackie, Rowe",
+  "work": "David Hume, Dialogues Concerning Natural Religion, Part X (1779)",
+  "source_text": "\"Is he willing to prevent evil, but not able?\" (Part X, after Epicurus).",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "If any being is God, it is omnipotent and perfectly good.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "forall x. God(x) -> Omni(x)&PerfGood(x)"
+    },
+    {
+     "id": "P2",
+     "text": "An omnipotent being is able to prevent any gratuitous evil.",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "forall x. Omni(x) -> forall e. Grat(e) -> Able(x,e)"
+    },
+    {
+     "id": "P3",
+     "text": "A perfectly good being is willing to prevent any gratuitous evil.",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall x. PerfGood(x) -> forall e. Grat(e) -> Will(x,e)"
+    },
+    {
+     "id": "P4",
+     "text": "What a being is both able and willing to prevent does not occur.",
+     "implicit": true,
+     "type": "metaphysical",
+     "fol_hint": "forall x,e. Able(x,e)&Will(x,e)&Grat(e) -> ~Occurs(e)"
+    },
+    {
+     "id": "P5",
+     "text": "Some gratuitous evil occurs.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "exists e. Grat(e)&Occurs(e)"
+    }
+   ],
+   "conclusion": "There is no God.  [~exists x. God(x)]"
+  },
+  "expected_verdict": "valid",
+  "isomorphic_to": [
+   "divine-hiddenness"
+  ],
+  "objections": [
+   {
+    "id": "epicurean-trilemma.O1",
+    "objector": "Stephen Wykstra / skeptical theists",
+    "work": "The Humean Obstacle to Evidential Arguments from Suffering, Int. J. Phil. Religion 16 (1984)",
+    "target": "P5",
+    "move": "undercut",
+    "text": "Our inability to see a justifying reason for an evil is poor evidence that none exists.",
+    "shared_premises": [
+     "P1",
+     "P2",
+     "P3",
+     "P4"
+    ]
+   }
+  ],
+  "notes": "Hume's original lacks the 'gratuitous' restriction (needed for validity: Rowe's repair), so P2/P3 are scoped to gratuitous evil. Mackie's version (omnipotence + goodness + evil + 'good eliminates evil as far as it can') is the same triad stated as an INCONSISTENT set; here it is re-cast as a modus-tollens refutation. Both framings should be accepted. Z3-verified minimal.",
+  "weak_isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "divine-hiddenness",
+  "name": "Divine hiddenness (Schellenberg)",
+  "roles": [
+   "valid",
+   "pair-A"
+  ],
+  "author": "J. L. Schellenberg",
+  "work": "Divine Hiddenness and Human Reason (Cornell UP, 1993), ch.1",
+  "source_text": "Paraphrase: a perfectly loving God would make a personal relationship with Himself possible for any creature capable of it and not resisting; there are such non-resistant non-believers.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "If any being is God, it is omnipotent and perfectly loving.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "forall x. God(x) -> Omni(x)&PerfLoving(x)"
+    },
+    {
+     "id": "P2",
+     "text": "An omnipotent being is able to prevent any case of non-resistant nonbelief.",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "forall x. Omni(x) -> forall b. NRNB(b) -> Able(x,b)"
+    },
+    {
+     "id": "P3",
+     "text": "A perfectly loving being is willing to prevent any case of non-resistant nonbelief.",
+     "implicit": false,
+     "type": "normative",
+     "fol_hint": "forall x. PerfLoving(x) -> forall b. NRNB(b) -> Will(x,b)"
+    },
+    {
+     "id": "P4",
+     "text": "What a being is both able and willing to prevent does not occur.",
+     "implicit": true,
+     "type": "metaphysical",
+     "fol_hint": "forall x,b. Able(x,b)&Will(x,b)&NRNB(b) -> ~Occurs(b)"
+    },
+    {
+     "id": "P5",
+     "text": "Some non-resistant nonbelief occurs.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "exists b. NRNB(b)&Occurs(b)"
+    }
+   ],
+   "conclusion": "There is no God."
+  },
+  "expected_verdict": "valid",
+  "isomorphic_to": [
+   "epicurean-trilemma"
+  ],
+  "objections": [
+   {
+    "id": "divine-hiddenness.O1",
+    "objector": "Paul Moser / Michael Murray",
+    "work": "Moser, The Elusive God (2008); Murray, Coercion and the Hiddenness of God, APQ 30 (1993)",
+    "target": "P3",
+    "move": "deny",
+    "text": "Love may permit hiddenness (to preserve freedom, or to invite moral/volitional transformation), so willingness to prevent nonbelief does not follow.",
+    "shared_premises": [
+     "P1",
+     "P2",
+     "P4"
+    ]
+   }
+  ],
+  "notes": "Schellenberg's own statement has more steps (openness to relationship -> belief). Flattened here to the same 5-premise skeleton as the trilemma, which is the point of the pair. Grader should accept a longer faithful reconstruction as long as an LLM does not silently drop the omnipotence/ability premise.",
+  "weak_isomorphic_to": [],
+  "expected_flags": []
+ },
+ {
+  "id": "hobbes-state-of-nature",
+  "name": "State of nature as war (Hobbes)",
+  "roles": [
+   "valid",
+   "pair-B"
+  ],
+  "author": "Thomas Hobbes",
+  "work": "Leviathan, ch. XIII (1651)",
+  "source_text": "\"solitary, poor, nasty, brutish, and short\"; \"if any two men desire the same thing... they become enemies\".",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "If two distinct persons desire the same good and cannot both enjoy it, they become rivals.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "forall x,y,g. Des(x,g)&Des(y,g)&Scarce(g)&x!=y -> Riv(x,y)"
+    },
+    {
+     "id": "P2",
+     "text": "In the natural condition there are two distinct persons who desire the same scarce good.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "exists x,y,g. Des(x,g)&Des(y,g)&Scarce(g)&x!=y"
+    },
+    {
+     "id": "P3",
+     "text": "Rivals with no common power to keep them in awe are at war.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall x,y. Riv(x,y)&NoCP -> War(x,y)"
+    },
+    {
+     "id": "P4",
+     "text": "In the natural condition there is no common power.",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "NoCP"
+    },
+    {
+     "id": "P5",
+     "text": "Those at war live miserable lives.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall x,y. War(x,y) -> Mis(x)&Mis(y)"
+    }
+   ],
+   "conclusion": "In the natural condition some persons live miserable lives."
+  },
+  "expected_verdict": "valid",
+  "isomorphic_to": [
+   "xunzi-origin-of-ritual"
+  ],
+  "notes": "Hobbes' full argument adds diffidence/glory as separate causes of quarrel; this core is the competition strand. Z3-verified minimal. Wording of C is deliberately weak (existential); Hobbes' 'all' needs an extra universal premise about equality.",
+  "weak_isomorphic_to": [],
+  "objections": [],
+  "expected_flags": []
+ },
+ {
+  "id": "xunzi-origin-of-ritual",
+  "name": "Origin of ritual (Xunzi)",
+  "roles": [
+   "valid",
+   "pair-B"
+  ],
+  "author": "Xunzi",
+  "work": "Xunzi, ch. 19 'Discourse on Ritual' (Li lun), opening; cf. ch. 23 'Human nature is bad'",
+  "source_text": "\"人生而有欲\" (people are born with desires); unmet desire seeks, unmeasured seeking breeds contention, contention disorder, disorder poverty.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "If two distinct people desire the same good that is limited, they come to contend.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall x,y,g. Des(x,g)&Des(y,g)&Limited(g)&x!=y -> Contend(x,y)"
+    },
+    {
+     "id": "P2",
+     "text": "There are two distinct people who desire the same limited good.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "exists x,y,g. Des(x,g)&Des(y,g)&Limited(g)&x!=y"
+    },
+    {
+     "id": "P3",
+     "text": "Contenders with no ritual apportioning measure fall into disorder.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall x,y. Contend(x,y)&NoRitual -> Chaos(x,y)"
+    },
+    {
+     "id": "P4",
+     "text": "Prior to the sage kings' ritual there is no apportioning measure.",
+     "implicit": true,
+     "type": "definitional",
+     "fol_hint": "NoRitual"
+    },
+    {
+     "id": "P5",
+     "text": "Those in disorder are impoverished.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall x,y. Chaos(x,y) -> Dest(x)&Dest(y)"
+    }
+   ],
+   "conclusion": "Without ritual, some people are impoverished."
+  },
+  "expected_verdict": "valid",
+  "isomorphic_to": [
+   "hobbes-state-of-nature"
+  ],
+  "notes": "Real text then concludes the Former Kings instituted ritual to apportion goods (a normative/functional claim); omitted here so the core matches Hobbes' skeleton. Translations: Watson (1963), Hutton (2014), Knoblock; none PD, so paraphrase only. Note Mencius 6A is the opposing view and not an isomorph.",
+  "weak_isomorphic_to": [],
+  "objections": [],
+  "expected_flags": []
+ },
+ {
+  "id": "sorites-heap",
+  "name": "Sorites paradox (Eubulides)",
+  "roles": [
+   "inconsistent",
+   "pair-C"
+  ],
+  "author": "Eubulides of Miletus",
+  "work": "reported in Cicero, Academica II.49; Diogenes Laertius II.108",
+  "source_text": "Paraphrase: one grain is not a heap; adding one grain never makes a heap; yet enough grains make a heap.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "A pile of 10000 grains is a heap.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "Heap(10000)   (Z3 test used 10)"
+    },
+    {
+     "id": "P2",
+     "text": "Tolerance: removing one grain from a heap leaves a heap.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "forall n. n>=2 & Heap(n) -> Heap(n-1)"
+    },
+    {
+     "id": "P3",
+     "text": "A single grain is not a heap.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "~Heap(1)"
+    }
+   ],
+   "conclusion": "A single grain is a heap.  [Heap(1)]"
+  },
+  "expected_verdict": "inconsistent",
+  "isomorphic_to": [
+   "ship-of-theseus-gradual"
+  ],
+  "expected_flags": [
+   "premises-inconsistent",
+   "paradox"
+  ],
+  "notes": "Z3 (LIA, quantifier) returns UNSAT on the premises for N=10, but UNKNOWN for N=10000 because of quantifier+deep instantiation; recommend N<=20 or explicit unrolling. {P1,P2} entail C (valid) but P3 contradicts C: expected check (a) FAILS. A 'finite chain' without numbers needs transitive closure, which is not FOL-definable; use integers (LIA) or a constant chain. This is the designed 'consistency check fires' positive control; the minimality result is meaningless on an inconsistent set.",
+  "weak_isomorphic_to": [],
+  "objections": []
+ },
+ {
+  "id": "ship-of-theseus-gradual",
+  "name": "Ship of Theseus (gradual replacement)",
+  "roles": [
+   "inconsistent",
+   "pair-C"
+  ],
+  "author": "Plutarch",
+  "work": "Life of Theseus 23.1 (c.100 CE)",
+  "source_text": "Paraphrase: the Athenians preserved Theseus' ship, replacing decayed timbers one by one; philosophers disputed whether it was still the same ship.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "With no planks replaced, the ship is the original ship.",
+     "implicit": false,
+     "type": "definitional",
+     "fol_hint": "Same(0)"
+    },
+    {
+     "id": "P2",
+     "text": "Tolerance: replacing a single plank of a ship that is the original leaves it the original.",
+     "implicit": false,
+     "type": "metaphysical",
+     "fol_hint": "forall n. 0<=n<N & Same(n) -> Same(n+1)"
+    },
+    {
+     "id": "P3",
+     "text": "A ship with every one of the N planks replaced is not the original ship.",
+     "implicit": false,
+     "type": "metaphysical",
+     "fol_hint": "~Same(N)"
+    }
+   ],
+   "conclusion": "The ship with all N planks replaced is the original ship.  [Same(N)]"
+  },
+  "expected_verdict": "inconsistent",
+  "isomorphic_to": [
+   "sorites-heap"
+  ],
+  "expected_flags": [
+   "premises-inconsistent",
+   "paradox"
+  ],
+  "notes": "Plutarch states the puzzle, not this formalization; this is the gradual-replacement sorites reading. Z3-verified UNSAT for N=10. Mapping to Sorites: Heap(10000-k) <-> Same(k) (index reversed): base, tolerance step, contradicting endpoint.",
+  "weak_isomorphic_to": [],
+  "objections": []
+ },
+ {
+  "id": "mill-desirable",
+  "name": "Proof of utility: 'desired' to 'desirable' (Mill)",
+  "roles": [
+   "invalid",
+   "negative-control"
+  ],
+  "author": "John Stuart Mill",
+  "work": "Utilitarianism, ch. IV (1863)",
+  "source_text": "\"people do actually desire it\" (ch. IV); evidence that something is desirable is that it is desired.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "People desire happiness as an end.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "Desired(happiness)&AsEnd(happiness)"
+    },
+    {
+     "id": "P2",
+     "text": "People desire nothing besides happiness as an end.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "forall x. Desired(x)&AsEnd(x) -> x=happiness"
+    }
+   ],
+   "conclusion": "Happiness is the only thing desirable as an end.  [forall x. Desirable(x)&AsEnd(x) -> x=happiness]"
+  },
+  "expected_verdict": "invalid",
+  "expected_flags": [
+   "equivocation",
+   "is-ought-gap",
+   "needs-unsupported-bridge"
+  ],
+  "notes": "Z3: premises consistent, conclusion NOT entailed (countermodel exists). It becomes valid only with the bridge forall x. Desirable(x) <-> Desired(x), which is exactly the contested step (visible:seen / desirable:desired analogy; Moore and others call it an equivocation on '-able'). GRADING: LLM passes iff it either leaves the argument invalid or adds the bridge as an explicitly flagged [implicit] controversial premise; fails if it silently adds the bridge. Same family as Hume's is-ought gap.",
+  "isomorphic_to": [],
+  "weak_isomorphic_to": [],
+  "objections": []
+ },
+ {
+  "id": "induction-circular",
+  "name": "Circular justification of induction (Hume)",
+  "roles": [
+   "valid",
+   "negative-control",
+   "question-begging"
+  ],
+  "author": "David Hume",
+  "work": "An Enquiry concerning Human Understanding, sec. IV (1748); Treatise I.iii.6",
+  "source_text": "Paraphrase: to argue that induction will succeed because it has succeeded presupposes the uniformity of nature, the thing in question.",
+  "reconstruction": {
+   "premises": [
+    {
+     "id": "P1",
+     "text": "Induction has succeeded in the past.",
+     "implicit": false,
+     "type": "empirical",
+     "fol_hint": "SucceededPast(induction)"
+    },
+    {
+     "id": "P2",
+     "text": "Methods that have succeeded in the past will succeed in the future (uniformity principle).",
+     "implicit": true,
+     "type": "metaphysical",
+     "fol_hint": "forall x. SucceededPast(x) -> SucceedsFuture(x)"
+    }
+   ],
+   "conclusion": "Induction will succeed in the future."
+  },
+  "expected_verdict": "valid",
+  "expected_flags": [
+   "question-begging",
+   "circular"
+  ],
+  "weak_isomorphic_to": [
+   "cogito",
+   "kalam"
+  ],
+  "notes": "Formally valid, consistent, minimal, and C is not a premise verbatim, so Z3 checks (a)-(d) ALL PASS. The defect (P2 is the principle whose justification is at issue; C is a direct instance of it) is not formally detectable: this control deliberately probes the limit of the pipeline and should be reported as 'passes formal checks, flagged question-begging by judge/human'. Candidate heuristic for check (d): flag when C is a one-step instance of a universal premise derived from the same method it concludes about.",
+  "isomorphic_to": [],
+  "objections": []
+ }
+]

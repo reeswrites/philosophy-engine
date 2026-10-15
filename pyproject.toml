@@ -5,6 +5,7 @@ description = "Generative philosophy engine, Phase 0: reconstruct, formalize, ch
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=1.15.0",
     "pydantic>=2.14.1",
     "z3-solver>=5.3.0.0",
 ]

@@ -1,0 +1,98 @@
+[
+ {
+  "sorts": [
+   {
+    "name": "Obj"
+   }
+  ],
+  "predicates": [
+   {
+    "name": "thinks",
+    "arg_sorts": [
+     "Obj"
+    ],
+    "gloss": "{0} is thinking",
+    "sense": "think:occurrent"
+   },
+   {
+    "name": "exists_actual",
+    "arg_sorts": [
+     "Obj"
+    ],
+    "gloss": "{0} exists",
+    "sense": "exists:actual"
+   }
+  ],
+  "constants": [
+   {
+    "name": "i",
+    "sort": "Obj",
+    "gloss": "the speaker (Descartes)",
+    "sense": "self:first-person"
+   }
+  ],
+  "premises": [
+   {
+    "premise_id": "P1",
+    "sexpr": "(forall ((x Obj)) (=> (thinks x) (exists_actual x)))"
+   },
+   {
+    "premise_id": "P2",
+    "sexpr": "(thinks i)"
+   }
+  ],
+  "conclusion": {
+   "premise_id": "C",
+   "sexpr": "(exists_actual i)"
+  },
+  "notes": "existence as an ordinary predicate, not FOL's built-in quantifier"
+ },
+ {
+  "sorts": [
+   {
+    "name": "Obj"
+   }
+  ],
+  "predicates": [
+   {
+    "name": "thinks",
+    "arg_sorts": [
+     "Obj"
+    ],
+    "gloss": "{0} is thinking",
+    "sense": "think:occurrent"
+   },
+   {
+    "name": "exists_actual",
+    "arg_sorts": [
+     "Obj"
+    ],
+    "gloss": "{0} exists",
+    "sense": "exists:actual"
+   }
+  ],
+  "constants": [
+   {
+    "name": "i",
+    "sort": "Obj",
+    "gloss": "the speaker (Descartes)",
+    "sense": "self:first-person"
+   }
+  ],
+  "premises": [
+   {
+    "premise_id": "P1",
+    "sexpr": "(forall ((x Obj)) (=> (thinks x) (exists_actual x)))"
+   },
+   {
+    "premise_id": "P2",
+    "sexpr": "(thinks i)"
+   }
+  ],
+  "conclusion": {
+   "premise_id": "C",
+   "sexpr": "(thinks i)"
+  },
+  "notes": "DELIBERATELY TRIVIALIZED (mock): conclusion equals P2"
+ }
+]
