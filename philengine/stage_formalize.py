@@ -7,10 +7,36 @@ from .runner import Ctx, Unit, register
 from .stage_common import feedback, n_candidates, opt, pick_reconstruction, validation_errors
 
 
-def strategy_hint(candidate_idx: int) -> str:
-    """Deterministic per-candidate prompt hint (temperature is no longer sent, so this is what diversifies candidates)."""
+def strategy_hint(candidate_idx: int, n_premises: int = 3) -> str:
+    """Deterministic per-candidate prompt hint (temperature is no longer sent, so this is what diversifies candidates).
+    Round 3: hints are structural bands over the predicate count (filled from the premise count P), not stylistic
+    preferences, so candidates cannot all satisfy every hint with the same formalization."""
     h = config.STRATEGY_HINTS
-    return h[candidate_idx % len(h)]
+    P = max(1, int(n_premises))
+    k = config.STRATEGY_BAND_SLACK
+    return h[candidate_idx % len(h)].format(hi_lean=P + k - 1, lo_rich=P + k, lo_rel=P, hi_rel=P + k + 1)
+
+
+def do_not_reuse_block(forms) -> str:
+    """Round 3: the predicate sets (name/arity) and formula shapes earlier candidates of this argument already used,
+    as a "do not reuse" instruction. '' when there is none. `forms` = earlier candidates (parsed)."""
+    from .stage_common import pred_set
+    seen, lines = set(), []
+    for f in forms:
+        if f.formalization is None:
+            continue
+        ps = pred_set(f.formalization)
+        if ps in seen:
+            continue
+        seen.add(ps)
+        names = ", ".join(f"{n}/{a}" for n, a in sorted(ps))
+        lines.append(f"- candidate {f.candidate_idx}: {{{names}}}")
+    if not lines:
+        return ""
+    return ("DO NOT REUSE: earlier candidates for this argument already used exactly these predicate sets "
+            "(name/arity). Produce a materially different formalization: change at least one predicate's arity, "
+            "split or merge at least one concept, or move a typing condition between a sort and a unary predicate. "
+            "Do not return the same predicate set under new names.\n" + "\n".join(lines))
 
 
 REGISTRY_INSTRUCTION = (
@@ -37,13 +63,19 @@ def formalize_one(ctx: Ctx, argument_id: str, rec_row, candidate_idx: int) -> in
     schema = FormalizationX.model_json_schema()
     model = opt(ctx, "model_reason", None)
     temp = opt(ctx, "temperature_formalize", config.TEMP_FORMALIZE)
-    hint = strategy_hint(candidate_idx)
+    hint = strategy_hint(candidate_idx, len(ids))
+    from .stage_common import latest_by_candidate
+    earlier = [f for f in latest_by_candidate(st.list_formalizations(rec_row.id))
+               if f.candidate_idx < candidate_idx and f.formalization is not None]
+    avoid = do_not_reuse_block(earlier)
     call_ids: list[int] = []
     f, errs, retry = None, [], ""
     for attempt in range(2):
         system, user = prompts.load_split("formalize", "v1", reconstruction=prem_text, conclusion=concl,
                                           retry_feedback=retry)
-        user = f"{user}\n\nStrategy hint for this candidate (a stylistic preference; never override the rules above): {hint}"
+        user = f"{user}\n\nStrategy hint for this candidate (a structural constraint; never override the rules above): {hint}"
+        if avoid:
+            user = f"{user}\n\n{avoid}"
         registry = sense_registry_block(st, ctx.run_id)
         if registry:
             user = f"{user}\n\n{registry}"

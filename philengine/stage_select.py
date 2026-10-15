@@ -4,7 +4,7 @@ from __future__ import annotations
 from . import checks, config
 from .models_ext import SelectionResultX, hard_rejects
 from .runner import Ctx, Unit, register
-from .stage_common import latest_by_candidate, pick_reconstruction
+from .stage_common import diversity, latest_by_candidate, pick_reconstruction
 
 
 def _n_preds(form) -> int:
@@ -27,7 +27,8 @@ def reject_reasons(form, allow_inconsistent: bool = False, expected: str | None 
     With allow_inconsistent, an unsat-premises candidate is not trivial/vacuous on that ground alone.
     When the human expected verdict is `inconsistent` and the candidate is unsat, a judge `conclusion_smuggled`
     flag is ignored (an inconsistent premise set entails everything; that is the finding, not smuggling).
-    A judge min_score below threshold is NOT a filter any more (see judge_min_penalty)."""
+    Judge min_score and mean_score below their thresholds are NOT filters (see judge_min_penalty / judge_mean_penalty);
+    conclusion_score is the only judge score that filters (round 3)."""
     r: list[str] = []
     triv = False
     chk, j = form.check, form.judge
@@ -46,8 +47,6 @@ def reject_reasons(form, allow_inconsistent: bool = False, expected: str | None 
     ignore = ("conclusion_smuggled",) if (expected == "inconsistent" and chk.consistent == "unsat") else ()
     if hard_rejects(j, ignore):
         r.append(f"judge hard reject: {[x for x in j.flags if x not in ignore]}")
-    if j.mean_score < config.JUDGE_MEAN_SCORE:
-        r.append(f"judge mean_score {j.mean_score:.2f} < {config.JUDGE_MEAN_SCORE}")
     if j.conclusion_score < config.JUDGE_CONCLUSION_SCORE:
         r.append(f"judge conclusion_score {j.conclusion_score:.2f} < {config.JUDGE_CONCLUSION_SCORE}")
     return r, triv
@@ -58,6 +57,17 @@ def judge_min_penalty(j) -> tuple[float, list[str]]:
     capped at JUDGE_MIN_PENALTY_CAP. -> (penalty, failing premise ids)."""
     bad = sorted(k for k, v in j.scores.items() if v < config.JUDGE_MIN_SCORE)
     return min(config.JUDGE_MIN_PENALTY * len(bad), config.JUDGE_MIN_PENALTY_CAP), bad
+
+
+def judge_mean_penalty(j) -> float:
+    """Round 3: mean_score below JUDGE_MEAN_SCORE is a flat select-score penalty (JUDGE_MEAN_PENALTY), not a filter.
+    A Z3-decided candidate the judge finds weak is selected with status `judge-weak` instead of leaving the argument
+    `open`."""
+    return config.JUDGE_MEAN_PENALTY if j.mean_score < config.JUDGE_MEAN_SCORE else 0.0
+
+
+def judge_weak(j) -> bool:
+    return j is not None and j.mean_score < config.JUDGE_MEAN_SCORE
 
 
 def has_unknown_probe(chk) -> bool:
@@ -92,6 +102,7 @@ def score(form, max_preds: int, penalized: bool = False, orphan: bool = False) -
     sc -= config.UNKNOWN_PROBE_PENALTY if has_unknown_probe(chk) else 0.0
     sc -= config.ORPHAN_CONCLUSION_PENALTY if orphan else 0.0
     sc -= judge_min_penalty(j)[0]
+    sc -= judge_mean_penalty(j)
     return sc - (config.SUSPECT_BICONDITIONAL_PENALTY if penalized else 0.0)
 
 
@@ -124,6 +135,10 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
             jp, bad = judge_min_penalty(f.judge)
             if bad:
                 entry["notes"] = [*entry.get("notes", []), f"judge min_score penalty {jp:.2f} on {bad} (< {config.JUDGE_MIN_SCORE})"]
+            if judge_weak(f.judge):
+                entry["flags"] = [*entry.get("flags", []), "judge_weak"]
+                entry["notes"] = [*entry.get("notes", []),
+                                  f"judge mean_score penalty {judge_mean_penalty(f.judge):.2f} ({f.judge.mean_score:.2f} < {config.JUDGE_MEAN_SCORE})"]
         orph = list(f.check.orphan_conclusion_predicate) if f.check else []
         if orph:
             entry["flags"] = ["orphan_conclusion_predicate"]
@@ -146,11 +161,18 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
             ranking = [{"formalization_id": None, "rejected_reasons": ["no candidates"], "score": None}]
     # contested over ALL parsed candidates (a rejected candidate with a different verdict still matters)
     contested = len({e["verdict"] for e in ranking if e.get("verdict")}) > 1
+    weak = bool(chosen and judge_weak(chosen.judge))
+    status = selection_status(chosen, ranking, forms, weak)
     sel = SelectionResultX(reconstruction_id=recon_id, chosen_formalization_id=chosen.id if chosen else None,
-                           verdict=verdict, ranking=ranking, rejected_trivial=rejected_trivial, rejected_judge=rejected_judge, contested=contested)
+                           verdict=verdict, ranking=ranking, rejected_trivial=rejected_trivial, rejected_judge=rejected_judge,
+                           contested=contested, judge_weak=weak, status=status, diversity=diversity(forms))
     store.insert_selection(sel, run_id)
     if contested:
         store.insert_review("selection", str(recon_id), "contested: parsed candidates (survivors and rejected) disagree on verdict", run_id)
+    if weak:
+        store.insert_review("selection", str(recon_id),
+                            f"judge-weak: chosen candidate {chosen.candidate_idx} is Z3-{verdict} but judge mean_score "
+                            f"{chosen.judge.mean_score:.2f} < {config.JUDGE_MEAN_SCORE}", run_id)
     for idx, orph in orphan_reviews:
         store.insert_review("selection", str(recon_id),
                             f"orphan_conclusion_predicate: candidate {idx} {orph} appear in C but in no premise", run_id)
@@ -160,6 +182,19 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     for idx, probes in unknown_cands:
         store.insert_review("selection", str(recon_id), f"unknown probe: candidate {idx} {probes or ['nontrivial']}", run_id)
     return sel
+
+
+def selection_status(chosen, ranking, forms, weak: bool) -> str:
+    """Round 3: one of models_ext.SELECTION_STATUSES. `judge-weak` = decided by Z3, selected, but judge mean below
+    threshold; `open: decided candidates all rejected` = a Z3-decided (valid/refuted/inconsistent) candidate existed
+    and every one was rejected (hard flag, triviality, parse) -- the row to look at when agreement is low."""
+    if chosen is not None:
+        return "judge-weak" if weak else "selected"
+    if not forms:
+        return "open: no candidates"
+    if any(e.get("verdict") in ("valid", "refuted", "inconsistent") for e in ranking):
+        return "open: decided candidates all rejected"
+    return "open: no decided candidate"
 
 
 @register("select")

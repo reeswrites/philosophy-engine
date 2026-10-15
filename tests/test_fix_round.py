@@ -57,10 +57,11 @@ def test_each_candidate_idx_gets_distinct_hint_in_prompt_and_row():
     for i in range(4):
         stage_formalize.formalize_one(ctx, "a", rec, i)
     assert len(set(prompts.values())) == 4
-    for i, h in enumerate(config.STRATEGY_HINTS):
+    hints = [stage_formalize.strategy_hint(i, 1) for i in range(4)]
+    for i, h in enumerate(hints):
         assert h in prompts[i]
     rows = {r.candidate_idx: r for r in st.list_formalizations(rec.id)}
-    assert [rows[i].strategy_hint for i in range(4)] == list(config.STRATEGY_HINTS)
+    assert [rows[i].strategy_hint for i in range(4)] == hints
     assert stage_formalize.strategy_hint(0) == stage_formalize.strategy_hint(len(config.STRATEGY_HINTS))  # deterministic
 
 
@@ -262,7 +263,7 @@ def test_judge_scores_averaged_and_hard_reject_needs_both():
     assert r.min_score == pytest.approx(0.6) and r.n_samples == 2 and r.judge_call_ids == [7, 8]
     one = build_report([out({"P1": 0.9}, flags=["sense_drift"]), out({"P1": 0.9})], bt, "v")
     assert not one.hard_reject and "sense_drift" in one.flags
-    both = build_report([out({"P1": 0.9}, flags=["sense_drift"]), out({"P1": 0.9}, flags=["missing_implicit_premise"])], bt, "v")
+    both = build_report([out({"P1": 0.9}, flags=["sense_drift"]), out({"P1": 0.9}, flags=["formalization_omits_premise"])], bt, "v")
     assert both.hard_reject
 
 

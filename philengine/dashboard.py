@@ -82,6 +82,8 @@ def build_data(store: Store, run_id: int) -> dict:
             "source_text": a.get("source_text"), "notes": a.get("notes"), "expected": r["expected"],
             "selected": r["selected"], "agree": r["agree"], "contested": r["contested"],
             "rejected_trivial": r["rejected_trivial"], "rejected_judge": sel.rejected_judge if sel else 0,
+            "status": r["status"], "judge_weak": r["judge_weak"], "diversity": r["diversity"],
+            "diversity_text": report.diversity_text(r["diversity"]),
             "n_candidates": r["n_candidates"], "chosen_formalization_id": sel.chosen_formalization_id if sel else None,
             "reconstruction": ({"source": rec.source, "conclusion": rec.reconstruction.conclusion,
                                 "conclusion_type": rec.reconstruction.conclusion_type,
@@ -116,7 +118,8 @@ def build_data(store: Store, run_id: int) -> dict:
                            "dst_id": r["dst_id"], "text": e.get("text") or e.get("objection") or "",
                            "target": e.get("target")})
     isos = [{"a": sorted(k)[0], "b": sorted(k)[1], "evidence": v["evidence"],
-              "unverified": bool((v["evidence"] or {}).get("unverified"))} for k, v in iso_rel.items()]
+              "unverified": bool((v["evidence"] or {}).get("unverified")),
+              "relaxed": bool((v["evidence"] or {}).get("relaxed"))} for k, v in iso_rel.items()]
 
     reviews = [dict(r) for r in store.reviews(run_id)]
     calls: dict[tuple, dict] = {}
@@ -145,7 +148,11 @@ def build_data(store: Store, run_id: int) -> dict:
                 "fn": _pairs(ev["fn"]), "weak_found": _pairs(ev["weak_found"]), "weak_correct": _pairs(ev["weak_correct"]),
                 "weak_other": _pairs(ev["weak_other"]),
                 "precision_all": ev["precision_all"], "recall_all": ev["recall_all"],
-                "unverified": _pairs(ev["unverified"]), "unverified_weak": _pairs(ev["unverified_weak"]), "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
+                "unverified": _pairs(ev["unverified"]), "unverified_weak": _pairs(ev["unverified_weak"]),
+                "relaxed": _pairs(ev["relaxed"]), "relaxed_tp": _pairs(ev["relaxed_tp"]), "relaxed_fp": _pairs(ev["relaxed_fp"]),
+                "relaxed_weak": _pairs(ev["relaxed_weak"]),
+                "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
+        "statuses": dict(Counter(r["status"] for r in rows)),
         "arguments": args, "premises": list(premises.values()), "concepts": concepts, "concept_edges": cedges,
         "objections": objections, "isos": isos, "reviews": reviews, "calls": list(calls.values()),
     }
@@ -249,21 +256,29 @@ let curArg=D.arguments[0]?.id;
  h+=`<h2>Stage jobs</h2><table><tr><th>stage</th><th>done</th><th>failed</th><th>pending/running</th><th>skipped</th></tr>`;
  for(const s of D.stages){const c=D.stage_counts[s]||{};h+=`<tr><td>${s}</td><td>${c.done||0}</td><td>${c.failed||0}</td><td>${(c.pending||0)+(c.running||0)}</td><td>${c.skipped||0}</td></tr>`}
  h+=`</table><h2>Verdict agreement</h2><p class="muted">Verdicts are validity as formalized; refuted = invalid as formalized, not unsound. `inconsistent` = the selected formalization's premises are unsat; it is scored against expected `inconsistent` directly.</p>
- <table><tr><th>argument</th><th>expected</th><th>selected</th><th>agree</th><th>contested</th><th>rejected_trivial</th><th>rejected_judge</th><th>candidates</th></tr>`;
+ <p class="muted">status: <b>selected</b>; <b>judge-weak</b> = decided by Z3 and selected, but judge mean below threshold (a penalty, not a filter); <b>open: decided candidates all rejected</b> = a Z3-decided candidate existed and every candidate was rejected. diversity = distinct candidates (normalized formulas + predicate set) / candidates.</p>
+ <table><tr><th>argument</th><th>expected</th><th>selected</th><th>agree</th><th>status</th><th>contested</th><th>rejected_trivial</th><th>rejected_judge</th><th>candidates</th><th>diversity</th></tr>`;
+ const stPill=s=>s==='judge-weak'?`<span class="pill open">${esc(s)}</span>`:s.startsWith('open')?`<span class="pill refuted">${esc(s)}</span>`:esc(s);
  for(const a of D.arguments){h+=`<tr class="click" onclick="openArg('${esc(a.id)}')"><td>${esc(a.id)}</td><td>${pill(a.expected)}</td><td>${pill(a.selected)}</td>
-  <td>${a.agree===true?'<span class="pill yes">yes</span>':a.agree===false?'<span class="pill NO">NO</span>':'-'}</td><td>${a.contested?'yes':''}</td><td>${a.rejected_trivial}</td><td>${a.rejected_judge}</td><td>${a.n_candidates}</td></tr>`}
+  <td>${a.agree===true?'<span class="pill yes">yes</span>':a.agree===false?'<span class="pill NO">NO</span>':'-'}</td><td>${stPill(a.status||'')}</td><td>${a.contested?'yes':''}</td><td>${a.rejected_trivial}</td><td>${a.rejected_judge}</td><td>${a.n_candidates}</td><td>${esc(a.diversity_text||'-')}</td></tr>`}
  const dec=D.arguments.filter(a=>a.agree!=null);
  h+=`</table><p>Agreement: ${dec.filter(a=>a.agree).length}/${tr} (undecided: ${tr-dec.length})</p>`;
+ h+=`<p>Statuses: ${esc(Object.entries(D.statuses||{}).map(([k,v])=>k+' '+v).join(' · '))}</p>`;
+ const divs=D.arguments.filter(a=>a.diversity&&a.diversity.n);
+ if(divs.length){const ident=divs.filter(a=>a.diversity.n>1&&a.diversity.distinct===1).map(a=>a.id);
+  h+=`<p>Candidate diversity: mean distinct/n ${(divs.reduce((s,a)=>s+a.diversity.ratio,0)/divs.length).toFixed(2)}; all candidates identical in: ${esc(ident.join(', ')||'none')}</p>`}
  const SR=D.shared_reliance||[];
  if(SR.length){h+=`<h2>Shared premise reliance</h2><p class="muted">Per shared premise: arguments citing it, and in how many decided arguments the chosen formalization actually needs it (not in redundant_premises).</p>
+ <p class="muted">open arguments count through their best parsed valid/inconsistent candidate, marked * (unverified: not selected), as in the isomorphism stage.</p>
  <table><tr><th>shared_id</th><th>arguments citing</th><th>needed in</th><th>idle in</th></tr>`;
-  for(const d of SR){h+=`<tr><td>${esc(d.shared_id)}</td><td>${d.arguments.map(a=>esc(a.argument+':'+a.label)).join(', ')}</td><td>${d.n_needed}/${d.n_decided} (of ${d.n_args} citing)</td><td>${esc(d.arguments.filter(a=>a.needed===false).map(a=>a.argument).join(', ')||'-')}</td></tr>`}
-  h+=`</table><p>Formally idle shared premises: ${esc(SR.filter(d=>d.idle).map(d=>d.shared_id).join(', ')||'none')}</p>`}
+  for(const d of SR){h+=`<tr><td>${esc(d.shared_id)}</td><td>${d.arguments.map(a=>esc(a.argument+':'+a.label)).join(', ')}</td><td>${d.n_needed}/${d.n_decided} (of ${d.n_args} citing${d.n_unverified?'; '+d.n_unverified+' unverified':''})</td><td>${esc(d.arguments.filter(a=>a.needed===false).map(a=>a.argument+(a.unverified?'*':'')).join(', ')||'-')}</td></tr>`}
+  h+=`</table><p>Formally idle shared premises (* = only with unverified candidates counted): ${esc(SR.filter(d=>d.idle).map(d=>d.shared_id+(d.idle_verified?'':'*')).join(', ')||'none')}</p>`}
  const I=D.iso;
- h+=`<h2>Isomorphism</h2><div class="cards"><div class="card">precision<b>${fmt(I.precision)}</b></div><div class="card">recall<b>${fmt(I.recall)}</b></div><div class="card">precision incl. unverified<b>${fmt(I.precision_all)}</b></div><div class="card">recall incl. unverified<b>${fmt(I.recall_all)}</b></div></div>
+ h+=`<h2>Isomorphism</h2><div class="cards"><div class="card">precision<b>${fmt(I.precision)}</b></div><div class="card">recall<b>${fmt(I.recall)}</b></div><div class="card">precision incl. unverified + relaxed<b>${fmt(I.precision_all)}</b></div><div class="card">recall incl. unverified + relaxed<b>${fmt(I.recall_all)}</b></div></div>
  <table><tr><th>truth</th><td>${esc(pairs(I.truth))}</td></tr><tr><th>found</th><td>${esc(pairs(I.found))}</td></tr><tr><th>false positives</th><td>${esc(pairs(I.fp))}</td></tr>
  <tr><th>false negatives</th><td>${esc(pairs(I.fn))}</td></tr><tr><th>false friends</th><td>${esc(pairs(I.false_friends))}</td></tr><tr><th>weak (graded)</th><td>${esc(pairs(I.weak))}</td></tr>
  <tr><th>unverified (candidate not selected)</th><td>${esc(pairs(I.unverified))}</td></tr><tr><th>unverified, shape-only</th><td>${esc(pairs(I.unverified_weak))}</td></tr>
+ <tr><th>relaxed pass (guard-abstracted)</th><td>${esc(pairs(I.relaxed||[]))}</td></tr><tr><th>relaxed, in truth</th><td>${esc(pairs(I.relaxed_tp||[]))}</td></tr><tr><th>relaxed, not in truth</th><td>${esc(pairs(I.relaxed_fp||[]))}</td></tr><tr><th>relaxed, shape-only</th><td>${esc(pairs(I.relaxed_weak||[]))}</td></tr>
  <tr><th>shape-only (weak-isomorphic)</th><td>${esc(pairs(I.weak_found))}</td></tr><tr><th>weak-correct</th><td>${esc(pairs(I.weak_correct))}</td></tr></table>`;
  $('#overview').innerHTML=h;
 })();
@@ -273,8 +288,8 @@ function sel(){return `<select id="argsel">${D.arguments.map(a=>`<option value="
 function kv(o){return Object.entries(o).map(([k,v])=>`${k}=${esc(JSON.stringify(v))}`).join(' ')}
 function renderDetail(){
  const a=A[curArg];if(!a){$('#detail').innerHTML='no arguments';return}
- let h=`<div class="toolbar"><label>Argument ${sel()}</label></div><h2>${esc(a.id)}: ${esc(a.name)} ${pill(a.selected)} ${a.contested?'<span class="tag">contested</span>':''}</h2>
- <p class="muted">${esc(a.author||'')} ${esc(a.work||'')} · expected ${esc(a.expected)} · candidates ${a.n_candidates} · rejected_trivial ${a.rejected_trivial} · rejected_judge ${a.rejected_judge}</p>
+ let h=`<div class="toolbar"><label>Argument ${sel()}</label></div><h2>${esc(a.id)}: ${esc(a.name)} ${pill(a.selected)} ${a.contested?'<span class="tag">contested</span>':''} ${a.status&&a.status!=='selected'?`<span class="tag">${esc(a.status)}</span>`:''}</h2>
+ <p class="muted">${esc(a.author||'')} ${esc(a.work||'')} · expected ${esc(a.expected)} · candidates ${a.n_candidates} · diversity ${esc(a.diversity_text||'-')} · rejected_trivial ${a.rejected_trivial} · rejected_judge ${a.rejected_judge}</p>
  <h3>Source text</h3><pre>${esc(a.source_text)}</pre>`;
  const r=a.reconstruction;
  if(r){h+=`<h3>Reconstruction (${esc(r.source)})</h3><table><tr><th>id</th><th>type</th><th>implicit</th><th>text</th></tr>`;
@@ -299,7 +314,7 @@ function renderDetail(){
    if(k.redundant_premises.length)h+=`<div><b>redundant:</b> ${k.redundant_premises.map(esc).join(', ')}</div>`;
    if(k.parse_errors.length)h+=`<div><b>parse errors:</b> ${k.parse_errors.map(esc).join('; ')}</div>`;
    if(k.valid==='refuted'&&k.countermodel_text)h+=`<b>Countermodel</b><pre>${esc(k.countermodel_text)}</pre>`}
-  if(j){h+=`<h3>Judge</h3><div>mean ${j.mean_score.toFixed(2)} · min ${j.min_score.toFixed(2)} · conclusion ${j.conclusion_score.toFixed(2)} · flags ${j.flags.length?esc(j.flags.join(', ')):'none'} ${j.hard_reject?'<span class="pill refuted">hard reject</span>':''}</div>
+  if(j){h+=`<h3>Judge</h3><div>mean ${j.mean_score.toFixed(2)} · min ${j.min_score.toFixed(2)} · conclusion ${j.conclusion_score.toFixed(2)} · flags ${j.flags.length?esc(j.flags.join(', ')):'none'} ${j.hard_reject?'<span class="pill refuted">hard reject</span>':''} ${j.duplicate_of_candidate!=null?`<span class="tag">report copied from identical candidate ${j.duplicate_of_candidate}</span>`:''}</div>
    <table><tr><th>item</th><th>score</th><th>back-translation</th><th>comment</th></tr>`+Object.entries(j.back_translations).map(([id,t])=>
    `<tr><td>${esc(id)}</td><td>${id==='C'?j.conclusion_score:(j.scores[id]??'')}</td><td>${esc(t)}</td><td>${esc(j.per_item_comments[id]||'')}</td></tr>`).join('')+`</table>`}
   h+=`</div>`}
@@ -360,7 +375,7 @@ function drawGraph(){
  const tip=$('#tip');
  const showTip=(e,h)=>{tip.innerHTML=h;tip.style.display='block';tip.style.left=Math.min(e.clientX+12,innerWidth-440)+'px';tip.style.top=(e.clientY+12)+'px'};
  link.on('mousemove',(e,d)=>{
-  if(d.kind==='iso')showTip(e,`<b>${esc(d.source.arg||d.source.label)} ~ ${esc(d.target.label)}</b> isomorphic-to<br><span class="mono">${esc(JSON.stringify(d.ev?.mapping||d.ev))}</span>${d.ev?.unverified?'<br>unverified (candidate not selected)':''}`);
+  if(d.kind==='iso')showTip(e,`<b>${esc(d.source.arg||d.source.label)} ~ ${esc(d.target.label)}</b> isomorphic-to<br><span class="mono">${esc(JSON.stringify(d.ev?.mapping||d.ev))}</span>${d.ev?.unverified?'<br>unverified (candidate not selected)':''}${d.ev?.relaxed?'<br>relaxed pass (guard-abstracted): '+esc(JSON.stringify(d.ev.abstractions||{})):''}`);
   else if(d.kind==='hash')showTip(e,`same skeleton hash${d.ff?' (false friend: not in truth)':''}`);
   else showTip(e,esc(d.kind));}).on('mouseleave',()=>tip.style.display='none');
  const node=root.append('g').selectAll('g').data(nodes).join('g').style('cursor','pointer')

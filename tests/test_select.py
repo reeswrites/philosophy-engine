@@ -50,7 +50,7 @@ def test_hard_reject_by_judge_flag_alone():
     st = run_cogito(1)
     rec = st.latest_reconstruction("cogito", "human")
     f = st.list_formalizations(rec.id)[0]
-    j = f.judge.model_copy(update={"flags": ["sense_drift"], "hard_reject": True})
+    j = f.judge.model_copy(update={"flags": ["sense_drift"], "hard_reject": True, "sample_flags": [["sense_drift"], ["sense_drift"]]})
     f2 = f.model_copy(update={"judge": j})
     reasons, _ = reject_reasons(f2)
     assert any("hard reject" in r for r in reasons)

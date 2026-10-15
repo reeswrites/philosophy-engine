@@ -10,7 +10,9 @@ Be strict: "most" read back as "all" is strengthened; a dropped qualifier is dro
   and the HARD-REJECT conditions:
   - conclusion_smuggled: the conclusion is stated, restated, or trivially entailed by a single premise's verbalization, or a premise is merely the conclusion in other words, so the inference does no work.
   - sense_drift: a word is used in two different senses across items (equivocation), e.g. the same symbol glossed "exists" read as actual existence in one place and as existence in thought in another, or senses differ between a premise and the conclusion.
-  - missing_implicit_premise: the reconstruction marks a premise as implicit/needed, but the formalization omits it, reads it back as something else, or the inference visibly depends on an unstated step.
+  - formalization_omits_premise: the RECONSTRUCTION states a premise (explicit or marked implicit) and the FORMALIZATION omits it, reads it back as a different claim, or folds it away so that it does no work. This is a fault of the formalization.
+  and the SOFT flag (never a reason to reject the formalization; it is routed to human review of the reconstruction):
+  - reconstruction_gap: the inference visibly depends on a step that the RECONSTRUCTION itself never states, and the formalization faithfully renders what the reconstruction says (so the gap is in the reconstruction, not the translation). Do NOT raise formalization_omits_premise for this; the formalizer may not add premises.
 `per_item_comments`: one short sentence per item that scored below 0.9, or that triggered a flag, keyed by item id.
 
 === USER ===
@@ -27,5 +29,7 @@ An inconsistent premise set is NOT smuggling: if the premises, as read back, con
 Implicit premises that are strong enough to make the explicit (empirical) premises idle, so that the conclusion follows from the implicit premises alone, must be flagged `strengthened` (and `added_content` if the implicit premise introduces claims the reconstruction does not make). The added bridge doing all the work is a faithfulness failure even when the inference is valid.
 
 A biconditional ("if and only if") premise in the verbalization that has no counterpart in the reconstruction text is `conclusion_smuggled`: the formalization has added the bridge that makes the conclusion follow. (An explicit biconditional or definition stated in the reconstruction is fine.)
+
+Distinguish the two premise flags carefully: compare the verbalized premises against the reconstruction's premises one by one. If every stated premise is rendered faithfully and the argument still seems to need an unstated step, that is `reconstruction_gap` (soft). Only when a stated premise is missing or materially changed in the verbalization is it `formalization_omits_premise` (hard).
 
 Use the item ids shown in square brackets ([P1], [P2], ..., [C]).

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from . import config, senses, stage_iso
+from . import checks, config, senses, stage_iso
 from .pipeline import ALL_STAGES
 from .runner import Ctx
 from .stage_common import pick_reconstruction
@@ -38,10 +38,31 @@ def per_argument(store: Store, run_id: int) -> list[dict]:
         got = sel.verdict if sel else None
         agree = got == AGREE.get(exp, exp) if got else None
         row = {"id": aid, "expected": exp, "selected": got, "agree": agree,
-               "contested": bool(sel and sel.contested), "n_candidates": len(forms), "sel": sel, "rec": rec}
+               "contested": bool(sel and sel.contested), "n_candidates": len(forms), "sel": sel, "rec": rec,
+               "status": selection_status(sel), "judge_weak": bool(sel and getattr(sel, "judge_weak", False)),
+               "diversity": (sel.diversity if sel and getattr(sel, "diversity", None) else None)}
         row["rejected_trivial"] = trivial_rejects(row)
         rows.append(row)
     return rows
+
+
+def selection_status(sel) -> str:
+    """Round-3 status; selections stored before it get a status derived from what they hold."""
+    if sel is None:
+        return "no selection"
+    if getattr(sel, "status", ""):
+        return sel.status
+    if sel.chosen_formalization_id is not None:
+        return "selected"
+    if any(e.get("verdict") in ("valid", "refuted", "inconsistent") for e in sel.ranking):
+        return "open: decided candidates all rejected"
+    return "open: no decided candidate"
+
+
+def diversity_text(d: dict | None) -> str:
+    if not d or not d.get("n"):
+        return "-"
+    return f"{d['distinct']}/{d['n']}" + (f" ({d['distinct_pred_sets']} pred sets)" if d.get("distinct_pred_sets") != d["distinct"] else "")
 
 
 def trivial_rejects(row: dict) -> int:
@@ -120,21 +141,31 @@ def shared_reliance(store: Store, run_id: int, rows: list[dict] | None = None) -
         rec, sel = r["rec"], r["sel"]
         if not rec:
             continue
-        chosen = store.get_formalization(sel.chosen_formalization_id) if sel and sel.chosen_formalization_id else None
-        decided = bool(chosen and chosen.check and chosen.check.parse_ok and sel.verdict in ("valid", "inconsistent"))
+        chosen, unverified = None, False
+        if sel and sel.chosen_formalization_id:
+            chosen = store.get_formalization(sel.chosen_formalization_id)
+        elif sel and sel.verdict == "open":  # round 3: `open` arguments use their best parsed decided candidate, tagged
+            chosen = stage_iso.top_parsed_candidate(store, rec.id)
+            unverified = chosen is not None
+        verdict = (checks.verdict_of(chosen.check) if unverified else sel.verdict) if chosen else (sel.verdict if sel else None)
+        decided = bool(chosen and chosen.check and chosen.check.parse_ok and verdict in ("valid", "inconsistent"))
         for p in rec.reconstruction.premises:
             if not p.shared_id:
                 continue
             d = by.setdefault(p.shared_id, {"shared_id": p.shared_id, "text": p.text, "arguments": []})
             needed = (p.id not in chosen.check.redundant_premises) if decided else None
             d["arguments"].append({"argument": r["id"], "label": p.id, "verdict": sel.verdict if sel else None,
-                                   "needed": needed})
+                                   "needed": needed, "unverified": bool(unverified and decided),
+                                   "candidate_verdict": verdict if unverified else None})
     out = []
     for sid in sorted(by):
         d = by[sid]
         dec = [a for a in d["arguments"] if a["needed"] is not None]
+        ver = [a for a in dec if not a["unverified"]]
         d.update(n_args=len(d["arguments"]), n_decided=len(dec), n_needed=sum(1 for a in dec if a["needed"]),
-                 idle=bool(dec) and not any(a["needed"] for a in dec))
+                 n_unverified=sum(1 for a in dec if a["unverified"]),
+                 idle=bool(dec) and not any(a["needed"] for a in dec),
+                 idle_verified=bool(ver) and not any(a["needed"] for a in ver))
         out.append(d)
     return out
 
@@ -153,16 +184,32 @@ def build_report(store: Store, run_id: int) -> str:
             "Verdicts are validity *as formalized*; `refuted` = invalid as formalized, not unsound. "
             "`inconsistent` = the selected formalization's premises are unsat (a finding, scored against expected "
             "`inconsistent` directly).", "",
-            "| argument | expected | selected | agree | contested | rejected_trivial | candidates |", "|---|---|---|---|---|---|---|"]
+            "`status`: `selected`; `judge-weak` = decided by Z3 and selected, but the judge mean score is below "
+            f"{config.JUDGE_MEAN_SCORE} (a penalty, not a filter); `open: decided candidates all rejected` = a "
+            "Z3-decided candidate existed and every candidate was rejected (hard judge flag, triviality, parse). "
+            "`diversity` = distinct candidates (by normalized formulas + predicate set) / candidates.", "",
+            "| argument | expected | selected | agree | status | contested | rejected_trivial | candidates | diversity |",
+            "|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         ag = {True: "yes", False: "NO", None: "-"}[r["agree"]]
-        out.append(f"| {r['id']} | {r['expected']} | {r['selected'] or '-'} | {ag} | "
-                   f"{'yes' if r['contested'] else ''} | {r['rejected_trivial']} | {r['n_candidates']} |")
+        out.append(f"| {r['id']} | {r['expected']} | {r['selected'] or '-'} | {ag} | {r['status']} | "
+                   f"{'yes' if r['contested'] else ''} | {r['rejected_trivial']} | {r['n_candidates']} | "
+                   f"{diversity_text(r['diversity'])} |")
     dec = [r for r in rows if r["agree"] is not None]
     out += ["", f"Agreement: {sum(1 for r in dec if r['agree'])}/{len(rows)} "
                 f"(undecided/no selection: {len(rows) - len(dec)})", ""]
     contested = [r["id"] for r in rows if r["contested"]]
     out += [f"Contested: {', '.join(contested) or 'none'}", ""]
+    weak = [r["id"] for r in rows if r["status"] == "judge-weak"]
+    rej = [r["id"] for r in rows if r["status"] == "open: decided candidates all rejected"]
+    out += [f"Decided by Z3 but judge-weak (selected, mean < {config.JUDGE_MEAN_SCORE}): {', '.join(weak) or 'none'}", "",
+            f"Open with a Z3-decided candidate (all rejected): {', '.join(rej) or 'none'}", ""]
+    divs = [r["diversity"] for r in rows if r["diversity"] and r["diversity"].get("n")]
+    if divs:
+        ident = [r["id"] for r in rows if r["diversity"] and r["diversity"].get("n", 0) > 1 and r["diversity"].get("distinct") == 1]
+        mean_ratio = sum(d["ratio"] for d in divs) / len(divs)
+        out += [f"Candidate diversity: mean distinct/n = {mean_ratio:.2f}; all candidates identical in: "
+                f"{', '.join(ident) or 'none'}", ""]
 
     out += ["## Objection coverage", "", "| argument | objections | targeting a premise | argument-level |", "|---|---|---|---|"]
     for aid in store.argument_ids():
@@ -176,13 +223,18 @@ def build_report(store: Store, run_id: int) -> str:
         out += ["", "## Shared premise reliance", "",
                 "Per shared premise: arguments citing it, and in how many of the decided ones (valid/inconsistent) the "
                 "chosen formalization actually needs it (not in `redundant_premises`).", "",
+                "`open` arguments count through their best parsed valid/inconsistent candidate, marked `*` (unverified: "
+                "the candidate was not selected), as in the isomorphism stage.", "",
                 "| shared_id | arguments citing | needed in | idle in |", "|---|---|---|---|"]
         for d in sr:
             cite = ", ".join(f"{a['argument']}:{a['label']}" for a in d["arguments"])
-            idle_in = ", ".join(a["argument"] for a in d["arguments"] if a["needed"] is False) or "-"
-            out.append(f"| {d['shared_id']} | {cite} | {d['n_needed']}/{d['n_decided']} (of {d['n_args']} citing) | {idle_in} |")
-        idle = [d["shared_id"] for d in sr if d["idle"]]
-        out += ["", f"Formally idle shared premises (cited, decided, needed nowhere): {', '.join(idle) or 'none'}"]
+            idle_in = ", ".join(a["argument"] + ("*" if a["unverified"] else "")
+                                for a in d["arguments"] if a["needed"] is False) or "-"
+            unv = f"; {d['n_unverified']} unverified" if d.get("n_unverified") else ""
+            out.append(f"| {d['shared_id']} | {cite} | {d['n_needed']}/{d['n_decided']} (of {d['n_args']} citing{unv}) | {idle_in} |")
+        idle = [d["shared_id"] + ("" if d["idle_verified"] else "*") for d in sr if d["idle"]]
+        out += ["", f"Formally idle shared premises (cited, decided, needed nowhere; `*` = only with unverified "
+                    f"candidates counted): {', '.join(idle) or 'none'}"]
 
     ev = stage_iso.iso_eval(store, run_id)
     fmt = lambda x: "n/a" if x is None else f"{x:.2f}"  # noqa: E731
@@ -197,8 +249,15 @@ def build_report(store: Store, run_id: int) -> str:
             f"| precision | {fmt(ev['precision'])} |", f"| recall | {fmt(ev['recall'])} |",
             f"| unverified (candidate not selected) | {_pairs(ev['unverified'])} |",
             f"| unverified, shape-only | {_pairs(ev['unverified_weak'])} |",
-            f"| precision incl. unverified | {fmt(ev['precision_all'])} |",
-            f"| recall incl. unverified | {fmt(ev['recall_all'])} |", "",
+            f"| relaxed pass (guard-abstracted, Z3-confirmed) | {_pairs(ev['relaxed'])} |",
+            f"| relaxed, in truth | {_pairs(ev['relaxed_tp'])} |",
+            f"| relaxed, not in truth | {_pairs(ev['relaxed_fp'])} |",
+            f"| relaxed, shape-only | {_pairs(ev['relaxed_weak'])} |",
+            f"| precision incl. unverified + relaxed | {fmt(ev['precision_all'])} |",
+            f"| recall incl. unverified + relaxed | {fmt(ev['recall_all'])} |", "",
+            "Relaxed pass (round 3): sorts erased, curried implications flattened, guard-only atoms dropped from "
+            "antecedents that keep a substantive conjunct, Z3-redundant premises dropped, binder order canonicalized, "
+            "binary argument order free; still Z3-confirmed on the relaxed formulas. Strict precision/recall exclude it.", "",
             "False friends (same skeleton hash, not in truth) vs `weak_isomorphic_to`:", "",
             "| pair | graded weak? |", "|---|---|"]
     ff = ev["false_friends"]

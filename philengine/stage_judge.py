@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from . import config, prompts
-from .models_ext import HARD_REJECT_FLAGS, JudgeOut, JudgeReportX
+from .models_ext import HARD_REJECT_FLAGS, JudgeOut, JudgeReportX, soft_review_flags
 from .runner import Ctx, Unit, register
-from .stage_common import (feedback, format_reconstruction, latest_by_candidate, n_candidates, opt,
+from .stage_common import (feedback, fingerprint, format_reconstruction, latest_by_candidate, n_candidates, opt,
                            pick_reconstruction, validation_errors)
 from .verbalize import VerbalizeError, verbalization_text, verbalize
 
@@ -36,10 +36,36 @@ def build_report(outs: JudgeOut | list[JudgeOut], bt: dict[str, str], verbalizat
         n_samples=n, judge_call_ids=list(call_ids or []), sample_flags=[list(o.flags) for o in outs])
 
 
+def duplicate_report(st, rec_id: int, form) -> JudgeReportX | None:
+    """Round 3 dedupe: if an EARLIER candidate (lower idx) of the same reconstruction is content-identical
+    (stage_common.fingerprint) and already judged, return a copy of its report tagged duplicate_of_candidate."""
+    fp = fingerprint(form.formalization)
+    for other in latest_by_candidate(st.list_formalizations(rec_id)):
+        if other.candidate_idx >= form.candidate_idx or other.formalization is None or other.judge is None:
+            continue
+        if fingerprint(other.formalization) == fp:
+            j = JudgeReportX.model_validate(other.judge.model_dump())
+            src = j.duplicate_of_candidate if j.duplicate_of_candidate is not None else other.candidate_idx
+            return j.model_copy(update={"duplicate_of_candidate": src, "judge_call_ids": []})
+    return None
+
+
+def record_soft_flags(st, argument_id: str, form, report: JudgeReportX, run_id) -> None:
+    """reconstruction_gap (and the legacy missing_implicit_premise) route to review on the RECONSTRUCTION; they never
+    reject the formalization."""
+    for flag in soft_review_flags(report):
+        comment = "; ".join(f"{k}: {v}" for k, v in report.per_item_comments.items())[:300]
+        st.insert_review("reconstruction", argument_id, f"{flag} (candidate {form.candidate_idx}): {comment or 'no comment'}", run_id)
+
+
 def judge_one(ctx: Ctx, argument_id: str, rec_row, form) -> None:
     st = ctx.store
     if form.status != "ok" or form.formalization is None:
         return  # nothing to judge
+    dup = duplicate_report(st, rec_row.id, form)
+    if dup is not None:
+        st.update_formalization(form.id, judge=dup)
+        return
     try:
         bt = verbalize(form.formalization)
         vtext = verbalization_text(form.formalization, show_symbols=True)
@@ -68,7 +94,9 @@ def judge_one(ctx: Ctx, argument_id: str, rec_row, form) -> None:
     if not outs:
         st.update_formalization(form.id, status="judge_fail", llm_call_ids=ids)
         return
-    st.update_formalization(form.id, judge=build_report(outs, bt, vtext, judge_ids), llm_call_ids=ids)
+    report = build_report(outs, bt, vtext, judge_ids)
+    st.update_formalization(form.id, judge=report, llm_call_ids=ids)
+    record_soft_flags(st, argument_id, form, report, ctx.run_id)
 
 
 @register("judge")

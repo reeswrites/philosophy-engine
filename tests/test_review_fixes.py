@@ -181,7 +181,7 @@ def test_rejected_judge_counted_separately():
     st = run_cogito(1)
     rec = st.latest_reconstruction("cogito", "human")
     f = st.list_formalizations(rec.id)[0]
-    j = f.judge.model_copy(update={"flags": ["sense_drift"], "hard_reject": True})
+    j = f.judge.model_copy(update={"flags": ["sense_drift"], "hard_reject": True, "sample_flags": [["sense_drift"], ["sense_drift"]]})
     st.execute("UPDATE formalization SET judge_json=? WHERE id=?", (j.model_dump_json(), f.id))
     sel = select_for(st, rec.id)
     assert sel.rejected_judge == 1 and sel.rejected_trivial == 0 and sel.chosen_formalization_id is None

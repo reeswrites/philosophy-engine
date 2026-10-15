@@ -285,3 +285,36 @@ across runs for the same human reconstruction row (5–7 shown instead of 3).
 6. Formalize prompt carries a per-run sense registry (<= 60 entries, most-used first) with a reuse-or-contrast instruction; `normalize_sense` folds a sense part repeating the label. `feels:good` vs `feels_good:...` is not folded mechanically (indistinguishable from `exists:actual` for `exists_actual`); the registry steers instead.
 7. `--from-human` makes no reconstruct LLM call (the human reconstruction is copied into the run, source `human`).
 8. Judge prompt: implicit premises strong enough to make the empirical premises idle are flagged `strengthened`.
+
+## Fix round 3 (after rees family run 2, engine 828c559)
+
+1. Candidate diversity. `config.STRATEGY_HINTS` are structural bands over the predicate count (lean <= P+1,
+   rich >= P+2 with explicit sorts, relational in [P, P+3] with binary relations, propositional-lean), filled from
+   the premise count by `stage_formalize.strategy_hint(idx, n_premises)`; every candidate after the first gets a
+   DO NOT REUSE block listing the (name/arity) predicate sets earlier candidates used. `stage_common.fingerprint`
+   (normalized formulas + predicate set) dedupes identical candidates before the judge: the later candidate copies
+   the earlier report (`JudgeReportX.duplicate_of_candidate`, no judge call). `SelectionResultX.diversity`
+   (`distinct/n`, distinct predicate sets) is a report column, a report summary line ("all candidates identical
+   in: ...") and a dashboard column.
+2. Judge flag split. `missing_implicit_premise` is replaced by `reconstruction_gap` (soft: review row on the
+   reconstruction, never rejects a formalization) and `formalization_omits_premise` (hard). `HARD_REJECT_FLAGS` =
+   conclusion_smuggled, sense_drift, formalization_omits_premise. `hard_rejects` recomputes from `sample_flags`,
+   so reports stored by the round-2 engine with the legacy flag are re-read as soft (e.g. `fiction-beats-lies`,
+   Z3-valid at judge means 0.85-0.96, would now be selected). `prompts/judge.v1.md` describes both flags.
+3. `mean_score` below `JUDGE_MEAN_SCORE` is a select-score penalty (`JUDGE_MEAN_PENALTY` 0.15), not a filter;
+   `conclusion_score` is the only judge score that filters. Selections carry `status` (`selected`, `judge-weak`
+   = decided by Z3 and selected with judge mean below threshold, `open: decided candidates all rejected`,
+   `open: no decided candidate`, `open: no candidates`) and `judge_weak`; report and dashboard show the status
+   column, a "decided by Z3 but judge-weak" line, and a review row per judge-weak selection.
+4. Iso second pass (`stage_iso.match_relaxed`, run over the pairs the strict pass misses). Diagnosis on
+   `commitment-reauthoring ~ evaluator-drift` (both sides Z3-valid in run 2): the skeletons differed only by an
+   extra `author_of` typing guard repeated in P2/P3 antecedents, explicit `Agent`/`Rule` sorts vs one sort,
+   binder order (`(r a)` vs `(l e)`, which `normalize` alpha-renames by position), and the argument order of one
+   binary relation. The relaxed skeleton (`stage_iso.relax`) erases sorts, flattens curried implications, drops
+   guard-only atoms from antecedents that keep a substantive conjunct, drops Z3-redundant premises, and the
+   matcher compares under binder-canonical text with binary argument flips, then Z3-confirms on the relaxed
+   formulas. Stored as `isomorphic-to` with `method: relaxed`, `abstractions`, `flips`; strict precision/recall
+   exclude it, the "incl. unverified + relaxed" line includes it; report and dashboard list the relaxed pairs.
+   All nine candidate combinations of the rees pair match under the relaxed pass (none strictly).
+5. Shared reliance: `open` arguments count through their best parsed valid/inconsistent candidate
+   (`stage_iso.top_parsed_candidate`), tagged unverified (`*` in the table; `idle` vs `idle_verified`), as iso does.

@@ -42,6 +42,40 @@ def latest_by_candidate(forms: list[FormalizationRecord]) -> list[FormalizationR
     return [best[k] for k in sorted(best)]
 
 
+def fingerprint(f) -> str:
+    """Content identity of a formalization: sorted normalized premise formulas, the normalized conclusion, and the
+    declared (name, arity) pairs. Two candidates with equal fingerprints would get byte-identical judge prompts."""
+    import hashlib
+    from . import fol
+    from . import sexpr as sx
+    parts = []
+    for it in f.premises:
+        try:
+            parts.append(f"{it.premise_id}={fol.normalized_text(sx.parse(it.sexpr))}")
+        except Exception:
+            parts.append(f"{it.premise_id}={it.sexpr.strip()}")
+    try:
+        parts.append(f"C={fol.normalized_text(sx.parse(f.conclusion.sexpr))}")
+    except Exception:
+        parts.append(f"C={f.conclusion.sexpr.strip()}")
+    parts = sorted(parts) + sorted(f"{p.name}/{len(p.arg_sorts)}" for p in f.predicates)
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
+def pred_set(f) -> frozenset:
+    return frozenset((p.name, len(p.arg_sorts)) for p in f.predicates)
+
+
+def diversity(forms) -> dict:
+    """Round-3 diversity metric over an argument's parsed candidates: distinct fingerprints and distinct predicate
+    sets out of n. ratio = distinct / n (1.0 = every candidate different; 1/n = all byte-identical)."""
+    fs = [f.formalization for f in forms if f.formalization is not None]
+    n = len(fs)
+    d = len({fingerprint(f) for f in fs})
+    return {"n": n, "distinct": d, "distinct_pred_sets": len({pred_set(f) for f in fs}),
+            "ratio": round(d / n, 3) if n else None}
+
+
 def validation_errors(model_cls, data) -> tuple[object | None, list[str]]:
     """Parse LLM structured output into model_cls -> (obj, errors)."""
     if data is None:

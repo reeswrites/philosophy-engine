@@ -76,23 +76,36 @@ class JudgeOut(BaseModel):
     flags: list[Literal[
         "strengthened", "weakened", "dropped_content", "added_content", "scope_shift",
         "quantifier_error", "predicate_collapse",
-        "conclusion_smuggled", "sense_drift", "missing_implicit_premise",
+        "conclusion_smuggled", "sense_drift", "formalization_omits_premise",
+        "reconstruction_gap", "missing_implicit_premise",  # the last one is the pre-round-3 name (legacy, soft)
     ]] = []
     per_item_comments: dict[str, str] = {}
 
 
-HARD_REJECT_FLAGS = ("conclusion_smuggled", "sense_drift", "missing_implicit_premise")
+# Round 3: `missing_implicit_premise` was being raised for gaps in the RECONSTRUCTION (the formalizer faithfully
+# rendered an argument that needs an unstated step), which must never reject a formalization. It is split:
+#   reconstruction_gap          soft: review row on the reconstruction, no effect on selection
+#   formalization_omits_premise hard: the formalization drops / misreads a premise the reconstruction states
+# The legacy flag is still accepted (old judge reports, old prompts) and treated as the soft one.
+HARD_REJECT_FLAGS = ("conclusion_smuggled", "sense_drift", "formalization_omits_premise")
+SOFT_REVIEW_FLAGS = ("reconstruction_gap", "missing_implicit_premise")
 
 
 def hard_rejects(j, ignore: tuple[str, ...] = ()) -> bool:
-    """Judge hard reject (every sample raised a hard flag), optionally ignoring some hard flags."""
-    if not ignore:
-        return bool(getattr(j, "hard_reject", False))
+    """Judge hard reject: every sample raised a (live) hard flag. Recomputed from `sample_flags` when they were
+    stored, so reports judged under an older flag set (e.g. `missing_implicit_premise` as hard) are re-read under
+    the current HARD_REJECT_FLAGS; the stored `hard_reject` bool is the fallback."""
     live = tuple(x for x in HARD_REJECT_FLAGS if x not in ignore)
     sf = getattr(j, "sample_flags", None)
     if sf:
         return all(any(x in live for x in s) for s in sf)
+    if not ignore:
+        return bool(getattr(j, "hard_reject", False)) and any(x in HARD_REJECT_FLAGS for x in j.flags)
     return bool(getattr(j, "hard_reject", False)) and any(x in live for x in j.flags)
+
+
+def soft_review_flags(j) -> list[str]:
+    return [x for x in getattr(j, "flags", []) if x in SOFT_REVIEW_FLAGS]
 
 
 # ---- step 3 extensions (schemas.py is frozen; these widen it without editing it) ----
@@ -104,15 +117,25 @@ class JudgeReportX(JudgeReport):
     flags: list[Literal[  # type: ignore[assignment]
         "strengthened", "weakened", "dropped_content", "added_content", "scope_shift",
         "quantifier_error", "predicate_collapse",
-        "conclusion_smuggled", "sense_drift", "missing_implicit_premise",
+        "conclusion_smuggled", "sense_drift", "formalization_omits_premise",
+        "reconstruction_gap", "missing_implicit_premise",
     ]] = []
     hard_reject: bool = False
     verbalization: str = ""
     n_samples: int = 1
     judge_call_ids: list[int] = []  # one llm_call id per judge sample used
     sample_flags: list[list[str]] = []  # each judge sample's own flags (hard_reject = every sample has a hard flag)
+    duplicate_of_candidate: int | None = None  # round 3: report copied from an identical earlier candidate (no judge call)
+
+
+SELECTION_STATUSES = ("selected", "judge-weak", "open: decided candidates all rejected", "open: no decided candidate",
+                      "open: no candidates")
 
 
 class SelectionResultX(SelectionResult):
     rejected_judge: int = 0  # judge hard rejects (rejected_trivial counts checker-derived triviality only)
     contested: bool = False
+    # round 3
+    judge_weak: bool = False  # chosen candidate's judge mean_score < JUDGE_MEAN_SCORE (penalized, not filtered)
+    status: str = ""  # one of SELECTION_STATUSES ("" for selections stored before round 3)
+    diversity: dict = {}  # {n, distinct, distinct_pred_sets, ratio}: how different the candidates actually were

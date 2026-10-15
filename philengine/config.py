@@ -77,17 +77,28 @@ JUDGE_MEAN_SCORE = 0.8
 JUDGE_CONCLUSION_SCORE = 0.7
 JUDGE_MIN_PENALTY = 0.15      # select-score penalty per premise whose judge score is below JUDGE_MIN_SCORE (not a filter)
 JUDGE_MIN_PENALTY_CAP = 0.3
+JUDGE_MEAN_PENALTY = 0.15     # select-score penalty when judge mean_score < JUDGE_MEAN_SCORE (not a filter; round 3)
 GATE_AGREEMENT = 0.6          # gate (c): verdict agreement vs expected
 SENSE_REGISTRY_MAX = 60       # formalize prompt: max (label, sense, gloss) entries shown
 JUDGE_SAMPLES = 2   # judge calls per candidate (sample_idx 0..n-1); scores averaged, hard reject only if all flag it
 
-# Candidate diversity: the SDK no longer takes temperature, so each candidate idx gets a fixed prompt hint.
+# Candidate diversity: the SDK no longer takes temperature, so each candidate idx gets a fixed STRUCTURAL hint
+# (stage_formalize.strategy_hint fills {lo}/{hi} predicate-count bands from the premise count) and is told which
+# predicate sets earlier candidates already used ("do not reuse").
 STRATEGY_HINTS = (
-    "Use the minimal set of predicates: reuse one predicate wherever the English allows it.",
-    "Use the finest-grained predicates, and declare an explicit sort for every kind of thing (persons, acts, states, ...).",
-    "Make every implicit premise its own formula: do not fold any background assumption into another premise.",
-    "Prefer binary relations over unary predicates wherever the English relates two things.",
+    "LEAN BAND: declare at most {hi_lean} predicates in total (fewer than the premise count plus two), reuse one "
+    "predicate wherever the English allows it, use only the single sort Obj, and express 'x is a K' typing "
+    "conditions as unary predicates in antecedents rather than as separate sorts.",
+    "RICH BAND: declare at least {lo_rich} predicates (at least the premise count plus two), split every compound "
+    "concept into its finest-grained parts, and declare an explicit sort for every kind of thing (persons, acts, "
+    "states, rules, ...) instead of unary typing predicates.",
+    "RELATIONAL BAND: make every predicate that relates two things a BINARY relation (arity 2), never a unary "
+    "predicate with the second thing folded in; give every implicit premise its own formula with no background "
+    "assumption folded into another premise; declare between {lo_rel} and {hi_rel} predicates.",
+    "PROPOSITIONAL-LEAN BAND: wherever a premise is a plain claim with no internal generality, use a 0-ary "
+    "predicate for it; quantify only where the English clearly generalizes; declare at most {hi_lean} predicates.",
 )
+STRATEGY_BAND_SLACK = 2       # band edges: lean <= P+1, rich >= P+2, relational in [P, P+3]  (P = premise count)
 
 # Selection weights
 UNKNOWN_PROBE_PENALTY = 0.10  # score deduction for a candidate with any z3-unknown probe

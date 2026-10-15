@@ -41,6 +41,8 @@ class Skel:
     sorts: dict = None   # original sort name -> canonical sort id (S1.. by first occurrence)
     structured: bool = True  # has >= 1 quantifier or >= 1 predicate of arity >= 1 (else: all 0-ary atoms)
     unverified: bool = False  # built from the top-ranked parsed candidate of an `open` argument (nothing was selected)
+    redundant: tuple = ()     # Z3 redundant_premises of the source candidate (round 3: dropped in the relaxed pass)
+    abstractions: tuple = ()  # round 3: what the relaxed pass changed to build this skeleton ('' for strict skeletons)
 
 
 def _occurrences(ast, bound, out):
@@ -243,19 +245,23 @@ def find_mapping(a: Skel, b: Skel, skips: list | None = None) -> tuple[dict, dic
 
 
 def z3_confirm(a: Skel, b: Skel, mapping: dict, timeout_ms: int = config.Z3_TIMEOUT_MS,
-               sort_mapping: dict | None = None, log: list | None = None) -> bool:
+               sort_mapping: dict | None = None, log: list | None = None, flips: tuple = (),
+               key=None) -> bool:
     """renamed_A <=> B valid for every matched premise pair and for the conclusion. Failures other than a
-    plain mismatch (exception, z3 unknown) are appended to `log` (never swallowed silently)."""
+    plain mismatch (exception, z3 unknown) are appended to `log` (never swallowed silently).
+    `flips` (round 3, relaxed pass): A's binary predicates whose argument order is swapped before renaming;
+    `key` pairs premises by text (default fol.normalized_text; the relaxed pass uses binder_canonical_text)."""
     log = [] if log is None else log
+    key = key or fol.normalized_text
     if sort_mapping is None:
         sort_mapping = _derive_sort_map(a, b, mapping) or {}
     env = fol.build_env(b.f)
-    ra = {k: fol.normalize(fol.rename(v, mapping, sort_mapping)) for k, v in a.norm.items()}
-    pool = {k: fol.normalized_text(v) for k, v in ra.items() if k != "C"}
+    ra = {k: fol.normalize(fol.rename(_flip(v, set(flips)), mapping, sort_mapping)) for k, v in a.norm.items()}
+    pool = {k: key(v) for k, v in ra.items() if k != "C"}
     pairs = [("C", "C")]
     used = set()
     for kb, bast in b.parsed.premises.items():
-        t = fol.normalized_text(bast)
+        t = key(bast)
         ka = next((k for k, v in pool.items() if v == t and k not in used), None)
         if ka is None:
             return False
@@ -297,17 +303,260 @@ def match(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS, notes: list 
 
 
 def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
-              skipped: list | None = None) -> list[tuple[Skel, Skel, dict]]:
-    """`skipped` (optional) collects (a_id, b_id, reason) for cap skips and z3 problems."""
+              skipped: list | None = None, relaxed: bool = True) -> list[tuple[Skel, Skel, dict]]:
+    """Strict pass over every pair, then (round 3) the relaxed pass over the pairs the strict pass did not match.
+    `skipped` (optional) collects (a_id, b_id, reason) for cap skips and z3 problems."""
     out = []
+    missed = []
     for a, b in itertools.combinations(sorted(skels, key=lambda s: s.argument_id), 2):
         notes: list = []
         ev = match(a, b, timeout_ms, notes)
         if ev:
             out.append((a, b, ev))
-        elif skipped is not None:
+        else:
+            missed.append((a, b))
+        if skipped is not None:
             skipped.extend((a.argument_id, b.argument_id, n) for n in notes)
+    if relaxed and missed:
+        rel = {s.argument_id: relax_skeleton(s) for s in skels}
+        for a, b in missed:
+            ra, rb = rel[a.argument_id], rel[b.argument_id]
+            if ra is None or rb is None:
+                continue
+            notes = []
+            ev = match_relaxed(ra, rb, timeout_ms, notes)
+            if ev:
+                out.append((a, b, ev))
+            if skipped is not None:
+                skipped.extend((a.argument_id, b.argument_id, "relaxed: " + n) for n in notes)
     return out
+
+
+# ---- round 3: relaxed (guard-abstracted) second pass -----------------------------------------------------------
+# Why: the one strong human pair in the rees family (commitment-reauthoring ~ evaluator-drift) was missed with both
+# sides formalized valid. Their skeletons differ only by formalizer choices that carry no logical content:
+#   - an extra typing guard (`author_of a r`) repeated in P2/P3's antecedents on one side;
+#   - explicit sorts (Agent/Rule) on one side vs unary guards + one sort on the other;
+#   - the binder order of `forall ((r Obj) (a Obj))` vs `((l Obj) (r Obj))` (normalize alpha-renames by position);
+#   - the argument order of one binary relation (`evaluator_of r l` vs `author_of a r`);
+#   - (elsewhere) premises Z3 found redundant.
+# The relaxed pass erases sorts, flattens curried implications, drops guard-only atoms from antecedents that keep a
+# substantive conjunct, drops Z3-redundant premises, canonicalizes binder order, and tries binary argument flips in
+# the mapping search. Matches are still Z3-confirmed (on the relaxed formulas) and stored with method='relaxed'.
+
+def _flatten_curry(ast):
+    """(=> A (=> B C)) -> (=> (and A B) C), recursively."""
+    if isinstance(ast, sx.Implies):
+        left, right = _flatten_curry(ast.left), _flatten_curry(ast.right)
+        if isinstance(right, sx.Implies):
+            lc = list(left.args) if isinstance(left, sx.And) else [left]
+            rc = list(right.left.args) if isinstance(right.left, sx.And) else [right.left]
+            return sx.Implies(sx.And(tuple(lc + rc)), right.right)
+        return sx.Implies(left, right)
+    if isinstance(ast, sx.Not):
+        return sx.Not(_flatten_curry(ast.arg))
+    if isinstance(ast, (sx.And, sx.Or)):
+        return type(ast)(tuple(_flatten_curry(a) for a in ast.args))
+    if isinstance(ast, sx.Iff):
+        return sx.Iff(_flatten_curry(ast.left), _flatten_curry(ast.right))
+    if isinstance(ast, sx.Quant):
+        return sx.Quant(ast.kind, ast.vars, _flatten_curry(ast.body))
+    return ast
+
+
+def _positions(ast, pdecl: dict, out: dict, in_guard: bool = False) -> None:
+    """out[pred] |= {'guard'|'body'}: 'guard' = a bare atom (or conjunct) in the antecedent of an implication."""
+    if isinstance(ast, sx.Sym):
+        if ast.name in pdecl:
+            out.setdefault(ast.name, set()).add("guard" if in_guard else "body")
+    elif isinstance(ast, sx.App):
+        out.setdefault(ast.pred, set()).add("guard" if in_guard else "body")
+    elif isinstance(ast, sx.Not):
+        _positions(ast.arg, pdecl, out, False)
+    elif isinstance(ast, sx.And):
+        for a in ast.args:
+            _positions(a, pdecl, out, in_guard)
+    elif isinstance(ast, sx.Or):
+        for a in ast.args:
+            _positions(a, pdecl, out, False)
+    elif isinstance(ast, sx.Implies):
+        _positions(ast.left, pdecl, out, True)
+        _positions(ast.right, pdecl, out, False)
+    elif isinstance(ast, sx.Iff):
+        _positions(ast.left, pdecl, out, False)
+        _positions(ast.right, pdecl, out, False)
+    elif isinstance(ast, sx.Quant):
+        _positions(ast.body, pdecl, out, in_guard)
+
+
+def guard_only_predicates(formulas: dict, pdecl: dict) -> set[str]:
+    """Predicates of arity >= 1 that occur ONLY as antecedent atoms across all formulas (typing guards)."""
+    pos: dict = {}
+    for a in formulas.values():
+        _positions(_flatten_curry(a), pdecl, pos)
+    return {n for n, p in pos.items() if p == {"guard"} and len(pdecl.get(n, ())) >= 1}
+
+
+def _drop_guards(ast, guards: set[str]) -> tuple:
+    """Remove guard-only atoms from antecedent conjunctions that keep at least one other conjunct. -> (ast, dropped)."""
+    dropped: list = []
+
+    def is_guard(x):
+        return isinstance(x, sx.App) and x.pred in guards
+
+    def go(x):
+        if isinstance(x, sx.Implies):
+            left = x.left
+            if isinstance(left, sx.And):
+                keep = [c for c in left.args if not is_guard(c)]
+                if keep and len(keep) < len(left.args):
+                    dropped.extend(c.pred for c in left.args if is_guard(c))
+                    left = keep[0] if len(keep) == 1 else sx.And(tuple(keep))
+            return sx.Implies(go(left), go(x.right))
+        if isinstance(x, sx.Not):
+            return sx.Not(go(x.arg))
+        if isinstance(x, (sx.And, sx.Or)):
+            return type(x)(tuple(go(a) for a in x.args))
+        if isinstance(x, sx.Iff):
+            return sx.Iff(go(x.left), go(x.right))
+        if isinstance(x, sx.Quant):
+            return sx.Quant(x.kind, x.vars, go(x.body))
+        return x
+
+    return go(_flatten_curry(ast)), dropped
+
+
+def relax(f, redundant=()) -> tuple[object | None, list[str]]:
+    """Relaxed copy of a FormalizationX for the second iso pass -> (f', abstractions). None if nothing parses."""
+    from .models_ext import ConstDeclX, FormalizationX, PredDeclX
+    from .schemas import FormulaItem, SortDecl
+    parsed, _ = fol.validate(f)
+    if parsed is None:
+        return None, []
+    abstractions: list[str] = []
+    sorts = {s.name for s in f.sorts}
+    sort_map = {s: "Obj" for s in sorts}
+    if len(sorts) > 1 or "Obj" not in sorts:
+        abstractions.append("sorts-erased:" + ",".join(sorted(sorts)))
+    pdecl = {p.name: tuple(p.arg_sorts) for p in f.predicates}
+    formulas = dict(parsed.formulas)
+    red = [p for p in redundant if p in parsed.premises and len(parsed.premises) > 1]
+    for pid in red:
+        formulas.pop(pid, None)
+        abstractions.append(f"redundant-dropped:{pid}")
+    guards = guard_only_predicates(formulas, pdecl)
+    new: dict = {}
+    dropped_all: list = []
+    for k, a in formulas.items():
+        a2, dropped = _drop_guards(a, guards)
+        dropped_all.extend(dropped)
+        new[k] = fol.rename(a2, {}, sort_map)
+    for g in sorted(set(dropped_all)):
+        abstractions.append(f"guard-dropped:{g}")
+    used = set()
+    for a in new.values():
+        p, c = fol.symbols(a)
+        used |= p | c
+    preds = [PredDeclX(name=p.name, arg_sorts=["Obj"] * len(p.arg_sorts), gloss=p.gloss,
+                       sense=getattr(p, "sense", "")) for p in f.predicates if p.name in used]
+    consts = [ConstDeclX(name=c.name, sort="Obj", gloss=c.gloss, sense=getattr(c, "sense", ""))
+              for c in f.constants if c.name in used]
+    f2 = FormalizationX(sorts=[SortDecl(name="Obj")], predicates=preds, constants=consts,
+                        premises=[FormulaItem(premise_id=k, sexpr=sx.to_sexpr(a)) for k, a in new.items() if k != "C"],
+                        conclusion=FormulaItem(premise_id="C", sexpr=sx.to_sexpr(new["C"])), notes=f.notes)
+    return f2, abstractions
+
+
+def relax_skeleton(s: Skel) -> Skel | None:
+    f2, abstractions = relax(s.f, s.redundant)
+    if f2 is None:
+        return None
+    r = skeleton(s.argument_id, f2)
+    if r is None:
+        return None
+    r.unverified = s.unverified
+    r.abstractions = tuple(abstractions)
+    return r
+
+
+def _flip(ast, flips: set):
+    """Swap the two arguments of every binary application whose predicate is in `flips`."""
+    if not flips:
+        return ast
+    if isinstance(ast, sx.App):
+        if ast.pred in flips and len(ast.args) == 2:
+            return sx.App(ast.pred, (ast.args[1], ast.args[0]))
+        return ast
+    if isinstance(ast, sx.Not):
+        return sx.Not(_flip(ast.arg, flips))
+    if isinstance(ast, (sx.And, sx.Or)):
+        return type(ast)(tuple(_flip(a, flips) for a in ast.args))
+    if isinstance(ast, (sx.Implies, sx.Iff)):
+        return type(ast)(_flip(ast.left, flips), _flip(ast.right, flips))
+    if isinstance(ast, sx.Quant):
+        return sx.Quant(ast.kind, ast.vars, _flip(ast.body, flips))
+    return ast
+
+
+def _binder_variants(ast):
+    """Every reordering of each quantifier's binder list (blocks of <= 4 variables are permuted)."""
+    if isinstance(ast, sx.Quant):
+        perms = list(itertools.permutations(ast.vars)) if len(ast.vars) <= 4 else [ast.vars]
+        for body in _binder_variants(ast.body):
+            for vs in perms:
+                yield sx.Quant(ast.kind, tuple(vs), body)
+    elif isinstance(ast, sx.Not):
+        for a in _binder_variants(ast.arg):
+            yield sx.Not(a)
+    elif isinstance(ast, (sx.And, sx.Or)):
+        for args in itertools.product(*[list(_binder_variants(a)) for a in ast.args]):
+            yield type(ast)(tuple(args))
+    elif isinstance(ast, (sx.Implies, sx.Iff, sx.Eq)):
+        for l in _binder_variants(ast.left):
+            for r in _binder_variants(ast.right):
+                yield type(ast)(l, r)
+    else:
+        yield ast
+
+
+def binder_canonical_text(ast, cap: int = config.ISO_MAX_PERMS) -> str:
+    """Normalized text minimized over binder orderings: `forall ((x S) (y S))` and `forall ((y S) (x S))` agree."""
+    best = None
+    for i, v in enumerate(_binder_variants(ast)):
+        t = fol.normalized_text(v)
+        if best is None or t < best:
+            best = t
+        if i >= cap:
+            break
+    return best if best is not None else fol.normalized_text(ast)
+
+
+def _relaxed_texts(norm_by_id: dict, mapping: dict, flips: set):
+    prem = sorted(binder_canonical_text(fol.rename(_flip(a, flips), mapping)) for k, a in norm_by_id.items() if k != "C")
+    return prem, binder_canonical_text(fol.rename(_flip(norm_by_id["C"], flips), mapping))
+
+
+def match_relaxed(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS, notes: list | None = None) -> dict | None:
+    """Second pass over RELAXED skeletons: predicate bijection x binary argument flips, compared under binder-canonical
+    text, then Z3-confirmed on the relaxed formulas. Evidence carries method='relaxed' and the abstractions used."""
+    notes = [] if notes is None else notes
+    if _signature(a) != _signature(b):
+        return None
+    bin_a = sorted(n for n, s in a.preds.items() if len(s) == 2)
+    if 2 ** len(bin_a) > config.ISO_MAX_PERMS:
+        notes.append(f"relaxed flip search skipped: 2^{len(bin_a)} flip sets > ISO_MAX_PERMS")
+        return None
+    target = _relaxed_texts(b.norm, {}, set())
+    flip_sets = [set(c) for k in range(len(bin_a) + 1) for c in itertools.combinations(bin_a, k)]
+    for m in _candidate_mappings(a, b, notes):
+        for flips in flip_sets:
+            if _relaxed_texts(a.norm, m, flips) != target:
+                continue
+            if z3_confirm(a, b, m, timeout_ms, {}, notes, tuple(sorted(flips)), binder_canonical_text):
+                return {"mapping": m, "sort_mapping": {}, "hash": a.hash, "method": "relaxed", "relaxed": True,
+                        "z3_verified": True, "flips": sorted(flips),
+                        "abstractions": {a.argument_id: list(a.abstractions), b.argument_id: list(b.abstractions)}}
+    return None
 
 
 def top_parsed_candidate(store, reconstruction_id: int):
@@ -360,6 +609,7 @@ def selected_skeletons(store, argument_ids: list[str], options: dict | None = No
         sk = skeleton(aid, form.formalization)
         if sk is not None:
             sk.unverified = unverified
+            sk.redundant = tuple(form.check.redundant_premises) if form.check else ()
         if sk is None:
             skip(aid, "skeleton failed validation")
         elif not sk.structured:
@@ -396,16 +646,24 @@ def iso(ctx: Ctx, unit: Unit) -> None:
 
 
 # ---- query helpers for reports
-def _rels(store, kind, run_id, unverified: bool | None):
-    """Relations of `kind`; unverified=False -> selected-only, True -> unverified-only, None -> both."""
+def _rels(store, kind, run_id, unverified: bool | None, relaxed: bool | None = False):
+    """Relations of `kind`; unverified=False -> selected-only, True -> unverified-only, None -> both; likewise
+    `relaxed` (round 3 second-pass matches; default False = strict matches only)."""
     rels = store.relations(kind, **({"run_id": run_id} if run_id is not None else {}))
-    if unverified is None:
-        return rels
-    return [r for r in rels if bool((r["evidence"] or {}).get("unverified")) == unverified]
+    out = []
+    for r in rels:
+        ev = r["evidence"] or {}
+        if unverified is not None and bool(ev.get("unverified")) != unverified:
+            continue
+        if relaxed is not None and bool(ev.get("relaxed")) != relaxed:
+            continue
+        out.append(r)
+    return out
 
 
-def iso_pairs(store, run_id: int | None = None, unverified: bool | None = False) -> set[frozenset]:
-    return {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "isomorphic-to", run_id, unverified)}
+def iso_pairs(store, run_id: int | None = None, unverified: bool | None = False,
+              relaxed: bool | None = False) -> set[frozenset]:
+    return {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "isomorphic-to", run_id, unverified, relaxed)}
 
 
 def skeleton_hashes(store, run_id: int | None = None, unverified: bool | None = False) -> dict[str, str]:
@@ -425,8 +683,9 @@ def same_hash_pairs(store, run_id: int | None = None) -> set[frozenset]:
     return {frozenset((a, b)) for a, b in itertools.combinations(sorted(hs), 2) if hs[a] == hs[b]}
 
 
-def weak_iso_pairs(store, run_id: int | None = None, unverified: bool | None = False) -> set[frozenset]:
-    return {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "weak-isomorphic", run_id, unverified)}
+def weak_iso_pairs(store, run_id: int | None = None, unverified: bool | None = False,
+                   relaxed: bool | None = False) -> set[frozenset]:
+    return {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "weak-isomorphic", run_id, unverified, relaxed)}
 
 
 def iso_eval(store, run_id: int | None = None) -> dict:
@@ -434,13 +693,15 @@ def iso_eval(store, run_id: int | None = None) -> dict:
     same-hash pairs that are not truth. `weak_found` = confirmed but too bare (`weak-isomorphic`, "shape-only"): never
     FP when graded in the human `weak_isomorphic_to` list (`weak_correct`); not counted in precision/recall.
     `unverified*` = pairs involving an `open` argument's top-ranked candidate (candidate not selected); the *_all keys
-    give a second precision/recall line that includes them."""
+    give a second precision/recall line that includes them, and (round 3) the relaxed-pass matches (`relaxed*`)."""
     found, truth = iso_pairs(store, run_id), store.iso_truth()
     wf, wt = weak_iso_pairs(store, run_id), weak_truth(store)
     tp = found & truth
-    unv = iso_pairs(store, run_id, True)
-    unv_weak = weak_iso_pairs(store, run_id, True)
-    found_all = found | unv
+    unv = iso_pairs(store, run_id, True, None)
+    unv_weak = weak_iso_pairs(store, run_id, True, None)
+    rel = iso_pairs(store, run_id, None, True)          # round 3: relaxed-pass matches (selected or unverified)
+    rel_weak = weak_iso_pairs(store, run_id, None, True)
+    found_all = found | unv | rel
     tp_all = found_all & truth
     return {"found": found, "truth": truth, "tp": tp, "fp": found - truth, "fn": truth - found,
             "precision": len(tp) / len(found) if found else None,
@@ -449,6 +710,8 @@ def iso_eval(store, run_id: int | None = None) -> dict:
             "weak_found": wf, "weak_correct": wf & wt, "weak_other": wf - wt,
             "unverified": unv, "unverified_tp": unv & truth, "unverified_fp": unv - truth,
             "unverified_weak": unv_weak, "unverified_weak_correct": unv_weak & wt,
+            "relaxed": rel, "relaxed_tp": rel & truth, "relaxed_fp": rel - truth,
+            "relaxed_weak": rel_weak, "relaxed_weak_correct": rel_weak & wt,
             "tp_all": tp_all, "fp_all": found_all - truth, "fn_all": truth - found_all,
             "precision_all": len(tp_all) / len(found_all) if found_all else None,
             "recall_all": len(tp_all) / len(truth) if truth else None}
