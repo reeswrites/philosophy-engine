@@ -39,6 +39,22 @@ def test_cwd_env_file_read_first_and_real_env_wins(tmp_path, monkeypatch):
     monkeypatch.delenv("PHIL_TEST_A", raising=False)
 
 
+def test_default_family_resolution_single_family(tmp_path, monkeypatch):
+    import argparse
+    from pathlib import Path
+    from philengine import cli
+    monkeypatch.delenv("PHIL_DATA_DIR", raising=False)
+    monkeypatch.delenv("PHIL_RUNS_DIR", raising=False)
+    (tmp_path / "data" / "rees").mkdir(parents=True)
+    (tmp_path / "runs").mkdir()
+    f = tmp_path / "data" / "rees" / "arguments.json"
+    f.write_text('[{"id": "a1", "name": "x"}]')
+    monkeypatch.chdir(tmp_path)
+    a = argparse.Namespace(data=None, db=None)
+    assert Path(cli._data_path(a)) == f
+    assert Path(cli._db_path(a)) == tmp_path / "runs" / "rees.db"
+
+
 def test_families_lists_cwd_data(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("PHIL_DATA_DIR", raising=False)
     (tmp_path / "data" / "mine").mkdir(parents=True)

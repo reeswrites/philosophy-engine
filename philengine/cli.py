@@ -5,6 +5,7 @@ import argparse
 import json
 import sys
 from collections import Counter
+from pathlib import Path
 
 from . import config, report
 from .pipeline import ALL_STAGES, run_all
@@ -14,12 +15,31 @@ from .store import Store
 PRICES: dict[str, tuple[float, float]] = getattr(config, "PRICES", {})
 
 
-def _db_path(a) -> str:
-    return a.db or str(config.runs_dir() / "phase0.db")
-
-
 def _data_path(a) -> str:
-    return a.data or str(config.data_dir() / "phase0" / "arguments.json")
+    d = getattr(a, "data", None)
+    if d:
+        return d
+    root = config.data_dir()
+    p0 = root / "phase0" / "arguments.json"
+    if p0.is_file():
+        return str(p0)
+    found = sorted(root.glob("*/arguments.json"))
+    if len(found) == 1:
+        return str(found[0])
+    print(f"no argument family found under {root}; pass --data", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _db_path(a) -> str:
+    if a.db:
+        return a.db
+    try:
+        family = Path(_data_path(a)).parent.name
+    except SystemExit:
+        if hasattr(a, "data"):
+            raise
+        family = "phase0"
+    return str(config.runs_dir() / f"{family}.db")
 
 
 def _store(a) -> Store:
