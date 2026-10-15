@@ -40,6 +40,7 @@ class Skel:
     norm: dict           # formula id ('C' too) -> normalized AST
     sorts: dict = None   # original sort name -> canonical sort id (S1.. by first occurrence)
     structured: bool = True  # has >= 1 quantifier or >= 1 predicate of arity >= 1 (else: all 0-ary atoms)
+    unverified: bool = False  # built from the top-ranked parsed candidate of an `open` argument (nothing was selected)
 
 
 def _occurrences(ast, bound, out):
@@ -309,10 +310,23 @@ def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
     return out
 
 
+def top_parsed_candidate(store, reconstruction_id: int):
+    """For an `open` argument: the best parsed candidate whose Z3 verdict is valid/inconsistent, ranked by judge
+    mean score (candidate_idx breaks ties). None if there is none."""
+    from . import checks
+    from .stage_common import latest_by_candidate
+    cands = [f for f in latest_by_candidate(store.list_formalizations(reconstruction_id))
+             if f.formalization is not None and f.check is not None and f.check.parse_ok
+             and checks.verdict_of(f.check) in ("valid", "inconsistent")]
+    cands.sort(key=lambda f: (-(f.judge.mean_score if f.judge else 0.0), f.candidate_idx))
+    return cands[0] if cands else None
+
+
 def selected_skeletons(store, argument_ids: list[str], options: dict | None = None,
                        skipped: list | None = None) -> list[Skel]:
     """Skeletons of selected formalizations whose selection verdict is "valid" (or "inconsistent") and that have real structure
-    (a quantifier or a predicate of arity >= 1). Others are appended to `skipped` as (argument_id, reason)."""
+    (a quantifier or a predicate of arity >= 1). For `open` arguments the top-ranked parsed candidate is used and the
+    skeleton is flagged `unverified` (candidate not selected). Others are appended to `skipped` as (argument_id, reason)."""
     def skip(aid, why):
         if skipped is not None:
             skipped.append((aid, why))
@@ -325,17 +339,27 @@ def selected_skeletons(store, argument_ids: list[str], options: dict | None = No
         except LookupError:
             continue
         sel = store.get_selection(rec.id)
-        if not sel or sel.chosen_formalization_id is None:
+        unverified = False
+        if sel and sel.verdict == "open":
+            form = top_parsed_candidate(store, rec.id)
+            if form is None:
+                skip(aid, "open, and no parsed valid/inconsistent candidate")
+                continue
+            unverified = True
+        elif not sel or sel.chosen_formalization_id is None:
             skip(aid, "no selected formalization")
             continue
-        if sel.verdict not in ("valid", "inconsistent"):
+        elif sel.verdict not in ("valid", "inconsistent"):
             skip(aid, f"selection verdict is {sel.verdict!r}, not 'valid' or 'inconsistent'")
             continue
-        form = store.get_formalization(sel.chosen_formalization_id)
+        else:
+            form = store.get_formalization(sel.chosen_formalization_id)
         if form.formalization is None:
             skip(aid, "selected formalization did not parse")
             continue
         sk = skeleton(aid, form.formalization)
+        if sk is not None:
+            sk.unverified = unverified
         if sk is None:
             skip(aid, "skeleton failed validation")
         elif not sk.structured:
@@ -356,12 +380,14 @@ def iso(ctx: Ctx, unit: Unit) -> None:
         st.insert_relation("argument", aid, "skeleton", "-", "iso-skipped", {"reason": why}, ctx.run_id)
     for s in skels:
         st.insert_relation("argument", s.argument_id, "skeleton", s.hash, "skeleton-hash",
-                           {"canonical": s.canonical}, ctx.run_id)
+                           {"canonical": s.canonical, **({"unverified": True} if s.unverified else {})}, ctx.run_id)
     skipped_pairs: list = []
     matches = match_all(skels, ctx.options.get("z3_timeout_ms") or config.Z3_TIMEOUT_MS, skipped_pairs)
     for x, y, why in skipped_pairs:
         st.insert_relation("argument", x, "argument", y, "iso-skipped", {"reason": why}, ctx.run_id)
     for a, b, ev in matches:
+        if a.unverified or b.unverified:
+            ev = {**ev, "unverified": True, "unverified_args": sorted(s.argument_id for s in (a, b) if s.unverified)}
         if is_rich(a) and is_rich(b):
             st.insert_relation("argument", a.argument_id, "argument", b.argument_id, "isomorphic-to", ev, ctx.run_id)
         else:  # confirmed, but the shared shape is too bare to be evidence of a shared argument form
@@ -370,14 +396,20 @@ def iso(ctx: Ctx, unit: Unit) -> None:
 
 
 # ---- query helpers for reports
-def iso_pairs(store, run_id: int | None = None) -> set[frozenset]:
-    rels = store.relations("isomorphic-to", **({"run_id": run_id} if run_id is not None else {}))
-    return {frozenset((r["src_id"], r["dst_id"])) for r in rels}
+def _rels(store, kind, run_id, unverified: bool | None):
+    """Relations of `kind`; unverified=False -> selected-only, True -> unverified-only, None -> both."""
+    rels = store.relations(kind, **({"run_id": run_id} if run_id is not None else {}))
+    if unverified is None:
+        return rels
+    return [r for r in rels if bool((r["evidence"] or {}).get("unverified")) == unverified]
 
 
-def skeleton_hashes(store, run_id: int | None = None) -> dict[str, str]:
-    rels = store.relations("skeleton-hash", **({"run_id": run_id} if run_id is not None else {}))
-    return {r["src_id"]: r["dst_id"] for r in rels}
+def iso_pairs(store, run_id: int | None = None, unverified: bool | None = False) -> set[frozenset]:
+    return {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "isomorphic-to", run_id, unverified)}
+
+
+def skeleton_hashes(store, run_id: int | None = None, unverified: bool | None = False) -> dict[str, str]:
+    return {r["src_id"]: r["dst_id"] for r in _rels(store, "skeleton-hash", run_id, unverified)}
 
 
 def weak_truth(store) -> set[frozenset]:
@@ -393,20 +425,30 @@ def same_hash_pairs(store, run_id: int | None = None) -> set[frozenset]:
     return {frozenset((a, b)) for a, b in itertools.combinations(sorted(hs), 2) if hs[a] == hs[b]}
 
 
-def weak_iso_pairs(store, run_id: int | None = None) -> set[frozenset]:
-    rels = store.relations("weak-isomorphic", **({"run_id": run_id} if run_id is not None else {}))
-    return {frozenset((r["src_id"], r["dst_id"])) for r in rels}
+def weak_iso_pairs(store, run_id: int | None = None, unverified: bool | None = False) -> set[frozenset]:
+    return {frozenset((r["src_id"], r["dst_id"])) for r in _rels(store, "weak-isomorphic", run_id, unverified)}
 
 
 def iso_eval(store, run_id: int | None = None) -> dict:
-    """precision/recall of confirmed (rich) pairs vs iso_truth; false_friends = same-hash pairs that are not truth.
-    `weak_found` = confirmed but too bare (`weak-isomorphic`, "shape-only"): never FP when graded in the human
-    `weak_isomorphic_to` list (`weak_correct`); not counted in precision/recall either way."""
+    """precision/recall of confirmed (rich) pairs vs iso_truth over SELECTED formalizations only; false_friends =
+    same-hash pairs that are not truth. `weak_found` = confirmed but too bare (`weak-isomorphic`, "shape-only"): never
+    FP when graded in the human `weak_isomorphic_to` list (`weak_correct`); not counted in precision/recall.
+    `unverified*` = pairs involving an `open` argument's top-ranked candidate (candidate not selected); the *_all keys
+    give a second precision/recall line that includes them."""
     found, truth = iso_pairs(store, run_id), store.iso_truth()
     wf, wt = weak_iso_pairs(store, run_id), weak_truth(store)
     tp = found & truth
+    unv = iso_pairs(store, run_id, True)
+    unv_weak = weak_iso_pairs(store, run_id, True)
+    found_all = found | unv
+    tp_all = found_all & truth
     return {"found": found, "truth": truth, "tp": tp, "fp": found - truth, "fn": truth - found,
             "precision": len(tp) / len(found) if found else None,
             "recall": len(tp) / len(truth) if truth else None,
             "false_friends": same_hash_pairs(store, run_id) - truth, "weak": wt,
-            "weak_found": wf, "weak_correct": wf & wt, "weak_other": wf - wt}
+            "weak_found": wf, "weak_correct": wf & wt, "weak_other": wf - wt,
+            "unverified": unv, "unverified_tp": unv & truth, "unverified_fp": unv - truth,
+            "unverified_weak": unv_weak, "unverified_weak_correct": unv_weak & wt,
+            "tp_all": tp_all, "fp_all": found_all - truth, "fn_all": truth - found_all,
+            "precision_all": len(tp_all) / len(found_all) if found_all else None,
+            "recall_all": len(tp_all) / len(truth) if truth else None}

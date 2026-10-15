@@ -75,6 +75,10 @@ Z3_SEED = 0
 JUDGE_MIN_SCORE = 0.6
 JUDGE_MEAN_SCORE = 0.8
 JUDGE_CONCLUSION_SCORE = 0.7
+JUDGE_MIN_PENALTY = 0.15      # select-score penalty per premise whose judge score is below JUDGE_MIN_SCORE (not a filter)
+JUDGE_MIN_PENALTY_CAP = 0.3
+GATE_AGREEMENT = 0.6          # gate (c): verdict agreement vs expected
+SENSE_REGISTRY_MAX = 60       # formalize prompt: max (label, sense, gloss) entries shown
 JUDGE_SAMPLES = 2   # judge calls per candidate (sample_idx 0..n-1); scores averaged, hard reject only if all flag it
 
 # Candidate diversity: the SDK no longer takes temperature, so each candidate idx gets a fixed prompt hint.

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from . import checks, config
-from .models_ext import SelectionResultX
+from .models_ext import SelectionResultX, hard_rejects
 from .runner import Ctx, Unit, register
 from .stage_common import latest_by_candidate, pick_reconstruction
 
@@ -21,10 +21,13 @@ def inconsistency_allowed(forms, expected: str | None) -> bool:
     return n >= 1 and (expected == "inconsistent" or n >= 2)
 
 
-def reject_reasons(form, allow_inconsistent: bool = False) -> tuple[list[str], bool]:
+def reject_reasons(form, allow_inconsistent: bool = False, expected: str | None = None) -> tuple[list[str], bool]:
     """-> (reasons, rejected_as_trivial). The flag is derived from the CHECKER only (nontrivial is False /
     vacuous); judge hard rejects are reported in `reasons` and counted separately (rejected_judge).
-    With allow_inconsistent, an unsat-premises candidate is not trivial/vacuous on that ground alone."""
+    With allow_inconsistent, an unsat-premises candidate is not trivial/vacuous on that ground alone.
+    When the human expected verdict is `inconsistent` and the candidate is unsat, a judge `conclusion_smuggled`
+    flag is ignored (an inconsistent premise set entails everything; that is the finding, not smuggling).
+    A judge min_score below threshold is NOT a filter any more (see judge_min_penalty)."""
     r: list[str] = []
     triv = False
     chk, j = form.check, form.judge
@@ -40,16 +43,21 @@ def reject_reasons(form, allow_inconsistent: bool = False) -> tuple[list[str], b
     if j is None:
         r.append("no judge report")
         return r, triv
-    flags = getattr(j, "hard_reject", False)
-    if flags:
-        r.append(f"judge hard reject: {[x for x in j.flags]}")
-    if j.min_score < config.JUDGE_MIN_SCORE:
-        r.append(f"judge min_score {j.min_score:.2f} < {config.JUDGE_MIN_SCORE}")
+    ignore = ("conclusion_smuggled",) if (expected == "inconsistent" and chk.consistent == "unsat") else ()
+    if hard_rejects(j, ignore):
+        r.append(f"judge hard reject: {[x for x in j.flags if x not in ignore]}")
     if j.mean_score < config.JUDGE_MEAN_SCORE:
         r.append(f"judge mean_score {j.mean_score:.2f} < {config.JUDGE_MEAN_SCORE}")
     if j.conclusion_score < config.JUDGE_CONCLUSION_SCORE:
         r.append(f"judge conclusion_score {j.conclusion_score:.2f} < {config.JUDGE_CONCLUSION_SCORE}")
     return r, triv
+
+
+def judge_min_penalty(j) -> tuple[float, list[str]]:
+    """Soft replacement for the old min_score filter: JUDGE_MIN_PENALTY per premise scoring below JUDGE_MIN_SCORE,
+    capped at JUDGE_MIN_PENALTY_CAP. -> (penalty, failing premise ids)."""
+    bad = sorted(k for k, v in j.scores.items() if v < config.JUDGE_MIN_SCORE)
+    return min(config.JUDGE_MIN_PENALTY * len(bad), config.JUDGE_MIN_PENALTY_CAP), bad
 
 
 def has_unknown_probe(chk) -> bool:
@@ -83,6 +91,7 @@ def score(form, max_preds: int, penalized: bool = False, orphan: bool = False) -
           + w["decided"] * (1.0 if checks.verdict_of(chk) in ("valid", "refuted", "inconsistent") else 0.0))
     sc -= config.UNKNOWN_PROBE_PENALTY if has_unknown_probe(chk) else 0.0
     sc -= config.ORPHAN_CONCLUSION_PENALTY if orphan else 0.0
+    sc -= judge_min_penalty(j)[0]
     return sc - (config.SUSPECT_BICONDITIONAL_PENALTY if penalized else 0.0)
 
 
@@ -97,7 +106,7 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
                     (recon_id,))
     allow_incons = inconsistency_allowed(forms, row["e"] if row else None)
     for f in forms:
-        reasons, triv = reject_reasons(f, allow_incons)
+        reasons, triv = reject_reasons(f, allow_incons, row["e"] if row else None)
         rejected_trivial += triv
         rejected_judge += any(r.startswith("judge hard reject") for r in reasons)
         if f.check is not None and f.check.parse_ok and has_unknown_probe(f.check):
@@ -111,6 +120,10 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
         if pen:
             entry["notes"] = [*entry.get("notes", []), f"suspect biconditional penalty {config.SUSPECT_BICONDITIONAL_PENALTY} on {pen}"]
             bic_reviews.append((f.candidate_idx, pen))
+        if f.judge is not None:
+            jp, bad = judge_min_penalty(f.judge)
+            if bad:
+                entry["notes"] = [*entry.get("notes", []), f"judge min_score penalty {jp:.2f} on {bad} (< {config.JUDGE_MIN_SCORE})"]
         orph = list(f.check.orphan_conclusion_predicate) if f.check else []
         if orph:
             entry["flags"] = ["orphan_conclusion_predicate"]

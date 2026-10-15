@@ -35,9 +35,25 @@ def normalize_label(label: str) -> str:
     return _norm_part(label)
 
 
-def normalize_sense(sense: str) -> str:
-    """Like normalize_label, but ':' stays the separator between sense parts: `Person:Moral-Person` -> `person:moral`."""
-    return ":".join(p for p in (_norm_part(x) for x in sense.split(":")) if p)
+def normalize_sense(sense: str, label: str | None = None) -> str:
+    """Like normalize_label, but ':' stays the separator between sense parts: `Person:Moral-Person` -> `person:moral`
+    (everything outside [a-z0-9:] becomes `_`, runs collapse). With a (normalized) `label`, a sense part that merely
+    repeats the label is folded away: label `feels_good`: `feels_good:feels_good_hedonic` -> `feels_good:hedonic`,
+    `feels_good:feels_good` -> `feels_good`. (`feels:good` for label `feels_good` is NOT folded: it is indistinguishable
+    from the legitimate `exists:actual` for `exists_actual`; the formalize sense registry steers the model instead.)"""
+    parts = [p for p in (_norm_part(x) for x in sense.lower().split(":")) if p]
+    if label and parts:
+        label = _norm_part(label)
+        if parts[0] == label and len(parts) > 1:
+            rest = parts[1:]
+            if rest[0] == label:
+                rest = rest[1:]
+            elif rest[0].startswith(label + "_"):
+                rest[0] = rest[0][len(label) + 1:]
+            return ":".join([label, *rest]) if rest else label
+        if parts[0].startswith(label + "_") and len(parts) == 1:
+            return label + ":" + parts[0][len(label) + 1:]
+    return ":".join(parts)
 
 
 def norm_gloss(g: str) -> str:

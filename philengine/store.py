@@ -105,7 +105,8 @@ class Store:
             return {r["name"] for r in self.db.execute(f"PRAGMA table_info({t})")}
         fresh_scope = "run_id" not in cols("concept")
         for table, col, ddl in (("formalization", "strategy_hint", "TEXT"), ("concept", "raw_label", "TEXT"),
-                                ("concept", "run_id", "INTEGER"), ("review", "run_id", "INTEGER")):
+                                ("concept", "run_id", "INTEGER"), ("review", "run_id", "INTEGER"),
+                                ("concept", "n_uses", "INTEGER DEFAULT 0")):
             if col not in cols(table):
                 self.db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
         if fresh_scope:
@@ -131,7 +132,8 @@ class Store:
             if not rids:
                 continue
             for rid in rids:
-                lab, sen = senses.normalize_label(c["label"]), senses.normalize_sense(c["sense"] or "")
+                lab = senses.normalize_label(c["label"])
+                sen = senses.normalize_sense(c["sense"] or "", lab)
                 cid = self.concept_id(lab, sen, c["gloss"] or "", rid)
                 self.db.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen,raw_label,run_id) "
                                 "VALUES (?,?,?,?,?,?,?)", (cid, lab, c["gloss"], sen, c["first_seen"], c["label"], rid))
@@ -352,7 +354,8 @@ class Store:
         Concepts are scoped per run when run_id is given, so each run has its own registry."""
         from . import senses
         raw_label = label
-        label, sense = senses.normalize_label(label), senses.normalize_sense(sense)
+        label = senses.normalize_label(label)
+        sense = senses.normalize_sense(sense, label)
         cid = self.concept_id(label, sense, gloss, run_id)
         is_new = self.one("SELECT 1 FROM concept WHERE id=?", (cid,)) is None
         if is_new and sense:
@@ -371,9 +374,15 @@ class Store:
                                       "argument_ids": sorted({r["first_seen"] for r in aliases if r["first_seen"]}
                                                              | ({first_seen} if first_seen else set()))}, run_id)
                 self.insert_review("concept", label, f"same sense {sense!r} under different labels: {[label, *other]}", run_id)
-        self.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen,raw_label,run_id) VALUES (?,?,?,?,?,?,?)",
+        self.execute("INSERT OR IGNORE INTO concept(id,label,gloss,sense,first_seen,raw_label,run_id,n_uses) VALUES (?,?,?,?,?,?,?,0)",
                      (cid, label, gloss, sense, first_seen, raw_label, run_id))
+        self.execute("UPDATE concept SET n_uses=COALESCE(n_uses,0)+1 WHERE id=?", (cid,))
         return cid
+
+    def sense_registry(self, run_id: int | None, limit: int = 60) -> list[sqlite3.Row]:
+        """This run's concept rows so far (label, sense, gloss, n_uses), most-used first, capped."""
+        return self.query("SELECT label, sense, gloss, COALESCE(n_uses,0) n_uses FROM concept WHERE run_id IS ? "
+                          "ORDER BY n_uses DESC, label, sense, rowid LIMIT ?", (run_id, limit))
 
     def concepts_by_label(self, label: str, run_id: int | None = None) -> list[sqlite3.Row]:
         return self.query("SELECT * FROM concept WHERE label=? AND run_id IS ? ORDER BY rowid", (label, run_id))

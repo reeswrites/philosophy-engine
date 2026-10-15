@@ -24,6 +24,7 @@ Failure to avoid (Anselm). P1 "God exists in the understanding." P2 "If God exis
 
 Fidelity rules:
 - One predicate per distinct concept; reuse the same predicate (same sense) for the same concept across premises.
+- If a SENSE REGISTRY block follows the argument, reuse a listed (label, sense, gloss) whenever it matches the meaning you need; coin a new sense only when the meaning genuinely differs, and name it so it contrasts with the listed ones.
 - Translate each premise as stated. Do NOT strengthen a premise to make the proof go through and do NOT weaken the conclusion.
 - Every predicate that occurs in the conclusion C MUST also occur in at least one premise; a predicate that appears only in C is rejected as an orphan (it means the conclusion introduces content no premise supports).
 - Never hide the conclusion inside a premise: no premise may equal, contain as a conjunct, or trivially entail the conclusion, and do not introduce a predicate that is a copy of the conclusion.

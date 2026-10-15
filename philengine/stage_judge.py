@@ -33,7 +33,7 @@ def build_report(outs: JudgeOut | list[JudgeOut], bt: dict[str, str], verbalizat
         back_translations=bt, scores=scores, conclusion_score=concl,
         min_score=min(allv), mean_score=sum(allv) / len(allv), flags=flags,
         per_item_comments=comments, hard_reject=hard, verbalization=verbalization,
-        n_samples=n, judge_call_ids=list(call_ids or []))
+        n_samples=n, judge_call_ids=list(call_ids or []), sample_flags=[list(o.flags) for o in outs])
 
 
 def judge_one(ctx: Ctx, argument_id: str, rec_row, form) -> None:

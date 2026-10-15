@@ -80,8 +80,11 @@ directory if they exist; else this repo's own. `.env` is read from the CWD first
 ## Phase 0 gate
 
 `phil gate` passes iff (a) all five stages (reconstruct, formalize, judge, select, iso) ran over all
-arguments with 0 failed jobs, and (b) selection rejected >= 1 trivialized candidate across the run
-(`rejected_trivial` total >= 1).
+arguments with 0 failed jobs; (b) selection demonstrably rejects trivialized candidates:
+`rejected_trivial` + judge hard-rejects carrying `conclusion_smuggled` >= 1 across the run (waived for mock
+runs; the orphan-conclusion check is a soft penalty now, so `rejected_trivial` alone was unreachable); and
+(c) verdict agreement vs expected >= 60% over arguments with an expected verdict (percentage printed;
+waived for mock runs, whose canned responses say nothing about the arguments).
 
 Current result:
 - Mock: **PASS** (see `runs/report-mock.md`). Caveat: the mock formalizes most arguments as opaque atoms,
@@ -271,3 +274,14 @@ across runs for the same human reconstruction row (5–7 shown instead of 3).
 5. `senses.normalize_label/normalize_sense` run inside `Store.upsert_concept` (`concept.raw_label` keeps the original); `concept` and `review` have `run_id` (concepts are scoped per run); old DBs are migrated and backfilled on open; report/dashboard filter by run.
 6. Judge samples `JUDGE_SAMPLES`=2 (sample_idx 0, 1), scores averaged, `hard_reject` only if every sample has a hard flag; `JudgeReportX.judge_call_ids`.
 7. conftest loads `.env` first; live tests are skipped unless `-m llm` is given.
+
+## Fix round 2 (after live runs on two families)
+
+1. Gate (b) redefined, gate (c) added (agreement >= 60%); `report.gate`, `phil gate`, report and dashboard text updated.
+2. Judge `min_score` below `JUDGE_MIN_SCORE` is a select-score penalty (`JUDGE_MIN_PENALTY` 0.15 per failing premise, cap 0.3), not a filter. Hard judge flags (both samples agree), `mean_score` and `conclusion_score` still filter.
+3. `conclusion_smuggled` is ignored when the human expected verdict is `inconsistent` and the candidate is unsat; the judge prompt says an inconsistent premise set is not smuggling.
+4. `PremiseIn.shared_id` (optional) survives ingest/store; report and dashboard gain a "Shared premise reliance" table and list formally idle shared premises.
+5. Iso uses the top-ranked parsed valid/inconsistent candidate of `open` arguments, tagged `unverified: true`; precision/recall stay selected-only, with a second "incl. unverified" line.
+6. Formalize prompt carries a per-run sense registry (<= 60 entries, most-used first) with a reuse-or-contrast instruction; `normalize_sense` folds a sense part repeating the label. `feels:good` vs `feels_good:...` is not folded mechanically (indistinguishable from `exists:actual` for `exists_actual`); the registry steers instead.
+7. `--from-human` makes no reconstruct LLM call (the human reconstruction is copied into the run, source `human`).
+8. Judge prompt: implicit premises strong enough to make the empirical premises idle are flagged `strengthened`.

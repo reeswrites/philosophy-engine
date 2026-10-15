@@ -13,6 +13,22 @@ def strategy_hint(candidate_idx: int) -> str:
     return h[candidate_idx % len(h)]
 
 
+REGISTRY_INSTRUCTION = (
+    "SENSE REGISTRY for this run (concepts already declared in other arguments: label | sense | gloss). "
+    "Reuse an existing (label, sense, gloss) exactly when the meaning you need matches it. Only coin a new sense "
+    "when the meaning genuinely differs, and then name it so it contrasts with the existing ones (same label family, "
+    "different sense id and a different, specific gloss). Do not coin a near-duplicate under a new spelling.")
+
+
+def sense_registry_block(st, run_id, limit: int | None = None) -> str:
+    """Prompt block listing this run's (label, sense, gloss) entries so far, most-used first, capped (~60). '' if empty."""
+    rows = st.sense_registry(run_id, int(limit or config.SENSE_REGISTRY_MAX))
+    if not rows:
+        return ""
+    lines = [f"- {r['label']} | {r['sense']} | {senses.norm_gloss(r['gloss'] or '')}" for r in rows]
+    return REGISTRY_INSTRUCTION + "\n" + "\n".join(lines)
+
+
 def formalize_one(ctx: Ctx, argument_id: str, rec_row, candidate_idx: int) -> int:
     st = ctx.store
     ids = [p.id for p in rec_row.reconstruction.premises]
@@ -28,6 +44,9 @@ def formalize_one(ctx: Ctx, argument_id: str, rec_row, candidate_idx: int) -> in
         system, user = prompts.load_split("formalize", "v1", reconstruction=prem_text, conclusion=concl,
                                           retry_feedback=retry)
         user = f"{user}\n\nStrategy hint for this candidate (a stylistic preference; never override the rules above): {hint}"
+        registry = sense_registry_block(st, ctx.run_id)
+        if registry:
+            user = f"{user}\n\n{registry}"
         res = ctx.llm.call(stage="formalize", system=system, user=user, schema=schema,
                            argument_id=argument_id, candidate_idx=candidate_idx, sample_idx=candidate_idx,
                            temperature=temp, model=model, prompt_name="formalize.v1")

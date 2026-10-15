@@ -115,7 +115,8 @@ def build_data(store: Store, run_id: int) -> dict:
         objections.append({"id": r["src_id"], "argument": e.get("argument_id"), "dst_kind": r["dst_kind"],
                            "dst_id": r["dst_id"], "text": e.get("text") or e.get("objection") or "",
                            "target": e.get("target")})
-    isos = [{"a": sorted(k)[0], "b": sorted(k)[1], "evidence": v["evidence"]} for k, v in iso_rel.items()]
+    isos = [{"a": sorted(k)[0], "b": sorted(k)[1], "evidence": v["evidence"],
+              "unverified": bool((v["evidence"] or {}).get("unverified"))} for k, v in iso_rel.items()]
 
     reviews = [dict(r) for r in store.reviews(run_id)]
     calls: dict[tuple, dict] = {}
@@ -137,12 +138,14 @@ def build_data(store: Store, run_id: int) -> dict:
         "run": {"id": run_id, "mock": bool(run and run["mock"]), "started": started,
                 "z3": run["z3_version"] if run else None, "git_sha": run["git_sha"] if run else None},
         "stage_counts": stage_counts, "stages": list(ALL_STAGES), "gate": g,
-        "gate_line": f"Gate: {'PASS' if g['passed'] else 'FAIL'} (all stages ran with 0 failed jobs: {g['a_ok']}; "
-                     f"rejected_trivial total = {g['rejected_trivial']})",
+        "gate_line": f"Gate: {'PASS' if g['passed'] else 'FAIL'} ({report.gate_summary(g)})",
+        "shared_reliance": report.shared_reliance(store, run_id, rows),
         "iso": {"precision": ev["precision"], "recall": ev["recall"], "truth": _pairs(ev["truth"]),
                 "found": _pairs(ev["found"]), "tp": _pairs(ev["tp"]), "fp": _pairs(ev["fp"]),
                 "fn": _pairs(ev["fn"]), "weak_found": _pairs(ev["weak_found"]), "weak_correct": _pairs(ev["weak_correct"]),
-                "weak_other": _pairs(ev["weak_other"]), "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
+                "weak_other": _pairs(ev["weak_other"]),
+                "precision_all": ev["precision_all"], "recall_all": ev["recall_all"],
+                "unverified": _pairs(ev["unverified"]), "unverified_weak": _pairs(ev["unverified_weak"]), "false_friends": _pairs(ev["false_friends"]), "weak": _pairs(ev["weak"])},
         "arguments": args, "premises": list(premises.values()), "concepts": concepts, "concept_edges": cedges,
         "objections": objections, "isos": isos, "reviews": reviews, "calls": list(calls.values()),
     }
@@ -251,10 +254,16 @@ let curArg=D.arguments[0]?.id;
   <td>${a.agree===true?'<span class="pill yes">yes</span>':a.agree===false?'<span class="pill NO">NO</span>':'-'}</td><td>${a.contested?'yes':''}</td><td>${a.rejected_trivial}</td><td>${a.rejected_judge}</td><td>${a.n_candidates}</td></tr>`}
  const dec=D.arguments.filter(a=>a.agree!=null);
  h+=`</table><p>Agreement: ${dec.filter(a=>a.agree).length}/${tr} (undecided: ${tr-dec.length})</p>`;
+ const SR=D.shared_reliance||[];
+ if(SR.length){h+=`<h2>Shared premise reliance</h2><p class="muted">Per shared premise: arguments citing it, and in how many decided arguments the chosen formalization actually needs it (not in redundant_premises).</p>
+ <table><tr><th>shared_id</th><th>arguments citing</th><th>needed in</th><th>idle in</th></tr>`;
+  for(const d of SR){h+=`<tr><td>${esc(d.shared_id)}</td><td>${d.arguments.map(a=>esc(a.argument+':'+a.label)).join(', ')}</td><td>${d.n_needed}/${d.n_decided} (of ${d.n_args} citing)</td><td>${esc(d.arguments.filter(a=>a.needed===false).map(a=>a.argument).join(', ')||'-')}</td></tr>`}
+  h+=`</table><p>Formally idle shared premises: ${esc(SR.filter(d=>d.idle).map(d=>d.shared_id).join(', ')||'none')}</p>`}
  const I=D.iso;
- h+=`<h2>Isomorphism</h2><div class="cards"><div class="card">precision<b>${fmt(I.precision)}</b></div><div class="card">recall<b>${fmt(I.recall)}</b></div></div>
+ h+=`<h2>Isomorphism</h2><div class="cards"><div class="card">precision<b>${fmt(I.precision)}</b></div><div class="card">recall<b>${fmt(I.recall)}</b></div><div class="card">precision incl. unverified<b>${fmt(I.precision_all)}</b></div><div class="card">recall incl. unverified<b>${fmt(I.recall_all)}</b></div></div>
  <table><tr><th>truth</th><td>${esc(pairs(I.truth))}</td></tr><tr><th>found</th><td>${esc(pairs(I.found))}</td></tr><tr><th>false positives</th><td>${esc(pairs(I.fp))}</td></tr>
  <tr><th>false negatives</th><td>${esc(pairs(I.fn))}</td></tr><tr><th>false friends</th><td>${esc(pairs(I.false_friends))}</td></tr><tr><th>weak (graded)</th><td>${esc(pairs(I.weak))}</td></tr>
+ <tr><th>unverified (candidate not selected)</th><td>${esc(pairs(I.unverified))}</td></tr><tr><th>unverified, shape-only</th><td>${esc(pairs(I.unverified_weak))}</td></tr>
  <tr><th>shape-only (weak-isomorphic)</th><td>${esc(pairs(I.weak_found))}</td></tr><tr><th>weak-correct</th><td>${esc(pairs(I.weak_correct))}</td></tr></table>`;
  $('#overview').innerHTML=h;
 })();
@@ -351,7 +360,7 @@ function drawGraph(){
  const tip=$('#tip');
  const showTip=(e,h)=>{tip.innerHTML=h;tip.style.display='block';tip.style.left=Math.min(e.clientX+12,innerWidth-440)+'px';tip.style.top=(e.clientY+12)+'px'};
  link.on('mousemove',(e,d)=>{
-  if(d.kind==='iso')showTip(e,`<b>${esc(d.source.arg||d.source.label)} ~ ${esc(d.target.label)}</b> isomorphic-to<br><span class="mono">${esc(JSON.stringify(d.ev?.mapping||d.ev))}</span>`);
+  if(d.kind==='iso')showTip(e,`<b>${esc(d.source.arg||d.source.label)} ~ ${esc(d.target.label)}</b> isomorphic-to<br><span class="mono">${esc(JSON.stringify(d.ev?.mapping||d.ev))}</span>${d.ev?.unverified?'<br>unverified (candidate not selected)':''}`);
   else if(d.kind==='hash')showTip(e,`same skeleton hash${d.ff?' (false friend: not in truth)':''}`);
   else showTip(e,esc(d.kind));}).on('mouseleave',()=>tip.style.display='none');
  const node=root.append('g').selectAll('g').data(nodes).join('g').style('cursor','pointer')

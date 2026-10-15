@@ -9,6 +9,15 @@ from .stage_common import feedback, opt, validation_errors
 
 @register("reconstruct")
 def reconstruct(ctx: Ctx, unit: Unit) -> None:
+    if ctx.options.get("from_human"):  # no LLM call: the human reconstruction is this run's reconstruction
+        st = ctx.store
+        h = st.latest_reconstruction(unit.argument_id, "human")
+        if h is None:
+            raise LookupError(f"no human reconstruction for {unit.argument_id!r}; run ingest first")
+        if not st.one("SELECT 1 FROM reconstruction WHERE argument_id=? AND source='human' AND run_id IS ?",
+                      (unit.argument_id, ctx.run_id)):
+            st.insert_reconstruction(unit.argument_id, "human", h.reconstruction, model=None, run_id=ctx.run_id)
+        return
     a = ctx.store.get_argument(unit.argument_id)
     # (not load_split: its own `name` parameter collides with the {{ name }} template variable)
     system, user = prompts.split(prompts.render(

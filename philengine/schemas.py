@@ -17,6 +17,7 @@ class PremiseIn(BaseModel):
     implicit: bool = False
     type: Type
     rationale: str = ""  # for implicit: why needed / where the text hints at it
+    shared_id: str | None = None  # id in a family-wide shared-premise library (additive; kept through ingest/store)
 
 
 class Reconstruction(BaseModel):

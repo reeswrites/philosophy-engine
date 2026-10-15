@@ -217,8 +217,12 @@ def cmd_gate(a) -> int:
     print(f"run {rid}")
     print(f"(a) all five stages ran with 0 failed jobs: {'OK' if g['a_ok'] else 'NO'}"
           f" (missing stages: {g['missing_stages'] or 'none'}; failed: {g['failed']}; not done: {g['not_done']})")
-    print(f"(b) checker rejected >=1 trivialized candidate (judge rejects excluded): {'OK' if g['b_ok'] else 'NO'}"
-          f" (rejected_trivial total = {g['rejected_trivial']})")
+    print(f"(b) selection rejected >=1 trivialized candidate (checker trivial/vacuous, or judge hard-flag conclusion_smuggled;"
+          f" mock runs waive): {'OK' if g['b_ok'] else 'NO'}"
+          f" (rejected_trivial = {g['rejected_trivial']}, judge conclusion_smuggled rejects = {g['rejected_smuggled']}, mock = {g['mock']})")
+    ag = "n/a" if g["agreement"] is None else f"{g['agreement'] * 100:.0f}% ({g['n_agree']}/{g['n_expected']})"
+    print(f"(c) verdict agreement vs expected >= {config.GATE_AGREEMENT * 100:.0f}% (mock runs waive): {'OK' if g['c_ok'] else 'NO'}"
+          f" (agreement = {ag})")
     print(f"GATE: {'PASS' if g['passed'] else 'FAIL'}")
     return 0 if g["passed"] else 1
 

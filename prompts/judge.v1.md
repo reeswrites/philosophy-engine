@@ -22,6 +22,10 @@ VERBALIZED FORMALIZATION (read back mechanically from glosses)
 
 Each verbalized line may end with a LEGEND after two spaces, e.g. `[P1] For every Obj x: if x is human then x is mortal  {human=human:biological, mortal=mortal:ceases-to-live}`. It lists, for the symbols that line uses, `symbol=sense-id`. The legend is NOT part of the claim; it tells you which sense each symbol carries. Raise `sense_drift` when a symbol's sense id or gloss conflicts with how the reconstruction uses the corresponding word in that item (e.g. a symbol whose sense is "exists in reality" used for a premise that says "exists in the understanding"), or when one symbol is used in two items whose reconstruction texts need different senses.
 
+An inconsistent premise set is NOT smuggling: if the premises, as read back, contradict each other (the reconstruction itself is meant to show a tension), do not raise `conclusion_smuggled` merely because the conclusion then follows from some premise or from the inconsistency. Raise it only when a premise restates the conclusion.
+
+Implicit premises that are strong enough to make the explicit (empirical) premises idle, so that the conclusion follows from the implicit premises alone, must be flagged `strengthened` (and `added_content` if the implicit premise introduces claims the reconstruction does not make). The added bridge doing all the work is a faithfulness failure even when the inference is valid.
+
 A biconditional ("if and only if") premise in the verbalization that has no counterpart in the reconstruction text is `conclusion_smuggled`: the formalization has added the bridge that makes the conclusion follow. (An explicit biconditional or definition stated in the reconstruction is fine.)
 
 Use the item ids shown in square brackets ([P1], [P2], ..., [C]).

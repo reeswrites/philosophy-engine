@@ -27,7 +27,7 @@ class ReconstructionX(Reconstruction):
 
     def to_frozen(self) -> Reconstruction:
         ps = [PremiseIn(id=p.id, text=p.text, implicit=p.implicit, type=p.type,
-                        rationale=p.rationale) for p in self.premises]
+                        rationale=p.rationale, shared_id=p.shared_id) for p in self.premises]
         ct = self.conclusion_type
         return Reconstruction(premises=ps, conclusion=self.conclusion, conclusion_type=ct, notes=self.notes)
 
@@ -84,6 +84,17 @@ class JudgeOut(BaseModel):
 HARD_REJECT_FLAGS = ("conclusion_smuggled", "sense_drift", "missing_implicit_premise")
 
 
+def hard_rejects(j, ignore: tuple[str, ...] = ()) -> bool:
+    """Judge hard reject (every sample raised a hard flag), optionally ignoring some hard flags."""
+    if not ignore:
+        return bool(getattr(j, "hard_reject", False))
+    live = tuple(x for x in HARD_REJECT_FLAGS if x not in ignore)
+    sf = getattr(j, "sample_flags", None)
+    if sf:
+        return all(any(x in live for x in s) for s in sf)
+    return bool(getattr(j, "hard_reject", False)) and any(x in live for x in j.flags)
+
+
 # ---- step 3 extensions (schemas.py is frozen; these widen it without editing it) ----
 from .schemas import JudgeReport, SelectionResult  # noqa: E402
 
@@ -99,6 +110,7 @@ class JudgeReportX(JudgeReport):
     verbalization: str = ""
     n_samples: int = 1
     judge_call_ids: list[int] = []  # one llm_call id per judge sample used
+    sample_flags: list[list[str]] = []  # each judge sample's own flags (hard_reject = every sample has a hard flag)
 
 
 class SelectionResultX(SelectionResult):
