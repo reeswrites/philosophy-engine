@@ -1,0 +1,46 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "man",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "is a man"
+  },
+  {
+   "name": "mortal",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "is mortal"
+  },
+  {
+   "name": "wise",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "is wise"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((x Obj)) (=> (man x) (mortal x)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(forall ((y Obj)) (wise y))"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(forall ((z Obj)) (or (not (man z)) (mortal z)))"
+ },
+ "notes": ""
+}

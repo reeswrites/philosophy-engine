@@ -1,0 +1,37 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "r",
+   "arg_sorts": [
+    "Obj",
+    "Obj"
+   ],
+   "gloss": "is related to"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((x Obj)) (exists ((y Obj)) (r x y)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(forall ((x Obj) (y Obj) (z Obj)) (=> (and (r x y) (r y z)) (r x z)))"
+  },
+  {
+   "premise_id": "P3",
+   "sexpr": "(forall ((x Obj)) (not (r x x)))"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(exists ((x Obj)) (not (= x x)))"
+ },
+ "notes": ""
+}

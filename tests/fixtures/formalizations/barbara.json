@@ -1,0 +1,45 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "man",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "is a man"
+  },
+  {
+   "name": "mortal",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "is mortal"
+  }
+ ],
+ "constants": [
+  {
+   "name": "socrates",
+   "sort": "Obj",
+   "gloss": "socrates"
+  }
+ ],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((x Obj)) (=> (man x) (mortal x)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(man socrates)"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(mortal socrates)"
+ },
+ "notes": ""
+}

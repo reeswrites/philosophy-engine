@@ -1,0 +1,44 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "rains",
+   "arg_sorts": [],
+   "gloss": "it rains"
+  },
+  {
+   "name": "wet",
+   "arg_sorts": [],
+   "gloss": "ground wet"
+  },
+  {
+   "name": "cold",
+   "arg_sorts": [],
+   "gloss": "it is cold"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(=> rains wet)"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "rains"
+  },
+  {
+   "premise_id": "P3",
+   "sexpr": "(=> cold rains)"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "wet"
+ },
+ "notes": ""
+}

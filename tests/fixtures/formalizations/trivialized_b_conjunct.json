@@ -1,0 +1,40 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "wise",
+   "arg_sorts": [],
+   "gloss": "wise"
+  },
+  {
+   "name": "good",
+   "arg_sorts": [],
+   "gloss": "good"
+  },
+  {
+   "name": "happy",
+   "arg_sorts": [],
+   "gloss": "happy"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(and (=> wise good) happy)"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "wise"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "happy"
+ },
+ "notes": ""
+}

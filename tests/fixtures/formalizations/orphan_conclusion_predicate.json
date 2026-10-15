@@ -1,0 +1,40 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "p",
+   "arg_sorts": [],
+   "gloss": "p"
+  },
+  {
+   "name": "q",
+   "arg_sorts": [],
+   "gloss": "q"
+  },
+  {
+   "name": "conclusion_holds",
+   "arg_sorts": [],
+   "gloss": "the conclusion holds"
+  }
+ ],
+ "constants": [],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(=> p q)"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(not p)"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "conclusion_holds"
+ },
+ "notes": ""
+}
