@@ -106,8 +106,36 @@ def _loads(text: str | None) -> dict | None:
         return None
 
 
+def _closed_schema(schema: dict) -> dict | None:
+    """Deep-copy a pydantic JSON schema and set additionalProperties=false on every object node
+    (required by the structured-outputs API). Returns None if the schema has an open dict field
+    (additionalProperties given as a sub-schema), which structured outputs cannot express."""
+    import copy
+
+    class _Open(Exception):
+        pass
+
+    def walk(n):
+        if isinstance(n, dict):
+            if isinstance(n.get("additionalProperties"), dict):
+                raise _Open()
+            if n.get("type") == "object" or "properties" in n:
+                n.setdefault("additionalProperties", False)
+            for v in n.values():
+                walk(v)
+        elif isinstance(n, list):
+            for v in n:
+                walk(v)
+    out = copy.deepcopy(schema)
+    try:
+        walk(out)
+    except _Open:
+        return None
+    return out
+
+
 class LLMClient(_Base):
-    """Anthropic SDK; structured output via a single forced tool whose input_schema is `schema`."""
+    """Anthropic SDK; structured output via output_config.format (json_schema = `schema`)."""
     use_cache = True
 
     def __init__(self, store: Store, run_id: int | None = None, api_key: str | None = None):
@@ -120,11 +148,22 @@ class LLMClient(_Base):
         self._client = anthropic.Anthropic(api_key=key, max_retries=3)
 
     def _complete(self, *, system, user, schema, model, temperature, max_tokens, **_):
-        kw: dict = dict(model=model, max_tokens=max_tokens, temperature=temperature, system=system,
+        # anthropic>=1.0 removed the `temperature` kwarg (and Sonnet/Haiku 5.5 reject non-default values),
+        # and Sonnet 5.5 returns 400 for forced tool_choice; structured outputs (output_config.format) are
+        # the documented replacement for "forced tool just to get JSON". `temperature` is still recorded
+        # in the llm_call row / cache key for provenance but is not sent.
+        kw: dict = dict(model=model, max_tokens=max_tokens, system=system,
                         messages=[{"role": "user", "content": user}])
         if schema:
-            kw["tools"] = [{"name": TOOL_NAME, "description": "Emit the structured answer.", "input_schema": schema}]
-            kw["tool_choice"] = {"type": "tool", "name": TOOL_NAME}
+            closed = _closed_schema(schema)
+            if closed is not None:
+                kw["output_config"] = {"format": {"type": "json_schema", "schema": closed}}
+            else:
+                # open dict fields (e.g. JudgeOut.scores) cannot be expressed as structured output;
+                # fall back to a forced tool (accepted by Haiku 5.5, which the judge uses).
+                kw["tools"] = [{"name": TOOL_NAME, "description": "Emit the structured answer.",
+                                "input_schema": schema}]
+                kw["tool_choice"] = {"type": "tool", "name": TOOL_NAME}
         r = self._client.messages.create(**kw)
         text = ""
         for b in r.content:
