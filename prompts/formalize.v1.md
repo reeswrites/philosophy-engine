@@ -10,7 +10,7 @@ Formula grammar (quoted from the parser; anything outside it is rejected):
        | (= t t) | (P t ...) | atom
     t := atom (variable or constant)
   Not allowed: ite, let, lambda, + - * / < > <= >=, distinct, xor, define-fun, declare-fun, declare-const, assert, true, false, implies, mod, div, select, store, match, "!".
-Use the single sort `Obj` unless you truly need more. Predicate and constant names are snake_case ASCII, [a-z][a-z0-9_]*, and must not be an operator or a reserved word.
+Use the single sort `Obj` unless you truly need more. Predicate AND constant names are snake_case ASCII, [a-z][a-z0-9_]* (constants are validated identically: no capitals, so write `socrates`, not `Socrates`), and must not be an operator or a reserved word.
 
 Every predicate and every constant MUST carry:
  (a) `gloss`: an English template with numbered slots, used mechanically to verbalize formulas. Examples: "{0} is mortal", "{0} causes {1}", "{0} knows that {1}". A predicate of arity n has exactly the slots {0}..{n-1}; a constant or a 0-ary predicate has none ("it rains", "Socrates").
@@ -19,6 +19,7 @@ Every predicate and every constant MUST carry:
 Fidelity rules:
 - One predicate per distinct concept; reuse the same predicate (same sense) for the same concept across premises.
 - Translate each premise as stated. Do NOT strengthen a premise to make the proof go through and do NOT weaken the conclusion.
+- Every predicate that occurs in the conclusion C MUST also occur in at least one premise; a predicate that appears only in C is rejected as an orphan (it means the conclusion introduces content no premise supports).
 - Never hide the conclusion inside a premise: no premise may equal, contain as a conjunct, or trivially entail the conclusion, and do not introduce a predicate that is a copy of the conclusion.
 - Make quantifiers and their scope explicit. Existence is an ordinary predicate unless the argument is about quantification itself; do not encode "x exists" as (exists ((y Obj)) (= y x)), which is a theorem and makes conclusions vacuous.
 - Include every implicit premise the reconstruction lists; do not drop or add premises.

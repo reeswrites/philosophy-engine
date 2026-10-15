@@ -38,6 +38,8 @@ class Skel:
     preds: dict          # used pred name -> arg_sorts tuple
     consts: dict         # used const name -> sort
     norm: dict           # formula id ('C' too) -> normalized AST
+    sorts: dict = None   # original sort name -> canonical sort id (S1.. by first occurrence)
+    structured: bool = True  # has >= 1 quantifier or >= 1 predicate of arity >= 1 (else: all 0-ary atoms)
 
 
 def _occurrences(ast, bound, out):
@@ -60,8 +62,43 @@ def _occurrences(ast, bound, out):
         _occurrences(ast.body, bound | {v for v, _ in ast.vars}, out)
 
 
-def _canon_id(arity: int, n: int) -> str:
-    return f"{ARITY_PREFIX.get(arity, f'N{arity}_')}{n}"
+def _canon_id(arity: int, n: int, sorts: tuple = ()) -> str:
+    base = f"{ARITY_PREFIX.get(arity, f'N{arity}_')}{n}"
+    return base + ("_" + ".".join(sorts) if sorts else "")
+
+
+def _has_quant(ast) -> bool:
+    if isinstance(ast, sx.Quant):
+        return True
+    if isinstance(ast, sx.Not):
+        return _has_quant(ast.arg)
+    if isinstance(ast, (sx.And, sx.Or)):
+        return any(_has_quant(a) for a in ast.args)
+    if isinstance(ast, (sx.Implies, sx.Iff)):
+        return _has_quant(ast.left) or _has_quant(ast.right)
+    return False
+
+
+def _sort_occurrences(ast, pdecl, cdecl, bound, out):
+    """Sorts in order of first mention: predicate argument sorts, constant sorts, quantified variable sorts."""
+    if isinstance(ast, sx.Sym):
+        if ast.name in cdecl and ast.name not in bound:
+            out.append(cdecl[ast.name])
+    elif isinstance(ast, sx.App):
+        out.extend(pdecl.get(ast.pred, ()))
+        for t in ast.args:
+            _sort_occurrences(t, pdecl, cdecl, bound, out)
+    elif isinstance(ast, sx.Not):
+        _sort_occurrences(ast.arg, pdecl, cdecl, bound, out)
+    elif isinstance(ast, (sx.And, sx.Or)):
+        for a in ast.args:
+            _sort_occurrences(a, pdecl, cdecl, bound, out)
+    elif isinstance(ast, (sx.Implies, sx.Iff, sx.Eq)):
+        _sort_occurrences(ast.left, pdecl, cdecl, bound, out)
+        _sort_occurrences(ast.right, pdecl, cdecl, bound, out)
+    elif isinstance(ast, sx.Quant):
+        out.extend(s for _, s in ast.vars)
+        _sort_occurrences(ast.body, pdecl, cdecl, bound | {v for v, _ in ast.vars}, out)
 
 
 def skeleton(argument_id: str, f) -> Skel | None:
@@ -72,10 +109,17 @@ def skeleton(argument_id: str, f) -> Skel | None:
     cdecl = {c.name: c.sort for c in f.constants}
     norm = {k: fol.normalize(a) for k, a in parsed.formulas.items()}
     erase = {n: f"U{len(s)}" for n, s in pdecl.items()} | {n: "c" for n in cdecl}
-    prem_ids = sorted(parsed.premises, key=lambda k: fol.normalized_text(fol.rename(norm[k], erase)))
+    erase_sorts = {s.name: "S" for s in f.sorts}
+    prem_ids = sorted(parsed.premises,
+                      key=lambda k: fol.normalized_text(fol.rename(norm[k], erase, erase_sorts)))
     occ: list[str] = []
+    sort_occ: list[str] = []
     for k in [*prem_ids, "C"]:
         _occurrences(norm[k], frozenset(), occ)
+        _sort_occurrences(norm[k], pdecl, cdecl, frozenset(), sort_occ)
+    sort_canon: dict = {}
+    for sname in sort_occ:
+        sort_canon.setdefault(sname, f"S{len(sort_canon) + 1}")
     to_canon, counts, nc = {}, {}, 0
     for name in occ:
         if name in to_canon:
@@ -83,46 +127,79 @@ def skeleton(argument_id: str, f) -> Skel | None:
         if name in pdecl:
             ar = len(pdecl[name])
             counts[ar] = counts.get(ar, 0) + 1
-            to_canon[name] = _canon_id(ar, counts[ar])
+            to_canon[name] = _canon_id(ar, counts[ar], tuple(sort_canon[x] for x in pdecl[name]))
         elif name in cdecl:
             nc += 1
-            to_canon[name] = f"c{nc}"
-    texts = sorted(fol.normalized_text(fol.rename(norm[k], to_canon)) for k in prem_ids)
-    canonical = "\n".join(texts) + "\n|-\n" + fol.normalized_text(fol.rename(norm["C"], to_canon))
+            to_canon[name] = f"c{nc}_{sort_canon[cdecl[name]]}"
+    texts = sorted(fol.normalized_text(fol.rename(norm[k], to_canon, sort_canon)) for k in prem_ids)
+    canonical = "\n".join(texts) + "\n|-\n" + fol.normalized_text(fol.rename(norm["C"], to_canon, sort_canon))
+    preds = {n: pdecl[n] for n in to_canon if n in pdecl}
+    structured = any(_has_quant(a) for a in norm.values()) or any(len(v) >= 1 for v in preds.values())
     return Skel(argument_id, f, parsed, canonical, hashlib.sha256(canonical.encode()).hexdigest(), to_canon,
-                {n: pdecl[n] for n in to_canon if n in pdecl}, {n: cdecl[n] for n in to_canon if n in cdecl}, norm)
+                preds, {n: cdecl[n] for n in to_canon if n in cdecl}, norm, sort_canon, structured)
 
 
 def _signature(s: Skel):
-    return (len(s.parsed.premises), tuple(sorted(len(v) for v in s.preds.values())), len(s.consts))
+    return (len(s.parsed.premises), tuple(sorted(len(v) for v in s.preds.values())), len(s.consts),
+            len(s.sorts or {}))
 
 
-def _texts(norm_by_id: dict, mapping: dict):
-    prem = sorted(fol.normalized_text(fol.rename(a, mapping)) for k, a in norm_by_id.items() if k != "C")
-    return prem, fol.normalized_text(fol.rename(norm_by_id["C"], mapping))
+def _texts(norm_by_id: dict, mapping: dict, sorts: dict | None = None):
+    prem = sorted(fol.normalized_text(fol.rename(a, mapping, sorts)) for k, a in norm_by_id.items() if k != "C")
+    return prem, fol.normalized_text(fol.rename(norm_by_id["C"], mapping, sorts))
 
 
-def _candidate_mappings(a: Skel, b: Skel):
-    """Yield A->B name mappings: canonical-label bijection first, then bounded permutations."""
-    if len(a.preds) > config.ISO_MAX_PREDS or len(b.preds) > config.ISO_MAX_PREDS:
-        return
-    ga: dict = {}
-    gb: dict = {}
-    for n, s in a.preds.items():
-        ga.setdefault(("p", s), []).append(n)
-    for n, s in b.preds.items():
-        gb.setdefault(("p", s), []).append(n)
-    for n, s in a.consts.items():
-        ga.setdefault(("c", s), []).append(n)
-    for n, s in b.consts.items():
-        gb.setdefault(("c", s), []).append(n)
-    if {k: len(v) for k, v in ga.items()} != {k: len(v) for k, v in gb.items()}:
-        return
-    if math.prod(math.factorial(len(v)) for v in ga.values()) > config.ISO_MAX_PERMS:
-        return
+def _sort_sig(sorts: tuple) -> tuple:
+    """Sort tuple canonicalized by first occurrence: (Person, Obj, Person) -> (0, 1, 0)."""
+    seen: dict = {}
+    return tuple(seen.setdefault(x, len(seen)) for x in sorts)
+
+
+def _derive_sort_map(a: Skel, b: Skel, m: dict) -> dict | None:
+    """Sort bijection A->B implied by the symbol mapping m; None if inconsistent."""
+    sm: dict = {}
+    inv: dict = {}
+    pairs = [(a.preds[n], b.preds[m[n]]) for n in a.preds] + [((a.consts[n],), (b.consts[m[n]],)) for n in a.consts]
+    for sa, sb in pairs:
+        for x, y in zip(sa, sb):
+            if sm.setdefault(x, y) != y or inv.setdefault(y, x) != x:
+                return None
+    for x in (a.sorts or {}):  # sorts only mentioned by quantifiers: map by canonical id if unambiguous
+        if x not in sm:
+            y = next((k for k, v in (b.sorts or {}).items() if v == a.sorts[x] and k not in inv), None)
+            if y is not None:
+                sm[x] = y
+                inv[y] = x
+    return sm
+
+
+def _candidate_mappings(a: Skel, b: Skel, skips: list | None = None):
+    """Yield A->B name mappings: canonical-label bijection first (always, whatever the caps), then bounded
+    permutations. Cap hits are appended to `skips`."""
     if a.hash == b.hash:
         inv = {v: k for k, v in b.to_canon.items()}
         yield {n: inv[c] for n, c in a.to_canon.items() if c in inv}
+    ga: dict = {}
+    gb: dict = {}
+    for n, s in a.preds.items():
+        ga.setdefault(("p", _sort_sig(s)), []).append(n)
+    for n, s in b.preds.items():
+        gb.setdefault(("p", _sort_sig(s)), []).append(n)
+    for n, s in a.consts.items():
+        ga.setdefault(("c", 0), []).append(n)
+    for n, s in b.consts.items():
+        gb.setdefault(("c", 0), []).append(n)
+    if {k: len(v) for k, v in ga.items()} != {k: len(v) for k, v in gb.items()}:
+        return
+    if len(a.preds) > config.ISO_MAX_PREDS or len(b.preds) > config.ISO_MAX_PREDS:
+        if skips is not None:
+            skips.append(f"permutation search skipped: more than ISO_MAX_PREDS={config.ISO_MAX_PREDS} predicates")
+        return
+    n_perms = math.prod(math.factorial(len(v)) for v in ga.values())
+    if n_perms > config.ISO_MAX_PERMS:
+        if skips is not None:
+            skips.append(f"permutation search skipped: {n_perms} mappings > ISO_MAX_PERMS={config.ISO_MAX_PERMS}")
+        return
     keys = sorted(ga, key=str)
     for combo in itertools.product(*[itertools.permutations(sorted(gb[k])) for k in keys]):
         m = {}
@@ -131,18 +208,25 @@ def _candidate_mappings(a: Skel, b: Skel):
         yield m
 
 
-def find_mapping(a: Skel, b: Skel) -> dict | None:
+def find_mapping(a: Skel, b: Skel, skips: list | None = None) -> tuple[dict, dict] | None:
+    """-> (symbol mapping, sort mapping) or None."""
     target = _texts(b.norm, {})
-    for m in _candidate_mappings(a, b):
-        if _texts(a.norm, m) == target:
-            return m
+    for m in _candidate_mappings(a, b, skips):
+        sm = _derive_sort_map(a, b, m)
+        if sm is not None and _texts(a.norm, m, sm) == target:
+            return m, sm
     return None
 
 
-def z3_confirm(a: Skel, b: Skel, mapping: dict, timeout_ms: int = config.Z3_TIMEOUT_MS) -> bool:
-    """renamed_A <=> B valid for every matched premise pair and for the conclusion."""
+def z3_confirm(a: Skel, b: Skel, mapping: dict, timeout_ms: int = config.Z3_TIMEOUT_MS,
+               sort_mapping: dict | None = None, log: list | None = None) -> bool:
+    """renamed_A <=> B valid for every matched premise pair and for the conclusion. Failures other than a
+    plain mismatch (exception, z3 unknown) are appended to `log` (never swallowed silently)."""
+    log = [] if log is None else log
+    if sort_mapping is None:
+        sort_mapping = _derive_sort_map(a, b, mapping) or {}
     env = fol.build_env(b.f)
-    ra = {k: fol.normalize(fol.rename(v, mapping)) for k, v in a.norm.items()}
+    ra = {k: fol.normalize(fol.rename(v, mapping, sort_mapping)) for k, v in a.norm.items()}
     pool = {k: fol.normalized_text(v) for k, v in ra.items() if k != "C"}
     pairs = [("C", "C")]
     used = set()
@@ -157,39 +241,59 @@ def z3_confirm(a: Skel, b: Skel, mapping: dict, timeout_ms: int = config.Z3_TIME
         bast = b.parsed.conclusion if kb == "C" else b.parsed.premises[kb]
         try:
             fa, fb = fol.lower(ra[ka], env), fol.lower(bast, env)
-        except Exception:
+            s = z3.Solver()
+            s.set("timeout", timeout_ms)
+            s.set("random_seed", config.Z3_SEED)
+            s.add(z3.Not(fa == fb))
+            r = s.check()
+        except Exception as e:
+            log.append(f"z3_confirm {ka}~{kb}: {type(e).__name__}: {e}")
             return False
-        s = z3.Solver()
-        s.set("timeout", timeout_ms)
-        s.set("random_seed", config.Z3_SEED)
-        s.add(z3.Not(fa == fb))
-        if s.check() != z3.unsat:
+        if r != z3.unsat:
+            if r == z3.unknown:
+                log.append(f"z3_confirm {ka}~{kb}: z3 unknown ({s.reason_unknown()})")
             return False
     return True
 
 
-def match(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS) -> dict | None:
-    """-> evidence dict if a and b are confirmed isomorphic, else None."""
+def match(a: Skel, b: Skel, timeout_ms: int = config.Z3_TIMEOUT_MS, notes: list | None = None) -> dict | None:
+    """-> evidence dict if a and b are confirmed isomorphic, else None. Cap skips / z3 problems go to `notes`."""
+    notes = [] if notes is None else notes
     same_hash = a.hash == b.hash
     if not same_hash and _signature(a) != _signature(b):
         return None
-    m = find_mapping(a, b)
-    if m is None or not z3_confirm(a, b, m, timeout_ms):
+    found = find_mapping(a, b, notes)
+    if found is None:
         return None
-    return {"mapping": m, "hash": a.hash, "method": "hash" if same_hash else "permutation-fallback",
-            "z3_verified": True}
+    m, sm = found
+    if not z3_confirm(a, b, m, timeout_ms, sm, notes):
+        return None
+    return {"mapping": m, "sort_mapping": sm, "hash": a.hash,
+            "method": "hash" if same_hash else "permutation-fallback", "z3_verified": True}
 
 
-def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS) -> list[tuple[Skel, Skel, dict]]:
+def match_all(skels: list[Skel], timeout_ms: int = config.Z3_TIMEOUT_MS,
+              skipped: list | None = None) -> list[tuple[Skel, Skel, dict]]:
+    """`skipped` (optional) collects (a_id, b_id, reason) for cap skips and z3 problems."""
     out = []
     for a, b in itertools.combinations(sorted(skels, key=lambda s: s.argument_id), 2):
-        ev = match(a, b, timeout_ms)
+        notes: list = []
+        ev = match(a, b, timeout_ms, notes)
         if ev:
             out.append((a, b, ev))
+        elif skipped is not None:
+            skipped.extend((a.argument_id, b.argument_id, n) for n in notes)
     return out
 
 
-def selected_skeletons(store, argument_ids: list[str], options: dict | None = None) -> list[Skel]:
+def selected_skeletons(store, argument_ids: list[str], options: dict | None = None,
+                       skipped: list | None = None) -> list[Skel]:
+    """Skeletons of selected formalizations whose selection verdict is "valid" and that have real structure
+    (a quantifier or a predicate of arity >= 1). Others are appended to `skipped` as (argument_id, reason)."""
+    def skip(aid, why):
+        if skipped is not None:
+            skipped.append((aid, why))
+
     ctx = Ctx(store, 0, None, options or {})
     out = []
     for aid in argument_ids:
@@ -199,12 +303,21 @@ def selected_skeletons(store, argument_ids: list[str], options: dict | None = No
             continue
         sel = store.get_selection(rec.id)
         if not sel or sel.chosen_formalization_id is None:
+            skip(aid, "no selected formalization")
+            continue
+        if sel.verdict != "valid":
+            skip(aid, f"selection verdict is {sel.verdict!r}, not 'valid'")
             continue
         form = store.get_formalization(sel.chosen_formalization_id)
         if form.formalization is None:
+            skip(aid, "selected formalization did not parse")
             continue
         sk = skeleton(aid, form.formalization)
-        if sk:
+        if sk is None:
+            skip(aid, "skeleton failed validation")
+        elif not sk.structured:
+            skip(aid, "propositional skeleton (only 0-ary atoms, no quantifier): too weak to compare")
+        else:
             out.append(sk)
     return out
 
@@ -213,12 +326,19 @@ def selected_skeletons(store, argument_ids: list[str], options: dict | None = No
 def iso(ctx: Ctx, unit: Unit) -> None:
     """Whole-corpus stage: run via pipeline with the single pseudo-argument '*' (argument_id is ignored)."""
     st = ctx.store
-    st.execute("DELETE FROM relation WHERE run_id=? AND kind IN ('isomorphic-to','skeleton-hash')", (ctx.run_id,))
-    skels = selected_skeletons(st, st.argument_ids(), ctx.options)
+    st.execute("DELETE FROM relation WHERE run_id=? AND kind IN ('isomorphic-to','skeleton-hash','iso-skipped')", (ctx.run_id,))
+    skipped_args: list = []
+    skels = selected_skeletons(st, st.argument_ids(), ctx.options, skipped_args)
+    for aid, why in skipped_args:
+        st.insert_relation("argument", aid, "skeleton", "-", "iso-skipped", {"reason": why}, ctx.run_id)
     for s in skels:
         st.insert_relation("argument", s.argument_id, "skeleton", s.hash, "skeleton-hash",
                            {"canonical": s.canonical}, ctx.run_id)
-    for a, b, ev in match_all(skels, ctx.options.get("z3_timeout_ms") or config.Z3_TIMEOUT_MS):
+    skipped_pairs: list = []
+    matches = match_all(skels, ctx.options.get("z3_timeout_ms") or config.Z3_TIMEOUT_MS, skipped_pairs)
+    for x, y, why in skipped_pairs:
+        st.insert_relation("argument", x, "argument", y, "iso-skipped", {"reason": why}, ctx.run_id)
+    for a, b, ev in matches:
         st.insert_relation("argument", a.argument_id, "argument", b.argument_id, "isomorphic-to", ev, ctx.run_id)
 
 

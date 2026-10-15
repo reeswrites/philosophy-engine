@@ -60,6 +60,14 @@ class FormalizationX(FormalizationJSON):
                 errs.append(f"constant {c.name}: missing sense")
         return errs
 
+    def gloss_warnings(self) -> list[str]:
+        """Non-fatal: glosses containing connective words render ambiguously inside compound formulas
+        (verbalize parenthesizes them, but the reader may still be confused)."""
+        from .verbalize import CONNECTIVE_WORDS
+        return [f"{kind} {x.name}: gloss {x.gloss!r} contains a connective word"
+                for kind, xs in (("predicate", self.predicates), ("constant", self.constants))
+                for x in xs if CONNECTIVE_WORDS.search(x.gloss)]
+
 
 class JudgeOut(BaseModel):
     """What the judge LLM emits (step 3 turns this + verbalizations into schemas.JudgeReport)."""
@@ -92,4 +100,5 @@ class JudgeReportX(JudgeReport):
 
 
 class SelectionResultX(SelectionResult):
+    rejected_judge: int = 0  # judge hard rejects (rejected_trivial counts checker-derived triviality only)
     contested: bool = False

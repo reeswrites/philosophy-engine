@@ -21,6 +21,7 @@ class VerbalizeError(ValueError):
 
 
 _SLOT = re.compile(r"\{(\d+)\}")
+CONNECTIVE_WORDS = re.compile(r"\b(or|and|if|not)\b", re.I)
 
 
 def _fill(gloss: str, args: list[str]) -> str:
@@ -56,6 +57,8 @@ def verbalize_formula(ast, f: FormalizationX) -> str:
 
     def wrap(a, bound) -> str:
         s = go(a, bound)
+        if isinstance(a, (sx.Sym, sx.App, sx.Eq)):  # atomic, but its gloss may itself contain a connective
+            return f"({s})" if CONNECTIVE_WORDS.search(s) else s
         return s if _atomic(a) else f"({s})"
 
     def go(a, bound) -> str:

@@ -75,15 +75,18 @@ class _Base:
                                  latency_ms=hit["latency_ms"] or 0)
         t0 = time.monotonic()
         try:
-            text, tin, tout = self._complete(stage=stage, system=system, user=user, schema=schema, model=model,
+            out = self._complete(stage=stage, system=system, user=user, schema=schema, model=model,
                                              temperature=temperature, sample_idx=sample_idx,
                                              argument_id=argument_id, max_tokens=max_tokens)
+            text, tin, tout = out[:3]
+            stop = out[3] if len(out) > 3 else None
         except Exception as e:
             self.store.insert_llm_call(**meta, error=f"{type(e).__name__}: {e}",
                                        latency_ms=int((time.monotonic() - t0) * 1000))
             raise
         ms = int((time.monotonic() - t0) * 1000)
-        cid = self.store.insert_llm_call(**meta, response=text, input_tokens=tin, output_tokens=tout, latency_ms=ms)
+        cid = self.store.insert_llm_call(**meta, response=text, input_tokens=tin, output_tokens=tout, latency_ms=ms,
+                                      stop_reason=stop)
         return LLMResult(_loads(text), text, cid, model, False, tin, tout, ms)
 
     use_cache = False
@@ -91,7 +94,7 @@ class _Base:
     def model_for(self, stage: str) -> str:
         return default_model(stage)
 
-    def _complete(self, **kw):  # -> (text, in_tokens, out_tokens)
+    def _complete(self, **kw):  # -> (text, in_tokens, out_tokens[, stop_reason])
         raise NotImplementedError
 
 
@@ -130,7 +133,7 @@ class LLMClient(_Base):
                 break
             if b.type == "text":
                 text += b.text
-        return text, r.usage.input_tokens, r.usage.output_tokens
+        return text, r.usage.input_tokens, r.usage.output_tokens, getattr(r, "stop_reason", None)
 
 
 # ------------------------------------------------------------------ mock

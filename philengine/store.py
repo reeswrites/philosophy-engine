@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS llm_call(
   id INTEGER PRIMARY KEY, run_id INTEGER, stage TEXT, argument_id TEXT, candidate_idx INTEGER,
   sample_idx INTEGER NOT NULL DEFAULT 0, model TEXT, temperature REAL, prompt_name TEXT,
   prompt_hash TEXT NOT NULL, cache_key TEXT, prompt TEXT, response TEXT,
-  input_tokens INTEGER, output_tokens INTEGER, latency_ms INTEGER, error TEXT, created_at REAL);
+  input_tokens INTEGER, output_tokens INTEGER, latency_ms INTEGER, error TEXT, created_at REAL, stop_reason TEXT);
 CREATE INDEX IF NOT EXISTS llm_call_cache ON llm_call(cache_key);
 CREATE TABLE IF NOT EXISTS job(
   id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, argument_id TEXT NOT NULL, stage TEXT NOT NULL,
@@ -91,6 +91,9 @@ class Store:
             self.db.execute("PRAGMA journal_mode=WAL")
         with self.lock:
             self.db.executescript(SCHEMA)
+            cols = {r["name"] for r in self.db.execute("PRAGMA table_info(llm_call)")}
+            if "stop_reason" not in cols:  # migrate DBs created before stop_reason existed
+                self.db.execute("ALTER TABLE llm_call ADD COLUMN stop_reason TEXT")
             if not self.db.execute("SELECT 1 FROM schema_version").fetchone():
                 self.db.execute("INSERT INTO schema_version VALUES (?)", (SCHEMA_VERSION,))
             self.db.commit()
@@ -303,13 +306,14 @@ class Store:
     # ---- llm_call
     def insert_llm_call(self, **f) -> int:
         cols = ["run_id", "stage", "argument_id", "candidate_idx", "sample_idx", "model", "temperature", "prompt_name",
-                "prompt_hash", "cache_key", "prompt", "response", "input_tokens", "output_tokens", "latency_ms", "error"]
+                "prompt_hash", "cache_key", "prompt", "response", "input_tokens", "output_tokens", "latency_ms", "error", "stop_reason"]
         return self.execute(
             f"INSERT INTO llm_call({','.join(cols)},created_at) VALUES ({','.join('?' * (len(cols) + 1))})",
             (*[f.get(c) for c in cols], time.time())).lastrowid
 
     def find_cached_call(self, cache_key: str) -> sqlite3.Row | None:
         return self.one("SELECT * FROM llm_call WHERE cache_key=? AND error IS NULL AND response IS NOT NULL "
+                        "AND TRIM(response) != '' AND (stop_reason IS NULL OR stop_reason != 'max_tokens') "
                         "AND model != 'mock' ORDER BY id LIMIT 1", (cache_key,))
 
     def llm_calls(self, stage: str | None = None, argument_id: str | None = None) -> list[sqlite3.Row]:

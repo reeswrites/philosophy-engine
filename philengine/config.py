@@ -55,6 +55,7 @@ JUDGE_MEAN_SCORE = 0.8
 JUDGE_CONCLUSION_SCORE = 0.7
 
 # Selection weights
+UNKNOWN_PROBE_PENALTY = 0.10  # score deduction for a candidate with any z3-unknown probe
 SELECT_WEIGHTS = {"mean": 0.45, "min": 0.25, "minimal": 0.15, "simplicity": 0.10, "decided": 0.05}
 
 # Stage defaults (overridable via Ctx.options)

@@ -10,6 +10,13 @@ from . import sexpr as sx
 from .schemas import FormalizationJSON
 
 PRED_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+# ids that collide with the solver's internal assertion names (see checks.py); premise ids may not use them
+TRACKER_PREFIX = "__trk_"
+RESERVED_IDS = frozenset({"C", "NEG_C", "NEG_P"})
+
+
+def reserved_id(pid: str) -> bool:
+    return pid in RESERVED_IDS or pid.startswith(TRACKER_PREFIX)
 
 
 @dataclass
@@ -50,8 +57,8 @@ def _check_decls(f: FormalizationJSON, errs: list[str]):
         preds[p.name] = p
     consts = {}
     for c in f.constants:
-        if not sx.IDENT.match(c.name) or c.name in sx.RESERVED:
-            errs.append(f"invalid constant name {c.name!r}")
+        if not PRED_NAME.match(c.name) or c.name in sx.RESERVED:
+            errs.append(f"invalid constant name {c.name!r} (must match [a-z][a-z0-9_]* and not be a reserved word)")
         if c.name in consts:
             errs.append(f"duplicate constant {c.name!r}")
         if c.name in preds:
@@ -130,6 +137,9 @@ def validate(f: FormalizationJSON, reconstruction_ids: list[str] | None = None) 
         errs.append(f"duplicate premise ids in {ids}")
     if "C" in ids:
         errs.append("premise id 'C' is reserved for the conclusion")
+    for i in ids:
+        if i != "C" and reserved_id(i):
+            errs.append(f"premise id {i!r} is reserved (internal solver name); use P1, P2, ...")
     if f.conclusion.premise_id != "C":
         errs.append(f"conclusion premise_id must be 'C', got {f.conclusion.premise_id!r}")
     if reconstruction_ids is not None and sorted(ids) != sorted(reconstruction_ids):
@@ -209,9 +219,10 @@ def lower(ast, env: Env, bound: dict | None = None):
 
 
 # ------------------------------------------------------- rename / normalize
-def rename(ast, mapping: dict):
+def rename(ast, mapping: dict, sorts: dict | None = None):
     """Rename predicates and constants (free symbols) via mapping; bound vars untouched.
-    Names absent from mapping are kept."""
+    `sorts` (optional) renames the sorts of quantified variables. Names absent from a mapping are kept."""
+    sorts = sorts or {}
 
     def go(x, bound):
         if isinstance(x, sx.Sym):
@@ -233,7 +244,7 @@ def rename(ast, mapping: dict):
         if isinstance(x, sx.Eq):
             return sx.Eq(go(x.left, bound), go(x.right, bound))
         if isinstance(x, sx.Quant):
-            return sx.Quant(x.kind, x.vars, go(x.body, bound | {v for v, _ in x.vars}))
+            return sx.Quant(x.kind, tuple((v, sorts.get(t, t)) for v, t in x.vars), go(x.body, bound | {v for v, _ in x.vars}))
         raise TypeError(x)
 
     return go(ast, frozenset())

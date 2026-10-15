@@ -39,6 +39,8 @@ def formalize_one(ctx: Ctx, argument_id: str, rec_row, candidate_idx: int) -> in
         if check.parse_ok:  # slot-only problems: record them on the report
             check = check.model_copy(update={"parse_ok": False, "parse_errors": errs})
         return st.insert_formalization(rec_row.id, candidate_idx, "parse_fail", f, check, None, call_ids, ctx.run_id)
+    for w in f.gloss_warnings():
+        st.insert_review("formalization", f"{argument_id}:{candidate_idx}", f"gloss warning: {w}")
     for p in f.predicates:
         st.upsert_concept(label=p.name, gloss=p.gloss, sense=p.sense, first_seen=argument_id)
     return st.insert_formalization(rec_row.id, candidate_idx, "ok", f, check, None, call_ids, ctx.run_id)

@@ -18,11 +18,13 @@ from . import config, fol
 from . import sexpr as sx
 from .schemas import CheckReport, FormalizationJSON, Verdict
 
-_PRE = "__trk_"
+_PRE = fol.TRACKER_PREFIX
 
 
 def verdict_of(r: CheckReport) -> Verdict:
     """valid->valid; refuted->refuted ("invalid as formalized", NOT "unsound"); unknown/parse fail->open."""
+    if r.valid == "valid" and r.consistent == "unknown":
+        return "open"  # cannot rule out vacuity -> fail closed
     return {"valid": "valid", "refuted": "refuted"}.get(r.valid, "open")
 
 
@@ -119,20 +121,44 @@ def check_entailment(prem: dict, concl, **kw) -> _Res:
     return _check([*prem.items(), ("NEG_C", z3.Not(concl))], **kw)
 
 
-def check_minimality(prem: dict, concl, core: list, **kw) -> list[str]:
+def _unsat(assertions, probe: str, unknowns: list, **kw) -> bool | None:
+    """True = unsat, False = sat, None = unknown (probe name appended to `unknowns`: fail closed)."""
+    r = _check(assertions, **kw)
+    if r.result == "unknown":
+        unknowns.append(probe)
+        return None
+    return r.result == "unsat"
+
+
+def check_minimality(prem: dict, concl, core: list, unknowns: list | None = None, **kw) -> list[str]:
     """Redundant premise ids (argument stays valid without them). Premises outside the core are
-    redundant for free; core members are re-verified individually."""
+    redundant for free; core members are re-verified individually. A re-verification that returns
+    unknown is neither redundant nor minimal: its probe name is appended to `unknowns`."""
+    unknowns = [] if unknowns is None else unknowns
     redundant = [p for p in prem if p not in core]
     for p in core:
         rest = [(k, v) for k, v in prem.items() if k != p]
-        r = _check([*rest, ("NEG_C", z3.Not(concl))], **kw)
-        if r.result == "unsat":
+        if _unsat([*rest, ("NEG_C", z3.Not(concl))], f"minimality:{p}", unknowns, **kw):
             redundant.append(p)
     return [p for p in prem if p in redundant]
 
 
-def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, **kw) -> list[str]:
-    """Returns trivial_reasons (empty => nontrivial)."""
+def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, unknowns: list | None = None, **kw) -> list[str]:
+    """Returns trivial_reasons (empty => nontrivial, unless `unknowns` got entries: then undecided).
+
+    Bounded probes (O(#premises) solver calls each, no subset search):
+      (a) syntactic: C equals a premise / is a conjunct of one (after normalize);
+      (b) C entailed by one premise alone (only reported when there are >= 2 premises);
+      (b') C logically EQUIVALENT to a single premise (both directions unsat), any premise count,
+           which catches semantic duplicates such as (and p (or q (not q))) vs p;
+      (b'') `conclusion_via_biconditional`: premise P_i is an iff with one side syntactically C
+           and the remaining premises alone do not entail C (so P_i does the work of smuggling C in);
+      (c) C or a premise is a tautology; orphan conclusion predicates.
+    Does NOT catch: smuggling through other shapes (e.g. (=> d c) with d separately asserted, which is
+    ordinary modus ponens), conclusions that need >= 2 premises jointly to be restated (no subset
+    search), or biconditionals whose side is only semantically (not syntactically) C.
+    Any probe returning unknown appends its name to `unknowns` and adds no reason."""
+    unknowns = [] if unknowns is None else unknowns
     reasons: list[str] = []
     f = parsed.formalization
     nc = fol.normalized_text(parsed.conclusion)
@@ -142,16 +168,25 @@ def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, **kw) -> list[s
             reasons.append(f"C syntactically equals {pid} (up to renaming of bound variables / commutativity)")
         elif any(sx.to_sexpr(c) == nc for c in fol.conjuncts(a)):
             reasons.append(f"C is a conjunct of {pid}")
-    # (b) single-premise entailment (only meaningful with >= 2 premises)
-    if len(prem) >= 2:
-        for pid, e in prem.items():
-            if _check([(pid, e), ("NEG_C", z3.Not(concl))], **kw).result == "unsat":
-                reasons.append(f"C entailed by {pid} alone")
+    # (b)/(b') single-premise entailment / equivalence
+    for pid, e in prem.items():
+        fwd = _unsat([(pid, e), ("NEG_C", z3.Not(concl))], f"nontrivial:entails-alone:{pid}", unknowns, **kw)
+        if fwd and len(prem) >= 2:
+            reasons.append(f"C entailed by {pid} alone")
+        if fwd and _unsat([("C", concl), ("NEG_P", z3.Not(e))], f"nontrivial:equivalence:{pid}", unknowns, **kw):
+            reasons.append(f"C is logically equivalent to {pid}")
+    # (b'') conclusion smuggled through a biconditional premise
+    for pid, a in parsed.premises.items():
+        if isinstance(a, sx.Iff) and nc in (fol.normalized_text(a.left), fol.normalized_text(a.right)):
+            rest = [(k, v) for k, v in prem.items() if k != pid]
+            if _unsat([*rest, ("NEG_C", z3.Not(concl))], f"nontrivial:biconditional:{pid}", unknowns, **kw) is False:
+                reasons.append(f"conclusion_via_biconditional: {pid} is an iff with C as one side and the other "
+                               f"premises alone do not entail C")
     # (c) tautologies
-    if _check([("NEG_C", z3.Not(concl))], **kw).result == "unsat":
+    if _unsat([("NEG_C", z3.Not(concl))], "nontrivial:tautology:C", unknowns, **kw):
         reasons.append("C is a tautology (premises irrelevant)")
     for pid, e in prem.items():
-        if _check([("NEG_P", z3.Not(e))], **kw).result == "unsat":
+        if _unsat([("NEG_P", z3.Not(e))], f"nontrivial:tautology:{pid}", unknowns, **kw):
             reasons.append(f"{pid} is a tautology (decorative premise)")
     # orphan conclusion predicates
     in_prem = set()
@@ -160,7 +195,6 @@ def check_nontrivial(parsed: fol.Parsed, env, prem: dict, concl, **kw) -> list[s
     orphans = sorted(fol.predicates_used(parsed.conclusion, f) - in_prem)
     if orphans:
         reasons.append(f"orphan conclusion predicate(s) {orphans}: appear in C but in no premise")
-    # dedupe, keep order
     return list(dict.fromkeys(reasons))
 
 
@@ -187,6 +221,11 @@ def run_all(
     ent = check_entailment(prem, concl, **kw)
     valid = {"unsat": "valid", "sat": "refuted"}.get(ent.result, "unknown")
     unknown_reason = ent.reason or cons.reason
+    unknowns: list[str] = []
+    if cons.result == "unknown":
+        unknowns.append("consistency")
+    if ent.result == "unknown":
+        unknowns.append("entailment")
 
     cm = None
     if ent.result == "sat":
@@ -198,10 +237,13 @@ def run_all(
 
     minimal, redundant = None, []
     if ent.result == "unsat":
-        redundant = check_minimality(prem, concl, [c for c in ent.core if c != "NEG_C"], **kw)
-        minimal = not redundant
+        n0 = len(unknowns)
+        redundant = check_minimality(prem, concl, [c for c in ent.core if c != "NEG_C"], unknowns, **kw)
+        minimal = None if len(unknowns) > n0 else not redundant
 
-    reasons = check_nontrivial(parsed, env, prem, concl, **kw)
+    n0 = len(unknowns)
+    reasons = check_nontrivial(parsed, env, prem, concl, unknowns, **kw)
+    nontrivial = False if reasons else (None if len(unknowns) > n0 else True)
     if cons.result == "unsat":
         reasons.insert(0, "premises inconsistent (argument vacuously valid)")
     tautological_c = any(r.startswith("C is a tautology") for r in reasons)
@@ -213,7 +255,8 @@ def run_all(
         unsat_core=core,
         minimal=minimal,
         redundant_premises=redundant,
-        nontrivial=not reasons,
+        nontrivial=nontrivial,
+        unknown_probes=unknowns,
         trivial_reasons=reasons,
         vacuous=cons.result == "unsat" or tautological_c,
         z3_ms=int((time.monotonic() - t0) * 1000),

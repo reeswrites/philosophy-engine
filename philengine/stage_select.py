@@ -12,7 +12,8 @@ def _n_preds(form) -> int:
 
 
 def reject_reasons(form) -> tuple[list[str], bool]:
-    """-> (reasons, rejected_as_trivial)."""
+    """-> (reasons, rejected_as_trivial). The flag is derived from the CHECKER only (nontrivial is False /
+    vacuous); judge hard rejects are reported in `reasons` and counted separately (rejected_judge)."""
     r: list[str] = []
     triv = False
     chk, j = form.check, form.judge
@@ -28,8 +29,6 @@ def reject_reasons(form) -> tuple[list[str], bool]:
     flags = getattr(j, "hard_reject", False)
     if flags:
         r.append(f"judge hard reject: {[x for x in j.flags]}")
-        if chk.valid == "valid":
-            triv = True
     if j.min_score < config.JUDGE_MIN_SCORE:
         r.append(f"judge min_score {j.min_score:.2f} < {config.JUDGE_MIN_SCORE}")
     if j.mean_score < config.JUDGE_MEAN_SCORE:
@@ -39,21 +38,33 @@ def reject_reasons(form) -> tuple[list[str], bool]:
     return r, triv
 
 
+def has_unknown_probe(chk) -> bool:
+    """True if any z3 probe returned unknown (minimal is also None for refuted candidates; that is NOT unknown)."""
+    return bool(chk.unknown_probes) or chk.nontrivial is None
+
+
 def score(form, max_preds: int) -> float:
     w, j, chk = config.SELECT_WEIGHTS, form.judge, form.check
-    return (w["mean"] * j.mean_score + w["min"] * j.min_score
-            + w["minimal"] * (1.0 if chk.minimal else 0.0)
-            + w["simplicity"] * (1 - _n_preds(form) / max_preds)
-            + w["decided"] * (1.0 if chk.valid in ("valid", "refuted") else 0.0))
+    # NOTE bias: `minimal` is only ever True for valid candidates (None when refuted), so it mildly favours valid.
+    # `decided` is symmetric: valid and refuted both count, open (z3 unknown / inconsistent-unknown) does not.
+    sc = (w["mean"] * j.mean_score + w["min"] * j.min_score
+          + w["minimal"] * (1.0 if chk.minimal else 0.0)
+          + w["simplicity"] * (1 - _n_preds(form) / max_preds)
+          + w["decided"] * (1.0 if checks.verdict_of(chk) in ("valid", "refuted") else 0.0))
+    return sc - (config.UNKNOWN_PROBE_PENALTY if has_unknown_probe(chk) else 0.0)
 
 
 def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResultX:
     forms = latest_by_candidate(store.list_formalizations(recon_id))
     max_preds = max([_n_preds(f) for f in forms] + [1])
-    ranking, survivors, rejected_trivial = [], [], 0
+    ranking, survivors, rejected_trivial, rejected_judge = [], [], 0, 0
+    unknown_cands = []
     for f in forms:
         reasons, triv = reject_reasons(f)
         rejected_trivial += triv
+        rejected_judge += any(r.startswith("judge hard reject") for r in reasons)
+        if f.check is not None and f.check.parse_ok and has_unknown_probe(f.check):
+            unknown_cands.append((f.candidate_idx, f.check.unknown_probes))
         entry = {"formalization_id": f.id, "candidate_idx": f.candidate_idx,
                  "verdict": checks.verdict_of(f.check) if f.check and f.check.parse_ok else None,
                  "rejected_reasons": reasons, "score": None}
@@ -67,17 +78,20 @@ def select_for(store, recon_id: int, run_id: int | None = None) -> SelectionResu
     if survivors:
         survivors.sort(key=lambda t: (-t[1]["score"], len(t[0].check.redundant_premises), t[0].candidate_idx))
         chosen = survivors[0][0]
-        contested = len({e["verdict"] for _, e in survivors}) > 1
         verdict = checks.verdict_of(chosen.check)
     else:
         verdict = "open"
         if not forms:
             ranking = [{"formalization_id": None, "rejected_reasons": ["no candidates"], "score": None}]
+    # contested over ALL parsed candidates (a rejected candidate with a different verdict still matters)
+    contested = len({e["verdict"] for e in ranking if e.get("verdict")}) > 1
     sel = SelectionResultX(reconstruction_id=recon_id, chosen_formalization_id=chosen.id if chosen else None,
-                           verdict=verdict, ranking=ranking, rejected_trivial=rejected_trivial, contested=contested)
+                           verdict=verdict, ranking=ranking, rejected_trivial=rejected_trivial, rejected_judge=rejected_judge, contested=contested)
     store.insert_selection(sel, run_id)
     if contested:
-        store.insert_review("selection", str(recon_id), "contested: surviving candidates disagree on verdict")
+        store.insert_review("selection", str(recon_id), "contested: parsed candidates (survivors and rejected) disagree on verdict")
+    for idx, probes in unknown_cands:
+        store.insert_review("selection", str(recon_id), f"unknown probe: candidate {idx} {probes or ['nontrivial']}")
     return sel
 
 

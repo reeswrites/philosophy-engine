@@ -132,7 +132,7 @@ def cmd_show(a) -> int:
                 print(f"   back-translation {k} ({j.scores.get(k, j.conclusion_score if k == 'C' else '?')}): {t}")
     if sel:
         print(f"\nSelection: verdict={sel.verdict} chosen={sel.chosen_formalization_id} "
-              f"contested={sel.contested} rejected_trivial={sel.rejected_trivial}")
+              f"contested={sel.contested} rejected_trivial={sel.rejected_trivial} rejected_judge={sel.rejected_judge}")
     return 0
 
 
@@ -189,7 +189,7 @@ def cmd_gate(a) -> int:
     print(f"run {rid}")
     print(f"(a) all five stages ran with 0 failed jobs: {'OK' if g['a_ok'] else 'NO'}"
           f" (missing stages: {g['missing_stages'] or 'none'}; failed: {g['failed']}; not done: {g['not_done']})")
-    print(f"(b) selection rejected >=1 trivialized candidate: {'OK' if g['b_ok'] else 'NO'}"
+    print(f"(b) checker rejected >=1 trivialized candidate (judge rejects excluded): {'OK' if g['b_ok'] else 'NO'}"
           f" (rejected_trivial total = {g['rejected_trivial']})")
     print(f"GATE: {'PASS' if g['passed'] else 'FAIL'}")
     return 0 if g["passed"] else 1
