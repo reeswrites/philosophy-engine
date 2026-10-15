@@ -8,7 +8,6 @@ probabilistic, deontic or higher-order encodings.
 
 Python: 3.14 (z3-solver 5.3.0 and pydantic have wheels for 3.14; no 3.13 fallback was needed).
 Setup: `uv sync`; tests: `uv run pytest`. Layout and stages: see the Phase 0 plan.
-(`phil` CLI entry point is declared but `philengine/cli.py` lands in builder step 4.)
 
 ## Handoff decisions
 
@@ -47,3 +46,35 @@ recorded in each report.
 
 `schemas.py` is frozen after builder step 1; add requests below, one line each.
 Step 1 additions to the plan's `CheckReport`: `unknown_reason`, `z3_version`.
+
+## Usage
+
+Default DB is `runs/phase0.db` (gitignored); every command takes `--db PATH`.
+
+```
+uv run phil ingest [--data data/phase0/arguments.json]
+uv run phil run [--mock] [--from-human] [--n-candidates N] [--stage S ...] [--args ID ...]
+                [--resume/--no-resume] [--retry-failed] [--new-run]   # continues the latest run by default
+uv run phil status [--run ID]
+uv run phil show ARG_ID [--run ID]       # reconstruction, candidates, check, judge, rank, countermodel
+uv run phil calls [--stage S] [--arg ID] # LLM call/token summary (cost only if config.PRICES is set)
+uv run phil report [--run ID] [--out FILE.md]
+uv run phil gate [--run ID]              # exit 0 = PASS
+```
+
+One-liner (live, needs `ANTHROPIC_API_KEY` in `.env`): `phil run --from-human --n-candidates 2 && phil report --out runs/report-live-1.md && phil gate`.
+Offline: `phil run --mock`. Live golden test: `uv run pytest -m llm` (skipped without a key; runs 4 arguments
+from the human reconstructions and needs >=3 selected verdicts to match `expected_verdict`).
+Expected `inconsistent` is scored as "some candidate's premises were unsat".
+
+## Phase 0 gate
+
+`phil gate` passes iff (a) all five stages (reconstruct, formalize, judge, select, iso) ran over all
+arguments with 0 failed jobs, and (b) selection rejected >= 1 trivialized candidate across the run
+(`rejected_trivial` total >= 1).
+
+Current result:
+- Mock: **PASS** (see `runs/report-mock.md`). Caveat: the mock formalizes most arguments as opaque atoms,
+  so verdict agreement is only meaningful for `cogito` (the mock's hand-written case); the gate is an
+  orchestration check, not evidence about formalization quality.
+- Live: **not run** (no `ANTHROPIC_API_KEY` available when this step was built).
