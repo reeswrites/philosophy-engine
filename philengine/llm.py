@@ -172,7 +172,7 @@ class MockLLMClient(_Base):
         row = self.store.one("SELECT json FROM argument WHERE id=?", (argument_id,))
         if row:
             return json.loads(row["json"])["reconstruction"]
-        for a in json.loads((config.DATA_DIR / "arguments.json").read_text()):
+        for a in json.loads((config.data_dir() / "phase0" / "arguments.json").read_text()):
             if a["id"] == argument_id:
                 return a["reconstruction"]
         raise KeyError(f"mock: no human reconstruction for {argument_id!r}")

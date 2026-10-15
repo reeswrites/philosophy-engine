@@ -6,7 +6,7 @@ from philengine.store import Store
 
 def test_mock_end_to_end_all_arguments():
     st = Store(":memory:")
-    st.ingest(config.DATA_DIR / "arguments.json")
+    st.ingest(config.data_dir() / "phase0" / "arguments.json")
     rid = st.new_run(mock=True)
     llm = MockLLMClient(st, rid)
     out = pipeline.run_all(st, rid, llm)  # default: LLM reconstruct, N=3

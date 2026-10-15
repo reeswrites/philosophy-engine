@@ -8,7 +8,7 @@ from philengine.store import Store
 
 def run_cogito(n=2, options=None):
     st = Store(":memory:")
-    st.ingest(config.DATA_DIR / "arguments.json")
+    st.ingest(config.data_dir() / "phase0" / "arguments.json")
     rid = st.new_run(mock=True)
     llm = MockLLMClient(st, rid)
     opts = {"n_candidates": n, "from_human": True, **(options or {})}
@@ -75,7 +75,7 @@ def test_slot_error_retries_then_parse_fail():
     bad["predicates"][0]["gloss"] = "{0} thinks about {1}"
     (d / "formalize" / "cogito.json").write_text(json.dumps([bad]))
     st = Store(":memory:")
-    st.ingest(config.DATA_DIR / "arguments.json")
+    st.ingest(config.data_dir() / "phase0" / "arguments.json")
     rid = st.new_run(mock=True)
     llm = MockLLMClient(st, rid, fixtures_dir=d)
     pipeline.run_all(st, rid, llm, ["cogito"], stages=("formalize",), options={"n_candidates": 1, "from_human": True})

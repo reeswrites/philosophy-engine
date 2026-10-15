@@ -8,3 +8,8 @@ __pycache__/
 .pytest_cache/
 runs/
 dist/
+
+# A private instance's claims never belong here (see README "Private instance")
+data/candidates/
+data/rees/
+data/private/

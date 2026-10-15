@@ -133,7 +133,7 @@ class Store:
     # ---- arguments / ingest
     def ingest(self, path: str | Path | None = None) -> int:
         """Load arguments.json (all extra fields accepted). Idempotent. Returns #arguments."""
-        path = Path(path) if path else config.DATA_DIR / "arguments.json"
+        path = Path(path) if path else config.data_dir() / "phase0" / "arguments.json"
         data = json.loads(path.read_text())
         for a in data:
             self.ingest_argument(a)

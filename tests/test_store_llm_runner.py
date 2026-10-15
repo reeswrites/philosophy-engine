@@ -9,7 +9,7 @@ from philengine.models_ext import FormalizationX, JudgeOut
 from philengine.runner import Ctx, Runner
 from philengine.store import Store
 
-ARGS = config.DATA_DIR / "arguments.json"
+ARGS = config.data_dir() / "phase0" / "arguments.json"
 
 
 @pytest.fixture

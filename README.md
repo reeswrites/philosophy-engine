@@ -69,6 +69,14 @@ Offline: `phil run --mock`. Live golden test: `uv run pytest -m llm` (skipped wi
 from the human reconstructions and needs >=3 selected verdicts to match `expected_verdict`).
 Expected `inconsistent` is scored as "some candidate's premises were unsat".
 
+## Private instance
+
+The engine carries no personal claims. A private repo (mine: `philosophy-me`, sibling to `exo` / `exo-me`) depends on this
+one as an editable uv path dependency and supplies its own `data/<family>/arguments.json`, `runs/` and `.env`.
+Paths resolve, in order: `PHIL_DATA_DIR` / `PHIL_RUNS_DIR` env vars; else `./data` and `./runs` of the current working
+directory if they exist; else this repo's own. `.env` is read from the CWD first, then the engine root (real env wins).
+`phil families` lists `<data>/*/arguments.json`. Run `uv run phil ...` from inside the instance repo.
+
 ## Phase 0 gate
 
 `phil gate` passes iff (a) all five stages (reconstruct, formalize, judge, select, iso) ran over all

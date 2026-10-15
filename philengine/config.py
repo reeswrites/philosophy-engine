@@ -5,9 +5,31 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RUNS_DIR = ROOT / "runs"
-DATA_DIR = ROOT / "data" / "phase0"
 PROMPTS_DIR = ROOT / "prompts"
+
+
+def _resolve_dir(env_var: str, name: str) -> Path:
+    """env var wins; else ./<name> if it exists in the CWD (a private instance); else the engine's own."""
+    v = os.environ.get(env_var)
+    if v:
+        return Path(v).expanduser()
+    cwd = Path.cwd() / name
+    return cwd if cwd.is_dir() else ROOT / name
+
+
+def data_dir() -> Path:
+    """Data root (holds one subdirectory per family, each with arguments.json). Resolved at call time."""
+    return _resolve_dir("PHIL_DATA_DIR", "data")
+
+
+def runs_dir() -> Path:
+    """Where run databases and reports live. Resolved at call time."""
+    return _resolve_dir("PHIL_RUNS_DIR", "runs")
+
+
+# Import-time snapshots, kept for convenience; prefer data_dir()/runs_dir() in code that may run from another cwd.
+DATA_DIR = data_dir()
+RUNS_DIR = runs_dir()
 
 
 class ConfigError(RuntimeError):
@@ -33,8 +55,8 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 
 
 def load_env() -> None:
-    """Read ./.env then ~/.config/philengine/.env into os.environ; existing env wins."""
-    for p in (Path.cwd() / ".env", Path.home() / ".config" / "philengine" / ".env"):
+    """Read ./.env, then <engine root>/.env, then ~/.config/philengine/.env into os.environ; existing env wins."""
+    for p in (Path.cwd() / ".env", ROOT / ".env", Path.home() / ".config" / "philengine" / ".env"):
         if p.is_file():
             for k, v in _parse_env_file(p).items():
                 os.environ.setdefault(k, v)

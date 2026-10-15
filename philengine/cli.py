@@ -10,14 +10,20 @@ from . import config, report
 from .pipeline import ALL_STAGES, run_all
 from .store import Store
 
-DEFAULT_DB = "runs/phase0.db"
-DEFAULT_ARGS = "data/phase0/arguments.json"
 # USD per million tokens (input, output); only used if the model is listed.
 PRICES: dict[str, tuple[float, float]] = getattr(config, "PRICES", {})
 
 
+def _db_path(a) -> str:
+    return a.db or str(config.runs_dir() / "phase0.db")
+
+
+def _data_path(a) -> str:
+    return a.data or str(config.data_dir() / "phase0" / "arguments.json")
+
+
 def _store(a) -> Store:
-    return Store(a.db)
+    return Store(_db_path(a))
 
 
 def _run_id(st: Store, a) -> int | None:
@@ -26,15 +32,15 @@ def _run_id(st: Store, a) -> int | None:
 
 def cmd_ingest(a) -> int:
     st = _store(a)
-    n = st.ingest(a.data)
-    print(f"ingested {n} arguments into {a.db}")
+    n = st.ingest(_data_path(a))
+    print(f"ingested {n} arguments into {_db_path(a)}")
     return 0
 
 
 def cmd_run(a) -> int:
     st = _store(a)
     if not st.argument_ids():
-        st.ingest(a.data)
+        st.ingest(_data_path(a))
     options = {"from_human": bool(a.from_human)}
     if a.n_candidates:
         options["n_candidates"] = a.n_candidates
@@ -204,7 +210,22 @@ def cmd_dashboard(a) -> int:
     if rid is None:
         print("no runs", file=sys.stderr)
         return 1
-    print(f"wrote {dashboard.write_dashboard(st, rid, a.out)}")
+    print(f"wrote {dashboard.write_dashboard(st, rid, a.out or str(config.runs_dir() / "dashboard.html"))}")
+    return 0
+
+
+def cmd_families(a) -> int:
+    root = config.data_dir()
+    found = sorted(root.glob("*/arguments.json"))
+    if not found:
+        print(f"no families under {root}", file=sys.stderr)
+        return 1
+    for f in found:
+        try:
+            n = len(json.loads(f.read_text()))
+        except Exception:
+            n = "?"
+        print(f"{f.parent.name}\t{n} arguments\t{f}")
     return 0
 
 
@@ -213,14 +234,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def db(sp, run=False):
-        sp.add_argument("--db", default=DEFAULT_DB)
+        sp.add_argument("--db", default=None)
         if run:
             sp.add_argument("--run", type=int, default=None)
 
     s = sub.add_parser("ingest"); db(s)
-    s.add_argument("--data", default=DEFAULT_ARGS); s.set_defaults(fn=cmd_ingest)
+    s.add_argument("--data", default=None); s.set_defaults(fn=cmd_ingest)
     s = sub.add_parser("run"); db(s, True)
-    s.add_argument("--data", default=DEFAULT_ARGS)
+    s.add_argument("--data", default=None)
     s.add_argument("--mock", action="store_true")
     s.add_argument("--from-human", action="store_true")
     s.add_argument("--n-candidates", type=int, default=None)
@@ -236,8 +257,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--stage"); s.add_argument("--arg"); s.set_defaults(fn=cmd_calls)
     s = sub.add_parser("report"); db(s, True); s.add_argument("--out"); s.set_defaults(fn=cmd_report)
     s = sub.add_parser("dashboard"); db(s, True)
-    s.add_argument("--out", default="runs/dashboard.html"); s.set_defaults(fn=cmd_dashboard)
+    s.add_argument("--out", default=None); s.set_defaults(fn=cmd_dashboard)
     s = sub.add_parser("gate"); db(s, True); s.set_defaults(fn=cmd_gate)
+    s = sub.add_parser("families", help="list <DATA_DIR>/*/arguments.json"); s.set_defaults(fn=cmd_families)
     return p
 
 
