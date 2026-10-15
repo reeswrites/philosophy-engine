@@ -255,7 +255,7 @@ let curArg=D.arguments[0]?.id;
  let h=`<div class="gate ${g.passed?'PASS':'FAIL'}">${esc(D.gate_line)}</div>`;
  h+=`<h2>Stage jobs</h2><table><tr><th>stage</th><th>done</th><th>failed</th><th>pending/running</th><th>skipped</th></tr>`;
  for(const s of D.stages){const c=D.stage_counts[s]||{};h+=`<tr><td>${s}</td><td>${c.done||0}</td><td>${c.failed||0}</td><td>${(c.pending||0)+(c.running||0)}</td><td>${c.skipped||0}</td></tr>`}
- h+=`</table><h2>Verdict agreement</h2><p class="muted">Verdicts are validity as formalized; refuted = invalid as formalized, not unsound. `inconsistent` = the selected formalization's premises are unsat; it is scored against expected `inconsistent` directly.</p>
+ h+=`</table><h2>Verdict agreement</h2><p class="muted">Verdicts are validity as formalized; refuted = invalid as formalized, not unsound. <code>inconsistent</code> = the selected formalization's premises are unsat; it is scored against expected <code>inconsistent</code> directly.</p>
  <p class="muted">status: <b>selected</b>; <b>judge-weak</b> = decided by Z3 and selected, but judge mean below threshold (a penalty, not a filter); <b>open: decided candidates all rejected</b> = a Z3-decided candidate existed and every candidate was rejected. diversity = distinct candidates (normalized formulas + predicate set) / candidates.</p>
  <table><tr><th>argument</th><th>expected</th><th>selected</th><th>agree</th><th>status</th><th>contested</th><th>rejected_trivial</th><th>rejected_judge</th><th>candidates</th><th>diversity</th></tr>`;
  const stPill=s=>s==='judge-weak'?`<span class="pill open">${esc(s)}</span>`:s.startsWith('open')?`<span class="pill refuted">${esc(s)}</span>`:esc(s);
