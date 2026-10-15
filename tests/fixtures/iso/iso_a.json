@@ -1,0 +1,67 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "loves",
+   "arg_sorts": [
+    "Obj",
+    "Obj"
+   ],
+   "gloss": "{0} loves {1}",
+   "sense": "t:loves"
+  },
+  {
+   "name": "kind",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "{0} is kind",
+   "sense": "t:kind"
+  },
+  {
+   "name": "happy",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "{0} is happy",
+   "sense": "t:happy"
+  }
+ ],
+ "constants": [
+  {
+   "name": "ann",
+   "sort": "Obj",
+   "gloss": "ann",
+   "sense": "t:ann"
+  },
+  {
+   "name": "bob",
+   "sort": "Obj",
+   "gloss": "bob",
+   "sense": "t:bob"
+  }
+ ],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((x Obj) (y Obj)) (=> (and (loves x y) (kind x)) (happy y)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(loves ann bob)"
+  },
+  {
+   "premise_id": "P3",
+   "sexpr": "(kind ann)"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(happy bob)"
+ },
+ "notes": ""
+}

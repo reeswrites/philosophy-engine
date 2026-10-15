@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from . import config
-from .models_ext import FormalizationX, ReconstructionX, frozen_type
+from .models_ext import FormalizationX, JudgeReportX, ReconstructionX, SelectionResultX
 from .schemas import (CheckReport, FormalizationRecord, JudgeReport, Reconstruction,
                       ReconstructionRecord, SelectionResult)
 
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS argument(
 CREATE TABLE IF NOT EXISTS premise(
   id TEXT PRIMARY KEY,            -- sha1 of normalized text
   text TEXT NOT NULL,
-  type TEXT,                      -- mapped into the frozen 4-way taxonomy
+  type TEXT,
   type_ext TEXT,                  -- original type (may be 'metaphysical')
   first_argument_id TEXT);
 CREATE TABLE IF NOT EXISTS argument_premise(
@@ -160,7 +160,7 @@ class Store:
             pid = premise_id(p.text)
             label2pid[p.id] = pid
             self.execute("INSERT OR IGNORE INTO premise(id,text,type,type_ext,first_argument_id) VALUES (?,?,?,?,?)",
-                         (pid, p.text, frozen_type(p.type), p.type, aid))
+                         (pid, p.text, p.type, p.type, aid))
             self.execute("INSERT OR REPLACE INTO argument_premise(argument_id,premise_id,ord,label,implicit) VALUES (?,?,?,?,?)",
                          (aid, pid, i, p.id, int(p.implicit)))
         # objections -> attacks relations
@@ -246,7 +246,7 @@ class Store:
             id=r["id"], reconstruction_id=r["reconstruction_id"], candidate_idx=r["candidate_idx"],
             formalization=FormalizationX.model_validate_json(r["formalization_json"]) if r["formalization_json"] else None,
             check=CheckReport.model_validate_json(r["check_json"]) if r["check_json"] else None,
-            judge=JudgeReport.model_validate_json(r["judge_json"]) if r["judge_json"] else None,
+            judge=JudgeReportX.model_validate_json(r["judge_json"]) if r["judge_json"] else None,
             status=r["status"], llm_call_ids=json.loads(r["llm_call_ids_json"] or "[]"))
 
     def get_formalization(self, fid: int) -> FormalizationRecord:
@@ -267,7 +267,7 @@ class Store:
 
     def get_selection(self, reconstruction_id: int) -> SelectionResult | None:
         r = self.one("SELECT json FROM selection WHERE reconstruction_id=? ORDER BY id DESC LIMIT 1", (reconstruction_id,))
-        return SelectionResult.model_validate_json(r["json"]) if r else None
+        return SelectionResultX.model_validate_json(r["json"]) if r else None
 
     # ---- relations / concepts / reviews (review is a stub)
     def insert_relation(self, src_kind, src_id, dst_kind, dst_id, kind, evidence=None, run_id=None) -> int:

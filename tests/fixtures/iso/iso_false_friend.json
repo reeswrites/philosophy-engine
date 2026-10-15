@@ -1,0 +1,67 @@
+{
+ "sorts": [
+  {
+   "name": "Obj"
+  }
+ ],
+ "predicates": [
+  {
+   "name": "p",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "{0} p",
+   "sense": "t:p"
+  },
+  {
+   "name": "q",
+   "arg_sorts": [
+    "Obj"
+   ],
+   "gloss": "{0} q",
+   "sense": "t:q"
+  },
+  {
+   "name": "r",
+   "arg_sorts": [
+    "Obj",
+    "Obj"
+   ],
+   "gloss": "{0} r {1}",
+   "sense": "t:r"
+  }
+ ],
+ "constants": [
+  {
+   "name": "m",
+   "sort": "Obj",
+   "gloss": "m",
+   "sense": "t:m"
+  },
+  {
+   "name": "n",
+   "sort": "Obj",
+   "gloss": "n",
+   "sense": "t:n"
+  }
+ ],
+ "premises": [
+  {
+   "premise_id": "P1",
+   "sexpr": "(forall ((x Obj) (y Obj)) (=> (and (r x y) (q y)) (p y)))"
+  },
+  {
+   "premise_id": "P2",
+   "sexpr": "(r m n)"
+  },
+  {
+   "premise_id": "P3",
+   "sexpr": "(q n)"
+  }
+ ],
+ "conclusion": {
+  "premise_id": "C",
+  "sexpr": "(p n)"
+ },
+ "notes": ""
+}

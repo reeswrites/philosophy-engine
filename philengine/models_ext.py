@@ -1,8 +1,6 @@
 """Models that extend the FROZEN schemas.py without editing it.
 
-- `metaphysical` is a 5th premise type in the human data and the reconstruct prompt;
-  schemas.Type only has 4, so `to_frozen()` maps it (see `FROZEN_TYPE_MAP`) while the
-  original value survives in `premise.type_ext` in the store and in raw JSON.
+- `metaphysical` is a 5th premise type (now also in schemas.Type); stored as-is.
 - Predicates/constants carry `sense` (and a slot-template `gloss`); subclasses of the frozen
   models, so they pass straight into checks.run_all / fol.validate.
 """
@@ -13,14 +11,9 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from .schemas import ConstDecl, FormalizationJSON, PredDecl, PremiseIn, Reconstruction
+from .schemas import ConstDecl, FormalizationJSON, PredDecl, PremiseIn, Reconstruction, Type
 
-TypeX = Literal["logical", "definitional", "empirical", "normative", "metaphysical"]
-FROZEN_TYPE_MAP = {"metaphysical": "empirical"}
-
-
-def frozen_type(t: str) -> str:
-    return FROZEN_TYPE_MAP.get(t, t)
+TypeX = Type
 
 
 class PremiseX(PremiseIn):
@@ -33,9 +26,9 @@ class ReconstructionX(Reconstruction):
     conclusion_type: TypeX | None = None  # type: ignore[assignment]
 
     def to_frozen(self) -> Reconstruction:
-        ps = [PremiseIn(id=p.id, text=p.text, implicit=p.implicit, type=frozen_type(p.type),
+        ps = [PremiseIn(id=p.id, text=p.text, implicit=p.implicit, type=p.type,
                         rationale=p.rationale) for p in self.premises]
-        ct = frozen_type(self.conclusion_type) if self.conclusion_type else None
+        ct = self.conclusion_type
         return Reconstruction(premises=ps, conclusion=self.conclusion, conclusion_type=ct, notes=self.notes)
 
 
@@ -81,3 +74,22 @@ class JudgeOut(BaseModel):
 
 
 HARD_REJECT_FLAGS = ("conclusion_smuggled", "sense_drift", "missing_implicit_premise")
+
+
+# ---- step 3 extensions (schemas.py is frozen; these widen it without editing it) ----
+from .schemas import JudgeReport, SelectionResult  # noqa: E402
+
+
+class JudgeReportX(JudgeReport):
+    """JudgeReport + the hard-reject flags, the mechanical verbalization the judge saw, and hard_reject."""
+    flags: list[Literal[  # type: ignore[assignment]
+        "strengthened", "weakened", "dropped_content", "added_content", "scope_shift",
+        "quantifier_error", "predicate_collapse",
+        "conclusion_smuggled", "sense_drift", "missing_implicit_premise",
+    ]] = []
+    hard_reject: bool = False
+    verbalization: str = ""
+
+
+class SelectionResultX(SelectionResult):
+    contested: bool = False

@@ -28,9 +28,9 @@ def test_ingest_real_arguments(store):
     assert all(r["dst_kind"] == "premise" for r in rels)
     assert store.ingest(ARGS) == 15  # idempotent
     assert len(store.relations("attacks")) == n_obj
-    # metaphysical mapped for frozen schema, original kept
+    # metaphysical stored as-is
     row = store.one("SELECT type, type_ext FROM premise WHERE text='Whatever thinks exists.'")
-    assert (row["type"], row["type_ext"]) == ("empirical", "metaphysical")
+    assert (row["type"], row["type_ext"]) == ("metaphysical", "metaphysical")
     rec = store.latest_reconstruction("cogito", "human")
     assert [p.id for p in rec.reconstruction.premises] == ["P1", "P2"]
     assert store.iso_truth() >= {frozenset(("sorites-heap", "ship-of-theseus-gradual"))}

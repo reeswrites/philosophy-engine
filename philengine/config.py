@@ -56,3 +56,11 @@ JUDGE_CONCLUSION_SCORE = 0.7
 
 # Selection weights
 SELECT_WEIGHTS = {"mean": 0.45, "min": 0.25, "minimal": 0.15, "simplicity": 0.10, "decided": 0.05}
+
+# Stage defaults (overridable via Ctx.options)
+N_CANDIDATES = 3
+TEMP_RECONSTRUCT = 0.7
+TEMP_FORMALIZE = 0.8
+TEMP_JUDGE = 0.0
+ISO_MAX_PREDS = 6          # brute-force predicate-bijection bound
+ISO_MAX_PERMS = 5040       # hard cap on mappings tried per pair

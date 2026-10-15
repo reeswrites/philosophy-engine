@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-Type = Literal["logical", "definitional", "empirical", "normative"]
+Type = Literal["logical", "definitional", "empirical", "normative", "metaphysical"]
 Verdict = Literal["valid", "refuted", "open"]
 
 
