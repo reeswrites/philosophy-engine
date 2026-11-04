@@ -252,6 +252,16 @@ def test_breach_when_payoff_beats_expected_sanction():
     dear.step(); dear.step()
     assert all(a.chosen == ("pay", ("boss", "worker")) and a.breached == [] for a in dear.by_role["boss"])
     assert dear.breaches[-1]["boss"] == 0.0
+    # two sanctionable musts breached in one step: realised charge is the sum, matching the expected net in choose
+    twice = tiny(extra_actions=[{"name": "rest", "args": ["boss"]}],
+                 extra_rules=[{"id": "R5", "attribute": "boss", "deontic": "may", "aim": "(rest boss)",
+                               "conditions": "true", "strand": "rival"},
+                              {"id": "R6", "attribute": "boss", "deontic": "must", "aim": "(pay boss worker)",
+                               "conditions": "(paid worker)", "strand": "rival", "or_else": "R1"}])
+    double = InstitutionModel(twice, seed=0, agents_per_role=4, payoffs=pay, params=dict(sanction_weight=1.0, copy_rate=0.0))
+    double.step(); double.step()  # rest nets 10 - 2 > 1
+    assert all(a.chosen == ("rest", ("boss",)) and sorted(a.breached) == ["R3", "R6"] for a in double.by_role["boss"])
+    assert all(a.sanction_now == 2.0 and a.last_payoff == 10.0 - 2.0 for a in double.by_role["boss"])
 
 
 def test_graduated_sanction_and_sanction_steps():

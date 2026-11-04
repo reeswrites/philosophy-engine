@@ -130,7 +130,7 @@ class InstitutionAgent(mesa.Agent):
         self.breached = breaches(chosen)
         sanctionable = [r for r in self.breached if m.sanctionable(r)]
         if sanctionable:
-            self.sanction_now = self.expected_sanction(sanctionable[0])
+            self.sanction_now = sum(self.expected_sanction(r) for r in sanctionable)
             self.breach_count += 1
             self.sanctioned_until = m.t + int(p["sanction_steps"])
         if chosen is not None:
