@@ -6,9 +6,12 @@ of the rules goes through `rules_reference.Reference`:
                         `Reference.power` (ADR 0013 reading: some may/must rule instance's condition holds and no
                         `or_else: null` disability bars it). A sanctionable must_not leaves the action available.
                         An action no may/must rule names is never available to an agent.
-  forbidden_for(role)   instances a must_not rule instance (sanctionable or not) forbids now; applied on the
-                        firing side: an agent does not fire one in slice 1 (strict compliance, ASSUMED).
-  obligations_for(role) must rule instances on (a, (role, ...)) whose condition holds now.
+  forbidden_for(role)   instances a sanctionable must_not rule instance forbids now (`forbidding_rules` gives the
+                        rule ids); breaching one is a choice weighed against the expected sanction (A4).
+  obligations_for(role) must rule instances on (a, (role, ...)) whose condition holds now (`obligation_rules`
+                        gives the rule ids); likewise a choice (A4).
+  sanctionable(rule)    the rule has `or_else` (a sanction exists); `or_else: null` on a must = free to breach.
+  is_pledge / pledge_base  an action named `X_pledge` with X declared is a pledge for X (A3 stand-in).
   successor             `Reference.successor` on the union of distinct instances agents chose this step.
   income_for(role)      sum of `payoffs[f]` over state atoms (f, tuple) with the role in the tuple, for fluent
                         names in the payoffs block (plan: "surplus accrues from income fluents"). With no income
@@ -32,7 +35,7 @@ import mesa
 
 from ..rules_reference import Reference
 from ..schemas_rules import InstitutionJSON
-from .agent import ActionInst, InstitutionAgent, action_label
+from .agent import PLEDGE_SUFFIX, ActionInst, InstitutionAgent, action_label
 from .graph import DEFAULT_K, DEFAULT_P, small_world
 from .report import AbmReport
 
@@ -51,6 +54,9 @@ DEFAULT_PARAMS: dict[str, float] = {
     "initial_trust": 0.5,
     "trust_delta": 0.1,
     "trust_beta": 2.0,
+    "sanction_weight": 1.0,  # A4: expected and realised sanction for breaching a rule with or_else
+    "sanction_steps": 3,  # A4: steps an agent stays sanctioned after a breach
+    "sanction_escalation": 1.5,  # A4: graduated sanction multiplier per prior breach
 }
 
 
@@ -88,6 +94,9 @@ class InstitutionModel(mesa.Model):
         self.payoffs = dict(payoffs or {})
         self.warnings: list[str] = []
         self.ref = Reference(inst, k=1)
+        self.t = 0
+        self._sanctionable = {r.id: r.or_else is not None for r in inst.rules}
+        self._action_names = {a.name for a in inst.actions}
         fluent_names = {f.name for f in inst.fluents}
         self.income_fluents = {k: v for k, v in self.payoffs.items() if k in fluent_names}
         fixed, free = self.ref.initial_split()
@@ -109,9 +118,21 @@ class InstitutionModel(mesa.Model):
             a.neighbours = [population[j] for j in g.neighbors(i)]
             a.role_neighbours = [n for n in a.neighbours if n.role == a.role]
         self.adoption: list[dict[str, dict[str, float]]] = []
-        self._cache: dict[str, tuple[list[ActionInst], list[ActionInst], list[ActionInst]]] = {}
+        self.breaches: list[dict[str, float]] = []  # [step][role] -> share of agents that breached a rule
+        self.sanctioned: list[dict[str, float]] = []  # [step][role] -> share sanctioned
+        self._cache: dict[str, tuple] = {}
 
     # ------------------------------------------------------------ rule readings (through the reference)
+    def sanctionable(self, rule_id: str) -> bool:
+        return self._sanctionable.get(rule_id, False)
+
+    def is_pledge(self, a: ActionInst) -> bool:
+        n = a[0]
+        return n.endswith(PLEDGE_SUFFIX) and n[: -len(PLEDGE_SUFFIX)] in self._action_names
+
+    def pledge_base(self, a: ActionInst) -> ActionInst:
+        return (a[0][: -len(PLEDGE_SUFFIX)], a[1])
+
     def payoff(self, a: ActionInst | None) -> float:
         if a is None:
             return 0.0
@@ -123,22 +144,25 @@ class InstitutionModel(mesa.Model):
         return sum(v for f, v in self.income_fluents.items()
                    for atom in self.state if atom[0] == f and role in atom[1])
 
-    def _readings(self, role: str) -> tuple[list[ActionInst], list[ActionInst], list[ActionInst]]:
-        """(available, forbidden, obligations) for a role in the current state; cached per state."""
+    def _readings(self, role: str) -> tuple[list[ActionInst], dict[ActionInst, list[str]], dict[ActionInst, list[str]]]:
+        """(available, {forbidden act: must_not rule ids}, {obligation act: must rule ids}) for a role in the
+        current state; cached per state."""
         if role in self._cache:
             return self._cache[role]
-        available, forbidden, musts = [], [], []
+        available: list[ActionInst] = []
+        forbidden: dict[ActionInst, list[str]] = {}
+        musts: dict[ActionInst, list[str]] = {}
         for act in self.ref.action_insts:
             if not act[1] or act[1][0] != role:
                 continue
             if not self.ref.power(self.state, act[0], act[1]):
                 continue
             available.append(act)
-            on = self.ref.rules_on.get(act, [])
-            if any(ri.deontic == "must_not" and self.ref.cond_holds(ri, self.state) for ri in on):
-                forbidden.append(act)
-            if any(ri.deontic == "must" and self.ref.cond_holds(ri, self.state) for ri in on):
-                musts.append(act)
+            for ri in self.ref.rules_on.get(act, []):
+                if ri.deontic == "must_not" and self.sanctionable(ri.rule_id) and self.ref.cond_holds(ri, self.state):
+                    forbidden.setdefault(act, []).append(ri.rule_id)
+                if ri.deontic == "must" and self.ref.cond_holds(ri, self.state):
+                    musts.setdefault(act, []).append(ri.rule_id)
         self._cache[role] = (available, forbidden, musts)
         return available, forbidden, musts
 
@@ -146,9 +170,15 @@ class InstitutionModel(mesa.Model):
         return self._readings(role)[0]
 
     def forbidden_for(self, role: str) -> list[ActionInst]:
+        return list(self._readings(role)[1])
+
+    def forbidding_rules(self, role: str) -> dict[ActionInst, list[str]]:
         return self._readings(role)[1]
 
     def obligations_for(self, role: str) -> list[ActionInst]:
+        return list(self._readings(role)[2])
+
+    def obligation_rules(self, role: str) -> dict[ActionInst, list[str]]:
         return self._readings(role)[2]
 
     # ------------------------------------------------------------ step
@@ -161,6 +191,13 @@ class InstitutionModel(mesa.Model):
         self.state = self.ref.successor(self.state, fired)
         self._cache = {}  # readings are per state
         self.adoption.append(self.adoption_shares())
+        self.breaches.append(self._role_rate(lambda a: bool(a.breached)))
+        self.sanctioned.append(self._role_rate(lambda a: a.sanctioned))
+        self.t += 1
+
+    def _role_rate(self, pred) -> dict[str, float]:
+        return {role: (sum(1 for a in members if pred(a)) / len(members)) if members else 0.0
+                for role, members in self.by_role.items()}
 
     def adoption_shares(self) -> dict[str, dict[str, float]]:
         out: dict[str, dict[str, float]] = {}
@@ -186,7 +223,8 @@ class InstitutionModel(mesa.Model):
         return AbmReport(institution=self.inst.id, seed=self.seed_value, modules=list(self.modules),
                          params=dict(self.params, payoffs=dict(self.payoffs)), steps=len(self.adoption),
                          agents_per_role=self.agents_per_role, roles=list(self.roles), adoption=list(self.adoption),
-                         fluent_rates=self.fluent_rates(), warnings=list(self.warnings))
+                         fluent_rates=self.fluent_rates(), breaches=list(self.breaches),
+                         sanctioned=list(self.sanctioned), warnings=list(self.warnings))
 
 
 def run_abm(inst: InstitutionJSON, seed: int = 0, steps: int = DEFAULT_STEPS,

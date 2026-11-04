@@ -10,10 +10,12 @@ state, which must / must_not instances bind now, and uses its `successor` for ef
 not define, the ABM does not know.
 
 SLICE 1: `material` mechanism only, as the simplest payoff-following adoption; `coordination` and `imagination`
-are stubs raising NotImplementedError. No scorer, no sweep, no gate.
+are stubs raising NotImplementedError. SLICE 2 (author decisions A3-A5, A7 in
+computational-liberation/docs/decisions-pending.md): breach as a choice with graduated sanctions, directed trust,
+the `_pledge` stand-in, `phil abm sweep`. Still no scorer and no gate.
 
-Design choices the plan leaves open, or that this slice had to make. Each is taken as the plan's proposed default
-(or the simplest reading) and is ASSUMED - awaiting author decision:
+Design choices, each marked DECIDED (author decision cited) or ASSUMED (the plan's proposed default or the simplest
+reading, awaiting author decision):
 
   payoff location   ASSUMED: an optional top-level `payoffs` dict on the institution's entry in institutions.json
                     (the plan proposes "a payoffs block on the dataset entry, not on InstitutionJSON").
@@ -27,14 +29,25 @@ Design choices the plan leaves open, or that this slice had to make. Each is tak
   availability      ASSUMED: available = `Reference.power` exactly (a sanctionable must_not leaves the action
                     available; only an `or_else: null` disability bars it). An action no may/must rule names is
                     never available to an agent (ADR 0013 amendment).
-  compliance        ASSUMED: strict on the firing side. A must whose condition holds is always followed; an action a
-                    must_not (sanctionable or not) forbids now is never chosen. The plan's breach test (expected
-                    gain vs or_else cost weighted by belief in sanction) is not in this slice.
-  choice order      ASSUMED (agent.py): must > forbidden filter > material floor collapse > success imitation
-                    (copy_rate, only if the neighbour earned more) > material switch to a strictly better-paying
-                    candidate > same-role threshold > material bootstrap argmax (no usable practice) > keep.
-                    Payoff-following sits before the threshold rule so that a payoff block can move a convention
-                    at all; with uniform payoffs it never fires and the threshold rule alone governs.
+  breach            DECIDED (A4): a must is a choice. An agent breaches when an action's net payoff (payoff minus
+                    the expected sanction of every rule the choice breaches) beats the best lawful net payoff. A
+                    sanction exists iff the rule has `or_else`; a must with `or_else: null` is free to breach, and
+                    a must_not with `or_else: null` is a disability `Reference.power` already removed, so
+                    `forbidden_for` lists only sanctionable must_nots. Expected = realised sanction =
+                    sanction_weight * sanction_escalation ** (prior sanctionable breaches) (graduated), applied
+                    to the realised payoff and the surplus for sanction_steps steps from the breach. ASSUMED
+                    within A4: no "belief that the sanction lands" factor (monitoring is a later slice); breaching
+                    several rules at once sums their expected sanctions but counts as one breach.
+  choice order      ASSUMED (agent.py): lawful/breach candidate set > material floor collapse > success imitation
+                    (copy_rate, only if the neighbour earned more) > material switch to a strictly better net-paying
+                    candidate > same-role threshold (practice or pledge share) > material bootstrap argmax (no
+                    usable practice) > keep (random obligation if none). Payoff-following sits BEFORE the threshold
+                    rule, on purpose: under threshold-first a same-role convention at share 1.0 meets every
+                    threshold in [0,1] and locks forever, so no payoff block could ever move it and the material
+                    switch would be dead code. The alternative, a payoff-weighted share inside the threshold rule,
+                    was rejected because it fuses the material and coordination mechanisms into one rule, and the
+                    plan needs them as separable switches. With uniform payoffs the switch never fires and the
+                    threshold rule alone governs, so the coordination reading is untouched in that regime.
   update            ASSUMED: synchronous. Practices are snapshotted at the start of a step and every choice reads
                     the snapshot; `shuffle_do` still randomises order for the rng draws. (Asynchronous update was
                     the first cut; it let early movers' choices feed late movers' shares within one step.)
@@ -45,13 +58,15 @@ Design choices the plan leaves open, or that this slice had to make. Each is tak
   state update      ASSUMED: at each step the union of distinct action instances chosen by any agent fires once
                     (effects land next step via `Reference.successor`); step_mode "many" semantics.
   initial state     ASSUMED: the reference's declared/empty split, with every unconstrained atom false (warned).
-  trust             ASSUMED: per-dyad trust starts at `initial_trust`, +delta when a neighbour met the obligation
-                    that bound it this step, -beta*delta when it did not; clipped to [0,1]; carried, not consumed.
-                    OPEN QUESTION: the code keys the update off the neighbour's own obligation; the plan (lines
-                    45-46) says an obligation "bearing on this agent" (the observer). Needs a reading of which
-                    rule instances bear on whom; left as is until decided.
-  pledge            ASSUMED: not represented in slice 1 (coordination module is a stub). When it lands it will
-                    be a dataset convention (an action whose name ends in `_pledge`), not an ActionDecl flag.
+  trust             DECIDED (A5): my trust in neighbour n moves only when n keeps (+delta) or breaches
+                    (-beta*delta) an obligation bearing on me: the obligation instance's action has my role among
+                    its non-actor arguments (instance args are role names, resolved from arg_roles / typing by the
+                    reference). Obligations with no role argument move no trust. Clipped to [0,1]; carried, not
+                    yet consumed (the assurance test is a later slice).
+  pledge            DECIDED (A3, stand-in): an action named `X_pledge` with X declared is a pledge for X. Choosing
+                    it sets the agent's public `pledge` to the X instance and leaves practice unchanged; same-role
+                    neighbours' threshold shares count practice or pledge. Target per A3 is a public derived
+                    fluent; the suffix convention is a magic string and is flagged as such.
   parameters        ASSUMED: every DEFAULT_PARAMS value (model.py) is a placeholder, to be swept, never calibrated
                     (plan: "Non-goals"; gate (b) forbids a constant that sets the tipping location). Proposed
                     sweep ranges:
@@ -64,6 +79,10 @@ Design choices the plan leaves open, or that this slice had to make. Each is tak
                       initial_trust    0.5   -> {0.2, 0.5, 0.8}
                       trust_delta      0.1   -> {0.05, 0.1, 0.2}
                       trust_beta       2.0   -> {1.5, 2.0, 3.0}
+                      sanction_weight  1.0   -> {0.0, 0.5, 1.0, 2.0, 5.0} (0.0 = sanctions exist but cost nothing)
+                      sanction_steps   3     -> {1, 3, 5, 10}
+                      sanction_escalation 1.5 -> {1.0, 1.5, 2.0} (1.0 = no graduation)
+                    `phil abm sweep --param name=lo:hi:steps` runs these as grids (A7); payoff.<action> axes too.
                     plus graph k in {4, 6, 8} and p in {0.0, 0.1, 0.5} (plan open question 2: lattice / random).
 """
 from .model import InstitutionModel, load_payoffs, run_abm

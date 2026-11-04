@@ -222,3 +222,145 @@ def test_cli_abm_run(capsys, dataset_env):
     d = json.loads(capsys.readouterr().out)
     assert d["seeds"] == [0, 1, 2] and len(d["runs"]) == 3 and "adoption_over_seeds" in d
     assert main(["abm", "run", "--institution", "no-such-institution", "--institutions", str(ip)]) == 2
+
+
+# ---------------------------------------------------------------- slice 2: breach (A4), trust (A5), pledge (A3), sweep (A7)
+
+def shop_with_rest(or_else="R1", rest_payoff=10.0):
+    """The boss must pay once the worker is paid (sanctionable iff or_else); `rest` is a tempting alternative."""
+    return tiny(extra_actions=[{"name": "rest", "args": ["boss"]}],
+                extra_rules=[{"id": "R5", "attribute": "boss", "deontic": "may", "aim": "(rest boss)",
+                              "conditions": "true", "strand": "rival"}]), {"rest": rest_payoff, "pay": 1.0}
+
+
+def _no_sanction(inst):
+    for r in inst.rules:
+        if r.id == "R3":
+            r.or_else = None
+    return inst
+
+
+def test_breach_when_payoff_beats_expected_sanction():
+    inst, pay = shop_with_rest()
+    cheap = InstitutionModel(inst, seed=0, agents_per_role=4, payoffs=pay, params=dict(sanction_weight=1.0, copy_rate=0.0))
+    cheap.step(); cheap.step()  # step 2: paid(worker) holds, boss is obliged to pay; rest nets 10 - 1 > 1
+    assert cheap.obligations_for("boss") == [("pay", ("boss", "worker"))]
+    assert all(a.chosen == ("rest", ("boss",)) and a.breached == ["R3"] for a in cheap.by_role["boss"])
+    assert cheap.breaches[-1]["boss"] == 1.0 and cheap.sanctioned[-1]["boss"] == 1.0
+    assert all(a.last_payoff == 10.0 - 1.0 for a in cheap.by_role["boss"])  # sanction lands on the realised payoff
+    dear = InstitutionModel(inst, seed=0, agents_per_role=4, payoffs=pay, params=dict(sanction_weight=100.0, copy_rate=0.0))
+    dear.step(); dear.step()
+    assert all(a.chosen == ("pay", ("boss", "worker")) and a.breached == [] for a in dear.by_role["boss"])
+    assert dear.breaches[-1]["boss"] == 0.0
+
+
+def test_graduated_sanction_and_sanction_steps():
+    inst, pay = shop_with_rest()
+    m = InstitutionModel(inst, seed=0, agents_per_role=2, payoffs=pay,
+                         params=dict(sanction_weight=1.0, sanction_escalation=2.0, sanction_steps=2, copy_rate=0.0))
+    boss = m.by_role["boss"][0]
+    m.step()
+    assert boss.expected_sanction("R3") == 1.0 and boss.expected_sanction("R1") == 0.0  # R1 is a may: no sanction
+    m.step()  # first breach
+    assert boss.breach_count == 1 and boss.sanction_now == 1.0 and boss.sanctioned
+    assert boss.expected_sanction("R3") == 2.0  # graduated
+    m.step()  # second breach: rest nets 10 - 2 > 1
+    assert boss.breach_count == 2 and boss.sanction_now == 2.0 and boss.last_payoff == 8.0
+    assert boss.sanctioned_until == m.t - 1 + 2
+
+
+def test_must_without_or_else_is_free_to_breach():
+    inst, pay = shop_with_rest()
+    _no_sanction(inst)
+    m = InstitutionModel(inst, seed=0, agents_per_role=3, payoffs=pay, params=dict(sanction_weight=100.0, copy_rate=0.0))
+    m.step(); m.step()
+    assert all(a.chosen == ("rest", ("boss",)) and a.breached == ["R3"] and not a.sanctioned for a in m.by_role["boss"])
+    assert m.sanctioned[-1]["boss"] == 0.0 and m.breaches[-1]["boss"] == 1.0
+
+
+def test_sanctionable_must_not_is_breached_only_when_worth_it():
+    forbid = {"id": "R4", "attribute": "worker", "deontic": "must_not", "aim": "(quit worker)",
+              "conditions": "true", "strand": "rival", "or_else": "R3"}
+    inst = tiny(extra_rules=[forbid])
+    tempted = InstitutionModel(inst, seed=0, agents_per_role=3, payoffs={"quit": 5.0, "work": 1.0},
+                               params=dict(sanction_weight=1.0, copy_rate=0.0))
+    tempted.step(); tempted.step()
+    assert all(a.chosen == ("quit", ("worker",)) and a.breached == ["R4"] for a in tempted.by_role["worker"])
+    deterred = InstitutionModel(inst, seed=0, agents_per_role=3, payoffs={"quit": 5.0, "work": 1.0},
+                                params=dict(sanction_weight=10.0, copy_rate=0.0))
+    deterred.step(); deterred.step()
+    assert all(a.chosen == ("work", ("worker",)) for a in deterred.by_role["worker"])
+
+
+def _worker_boss_pairs(m):
+    return [(w, b) for w in m.by_role["worker"] for b in w.neighbours if b.role == "boss"]
+
+
+def test_trust_rises_on_kept_and_falls_on_breached_obligation_bearing_on_me():
+    inst, pay = shop_with_rest()
+    kept = InstitutionModel(inst, seed=0, agents_per_role=6, payoffs=pay, params=dict(sanction_weight=100.0))
+    kept.step(); kept.step()
+    pairs = _worker_boss_pairs(kept)
+    assert pairs
+    assert all(w.trust[b.unique_id] == 0.5 + 0.1 for w, b in pairs)  # +delta on a kept obligation bearing on me
+    broken = InstitutionModel(inst, seed=0, agents_per_role=6, payoffs=pay, params=dict(sanction_weight=1.0))
+    broken.step(); broken.step()
+    assert all(w.trust[b.unique_id] == 0.5 - 2.0 * 0.1 for w, b in _worker_boss_pairs(broken))  # -beta*delta
+    # the obligation bears on the worker, not on other bosses: boss-boss trust never moves
+    for b in broken.by_role["boss"]:
+        assert all(b.trust.get(n.unique_id) is None for n in b.neighbours if n.role == "boss")
+
+
+def test_obligation_without_role_argument_moves_no_trust():
+    inst = tiny(extra_actions=[{"name": "train", "args": ["boss"]}],
+                extra_rules=[{"id": "R6", "attribute": "boss", "deontic": "must", "aim": "(train boss)",
+                              "conditions": "true", "strand": "rival", "or_else": "R1"}])
+    m = InstitutionModel(inst, seed=0, agents_per_role=5)
+    m.step()
+    assert all(a.obligation_outcomes and a.obligation_outcomes[0][0] == ("train", ("boss",)) for a in m.by_role["boss"])
+    assert all(w.trust == {} for w in m.by_role["worker"])
+
+
+def test_pledge_sets_flag_not_practice_and_counts_in_shares():
+    inst = tiny(extra_actions=[{"name": "quit_pledge", "args": ["worker"]}],
+                extra_rules=[{"id": "R7", "attribute": "worker", "deontic": "may", "aim": "(quit_pledge worker)",
+                              "conditions": "true", "strand": "rival"}])
+    m = InstitutionModel(inst, seed=0, agents_per_role=6, payoffs={"quit_pledge": 3.0, "work": 1.0, "quit": 0.5},
+                         params=dict(copy_rate=0.0))
+    assert m.is_pledge(("quit_pledge", ("worker",))) and m.pledge_base(("quit_pledge", ("worker",))) == ("quit", ("worker",))
+    m.step()  # pledging pays most: everyone pledges quit, nobody's practice changes (none -> stays none)
+    assert all(a.pledge == ("quit", ("worker",)) and a.practice is None for a in m.by_role["worker"])
+    m.agents.do("snapshot")
+    w = next(a for a in m.by_role["worker"] if a.role_neighbours)
+    assert w.neighbour_shares() == {("quit", ("worker",)): 1.0}
+    assert m.adoption[-1]["worker"] == {"none": 1.0}
+
+
+def test_sweep_grid_rows_and_rates():
+    from philengine.abm.sweep import parse_param, sweep
+    assert parse_param("copy_rate=0:1:3") == ("copy_rate", [0.0, 0.5, 1.0])
+    assert parse_param("floor=2") == ("floor", [2.0]) and parse_param("floor=2:9:1") == ("floor", [2.0])
+    with pytest.raises(ValueError):
+        parse_param("floor=1:2")
+    inst, pay = shop_with_rest()
+    out = sweep(inst, {"sanction_weight": [0.0, 100.0], "payoff.rest": [10.0]}, seeds=3, steps=4, agents_per_role=3,
+                payoffs=pay)
+    assert len(out["grid"]) == 2 and all(len(g["rows"]) == 3 for g in out["grid"])
+    assert [g["params"] for g in out["grid"]] == [{"sanction_weight": 0.0, "payoff.rest": 10.0},
+                                                   {"sanction_weight": 100.0, "payoff.rest": 10.0}]
+    cheap, dear = out["grid"]
+    assert cheap["rates"]["breach_rate_over_seeds"]["boss"] > dear["rates"]["breach_rate_over_seeds"]["boss"] == 0.0
+    assert "runs" not in cheap["rates"] and cheap["rates"]["seeds"] == [0, 1, 2]
+    with pytest.raises(ValueError):
+        sweep(inst, {"telepathy": [1.0]}, seeds=1, steps=1, agents_per_role=2)
+
+
+def test_cli_abm_sweep(capsys, dataset_env):
+    ip, _ = dataset_env
+    inst_id = load_institutions(ip)[0].id
+    assert main(["abm", "sweep", "--institution", inst_id, "--seeds", "2", "--param", "copy_rate=0:1:2",
+                 "--steps", "3", "--agents-per-role", "2", "--institutions", str(ip)]) == 0
+    d = json.loads(capsys.readouterr().out)
+    assert d["seeds"] == 2 and len(d["grid"]) == 2 and all(len(g["rows"]) == 2 for g in d["grid"])
+    assert main(["abm", "sweep", "--institution", inst_id, "--seeds", "1", "--param", "nope=0:1:2",
+                 "--institutions", str(ip)]) == 2

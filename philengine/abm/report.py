@@ -22,6 +22,8 @@ class AbmReport:
     roles: list[str]
     adoption: list[dict[str, dict[str, float]]] = field(default_factory=list)  # [step][role][action] -> share
     fluent_rates: dict[str, float] = field(default_factory=dict)
+    breaches: list[dict[str, float]] = field(default_factory=list)  # [step][role] -> share that breached a rule
+    sanctioned: list[dict[str, float]] = field(default_factory=list)  # [step][role] -> share under sanction
     warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -33,6 +35,23 @@ class AbmReport:
     def final_adoption(self) -> dict[str, dict[str, float]]:
         return self.adoption[-1] if self.adoption else {}
 
+    def breach_rate(self) -> dict[str, float]:
+        """Per role: share of agent-steps on which a rule was breached."""
+        return _mean_over_steps(self.breaches)
+
+    def sanctioned_rate(self) -> dict[str, float]:
+        return _mean_over_steps(self.sanctioned)
+
+
+def _mean_over_steps(rows: list[dict[str, float]]) -> dict[str, float]:
+    if not rows:
+        return {}
+    out: dict[str, float] = {}
+    for row in rows:
+        for role, v in row.items():
+            out[role] = out.get(role, 0.0) + v / len(rows)
+    return out
+
 
 def summarize(reports: list[AbmReport]) -> dict:
     """Rates over seeds (plan: "Frequency, not entailment"): mean final adoption share per role and action, mean
@@ -40,6 +59,8 @@ def summarize(reports: list[AbmReport]) -> dict:
     n = len(reports)
     adoption: dict[str, dict[str, float]] = {}
     fluents: dict[str, float] = {}
+    breach: dict[str, float] = {}
+    sanctioned: dict[str, float] = {}
     for r in reports:
         for role, shares in r.final_adoption().items():
             acc = adoption.setdefault(role, {})
@@ -47,6 +68,10 @@ def summarize(reports: list[AbmReport]) -> dict:
                 acc[a] = acc.get(a, 0.0) + s / n
         for f, v in r.fluent_rates.items():
             fluents[f] = fluents.get(f, 0.0) + v / n
+        for role, v in r.breach_rate().items():
+            breach[role] = breach.get(role, 0.0) + v / n
+        for role, v in r.sanctioned_rate().items():
+            sanctioned[role] = sanctioned.get(role, 0.0) + v / n
     return {
         "institution": reports[0].institution if reports else None,
         "seeds": [r.seed for r in reports],
@@ -54,5 +79,7 @@ def summarize(reports: list[AbmReport]) -> dict:
         "steps": reports[0].steps if reports else 0,
         "adoption_over_seeds": {role: dict(sorted(v.items())) for role, v in sorted(adoption.items())},
         "fluent_rates_over_seeds": dict(sorted(fluents.items())),
+        "breach_rate_over_seeds": dict(sorted(breach.items())),
+        "sanctioned_rate_over_seeds": dict(sorted(sanctioned.items())),
         "runs": [r.to_dict() for r in reports],
     }
