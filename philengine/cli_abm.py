@@ -4,11 +4,17 @@
                [--institutions path]
   phil abm sweep --institution ID --seeds N --param name=lo:hi:steps [--param ...] [--steps] [--agents-per-role]
                  [--modules] [--institutions path]
+  phil abm score --institution ID --seeds N [--steps] [--probe-steps 10] [--agents-per-role] [--modules]
+                 [--institutions path]
+  phil abm gate --seeds N [--steps 50] [--probe-steps 10] [--agents-per-role 20] [--institutions path]
+                [--properties path] [--json] [--verbose]
 --seed N prints the AbmReport JSON of one run; --seeds N runs seeds 0..N-1 and prints the per-seed reports plus
 rates over seeds (mean final adoption share per role and action, mean final fluent rate, breach and sanction
 rates). `sweep` runs the Cartesian grid of --param axes (a DEFAULT_PARAMS name or payoff.<action>) over seeds
 0..N-1 and prints one row per (params, seed) plus rates per grid point (A7). Payoffs come from an
 optional `payoffs` block on the institution's dataset entry (absent: uniform default). Seed 0 default.
+`score` prints the veil-of-ignorance vectors (abm/score.py) as means over seeds with per-seed values. `gate`
+runs the layer-2 gate (a)-(d) (abm/gate.py) and exits 0 PASS, 1 FAIL, 2 BLOCKED, 3 on a load/usage error.
 """
 from __future__ import annotations
 
@@ -18,8 +24,10 @@ import sys
 from .abm import load_payoffs, run_abm
 from .abm.model import DEFAULT_AGENTS_PER_ROLE, DEFAULT_STEPS, MODULES
 from .abm.report import summarize
+from .abm import gate as abm_gate
+from .abm.score import PROBE_STEPS, score
 from .abm.sweep import parse_param, sweep
-from .schemas_rules import RulesLoadError, default_paths, load_institutions
+from .schemas_rules import RulesLoadError, default_paths, load_institutions, load_properties
 
 
 def cmd_run(a) -> int:
@@ -77,6 +85,50 @@ def cmd_sweep(a) -> int:
     return 0
 
 
+def cmd_score(a) -> int:
+    ip, _ = default_paths()
+    path = a.institutions or ip
+    try:
+        insts = load_institutions(path)
+    except RulesLoadError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    by_id = {i.id: i for i in insts}
+    if a.institution not in by_id:
+        print(f"unknown institution {a.institution!r}; have {sorted(by_id)}", file=sys.stderr)
+        return 2
+    modules = [m.strip() for m in a.modules.split(",") if m.strip()]
+    try:
+        out = score(by_id[a.institution], a.seeds, steps=a.steps, probe_steps=a.probe_steps,
+                    agents_per_role=a.agents_per_role, modules=modules, payoffs=load_payoffs(path, a.institution))
+    except (ValueError, NotImplementedError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(json.dumps(out, indent=1, sort_keys=True))
+    return 0
+
+
+def cmd_gate(a) -> int:
+    ip, pp = default_paths()
+    path, ppath = a.institutions or ip, a.properties or pp
+    try:
+        insts = load_institutions(path)
+        props = load_properties(ppath)
+    except (RulesLoadError, OSError) as e:
+        print(str(e), file=sys.stderr)
+        return 3
+    if a.seeds < 1:
+        print("--seeds must be >= 1", file=sys.stderr)
+        return 3
+    rep = abm_gate.run_gate(insts, props, seeds=a.seeds, steps=a.steps, probe_steps=a.probe_steps,
+                            agents_per_role=a.agents_per_role, institutions_path=path)
+    if a.json:
+        print(json.dumps(rep.to_dict(), indent=1, sort_keys=True))
+    else:
+        print(abm_gate.format_gate(rep, verbose=a.verbose))
+    return rep.exit_code
+
+
 def register(sub) -> None:
     """Attach `abm` to the top-level `phil` subparsers."""
     p = sub.add_parser("abm", help="institutions family, layer 2: agent-based runs over ADICO rules")
@@ -101,3 +153,22 @@ def register(sub) -> None:
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
     s.set_defaults(fn=cmd_sweep)
+    s = rs.add_parser("score", help="veil-of-ignorance freedom and flourishing vectors, means over seeds")
+    s.add_argument("--institution", "--inst", required=True, dest="institution")
+    s.add_argument("--seeds", type=int, required=True, help="score seeds 0..N-1")
+    s.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="stabilisation steps before the probe")
+    s.add_argument("--probe-steps", type=int, default=PROBE_STEPS, help="steps the probe agent replays")
+    s.add_argument("--agents-per-role", type=int, default=DEFAULT_AGENTS_PER_ROLE)
+    s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
+    s.add_argument("--institutions", default=None, help="path to institutions.json")
+    s.set_defaults(fn=cmd_score)
+    s = rs.add_parser("gate", help="layer-2 gate (a)-(d); exit 0 PASS, 1 FAIL, 2 BLOCKED, 3 load error")
+    s.add_argument("--seeds", type=int, required=True, help="seeds 0..N-1 for every check ((d) needs >= 100)")
+    s.add_argument("--steps", type=int, default=DEFAULT_STEPS)
+    s.add_argument("--probe-steps", type=int, default=PROBE_STEPS)
+    s.add_argument("--agents-per-role", type=int, default=DEFAULT_AGENTS_PER_ROLE)
+    s.add_argument("--institutions", default=None, help="path to institutions.json")
+    s.add_argument("--properties", default=None, help="path to properties.json")
+    s.add_argument("--json", action="store_true")
+    s.add_argument("--verbose", action="store_true", help="print per-seed and per-institution lines")
+    s.set_defaults(fn=cmd_gate)

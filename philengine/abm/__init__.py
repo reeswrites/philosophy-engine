@@ -12,7 +12,12 @@ not define, the ABM does not know.
 SLICE 1: `material` mechanism only, as the simplest payoff-following adoption; `coordination` and `imagination`
 are stubs raising NotImplementedError. SLICE 2 (author decisions A3-A5, A7 in
 computational-liberation/docs/decisions-pending.md): breach as a choice with graduated sanctions, directed trust,
-the `_pledge` stand-in, `phil abm sweep`. Still no scorer and no gate.
+the `_pledge` stand-in, `phil abm sweep`. SLICE 3: the veil-of-ignorance scorer (`score.py`: a probe agent
+dropped in after stabilisation; freedom = exit / voice / recognition, flourishing = pleasure / meaning /
+being-known, nulls excluded from sums and named) and the layer-2 gate (`gate.py`, `phil abm gate`): (a)
+footbinding and (b) committed minority are BLOCKED until the institutions and the coordination module exist,
+(c) kibbutz regendering and (d) seed stability run on the material module. The agent gained one additive
+attribute, `last_choice_source`, so the scorer can read which rule of `choose` fired.
 
 Design choices, each marked DECIDED (author decision cited) or ASSUMED (the plan's proposed default or the simplest
 reading, awaiting author decision):
@@ -99,5 +104,6 @@ reading, awaiting author decision):
 """
 from .model import InstitutionModel, load_payoffs, run_abm
 from .report import AbmReport, summarize
+from .score import ProbeScore, score, score_run
 
-__all__ = ["AbmReport", "InstitutionModel", "run_abm", "load_payoffs", "summarize"]
+__all__ = ["AbmReport", "InstitutionModel", "ProbeScore", "run_abm", "load_payoffs", "score", "score_run", "summarize"]

@@ -72,6 +72,9 @@ class InstitutionAgent(mesa.Agent):
         self.breach_count = 0  # sanctionable breaches so far (graduated sanction exponent)
         self.sanctioned_until = -1  # step index; sanctioned while model.t < this
         self.sanction_now = 0.0  # per-step charge applied while sanctioned
+        # which rule of `choose` produced `chosen` at the last step (slice-3 scorer, "meaning"): one of
+        # copy | switch | threshold | bootstrap | keep | obligation | none
+        self.last_choice_source = "none"
         self.threshold = model.random.random()
         self.surplus = float(model.params["initial_surplus"])
         self.neighbours: list["InstitutionAgent"] = []
@@ -124,6 +127,7 @@ class InstitutionAgent(mesa.Agent):
         if "material" in m.modules and self.surplus < p["floor"]:
             candidates = [a for a in candidates if a == self.practice or a in obl or (sobl and a in lawful)]
         chosen: ActionInst | None = None
+        source = "none"
         if candidates:
             if m.random.random() < p["copy_rate"]:
                 earners = [n for n in self.neighbours if n.last_action in candidates]
@@ -131,25 +135,32 @@ class InstitutionAgent(mesa.Agent):
                     best = max(earners, key=lambda n: n.last_payoff)
                     if best.last_payoff > self.last_payoff:
                         chosen = best.last_action
+                        source = "copy"
             if chosen is None and "material" in m.modules and self.practice in candidates:
                 better = [a for a in candidates if net[a] > net[self.practice]]
                 if better:
                     top = max(net[a] for a in better)
                     chosen = m.random.choice([a for a in better if net[a] == top])
+                    source = "switch"
             if chosen is None:
                 shares = self.neighbour_shares()
                 over = [a for a in candidates if shares.get(a, 0.0) >= self.threshold and shares.get(a, 0.0) > 0]
                 if over:
                     chosen = max(over, key=lambda a: shares[a])
+                    source = "threshold"
             if chosen is None and self.practice not in candidates and "material" in m.modules:
                 top = max(net[a] for a in candidates)
                 chosen = m.random.choice([a for a in candidates if net[a] == top])
+                source = "bootstrap"
             if chosen is None:
                 if self.practice in candidates:
                     chosen = self.practice
+                    source = "keep"
                 elif obl or sobl:
                     chosen = m.random.choice([a for a in candidates if a in lawful] or candidates)
+                    source = "obligation"
         self.chosen = chosen
+        self.last_choice_source = source
         broken_atoms = m.state_breaches(self.role, chosen)
         self.obligation_outcomes = [(o, o == chosen) for o in obl] + [(atom, atom not in broken_atoms) for atom in sobl]
         self.breached = breaches(chosen)
