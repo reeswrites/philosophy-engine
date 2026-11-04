@@ -698,19 +698,26 @@ def test_round_trip_counterexample_traces():
 
 
 @slow
-def test_regression_mwpa_suit_removing_r16_makes_no_standing_reachable():
-    """no_standing is over the negated derived power has_standing := (enabled sue ...): removing the permission
-    (R16, wife may sue) legitimately makes it reachable, so the removal law must not be applied to it."""
+def test_regression_mwpa_suit_no_standing_is_anti_monotone_in_enablement():
+    """no_standing is over the negated derived power has_standing := (enabled sue ...), so the monotonicity laws must
+    not be applied to it. Since the default-capacity convention (ADR 0013 amendment 3, dataset revision 4) `sue` is a
+    default capacity and mwpa-suit has no R4 disability, so removing the act's permission R16 changes nothing (the
+    capacity stands on its own); adding a disability `must_not sue when married` is what makes no_standing reachable."""
     insts, props = _dataset()
     if not insts:
         pytest.skip(NO_DATASET)
     inst = next(i for i in insts if i.id == "mwpa-suit")
     assert not is_monotone_in_enablement(inst, props["no_standing"].formal)
+    assert next(a for a in inst.actions if a.name == "sue").default_capacity
     d = inst.model_dump()
     assert any(r["id"] == "R16" and r["deontic"] == "may" for r in d["rules"])
-    d["rules"] = [r for r in d["rules"] if r["id"] != "R16"]
     which = {"no_standing": ["reachable"]}
     _, before = engine_verdicts(inst, props, 4, which=which)
-    _, after = engine_verdicts(InstitutionJSON.model_validate(d), props, 4, which=which)
+    no_r16 = {**d, "rules": [r for r in d["rules"] if r["id"] != "R16"]}
+    _, after_drop = engine_verdicts(InstitutionJSON.model_validate(no_r16), props, 4, which=which)
+    r4 = next(r for i in insts if i.id == "coverture-household" for r in i.model_dump()["rules"] if r["id"] == "R4")
+    with_bar = {**d, "rules": d["rules"] + [r4]}
+    _, after_bar = engine_verdicts(InstitutionJSON.model_validate(with_bar), props, 4, which=which)
     assert before[("no_standing", "reachable")] != "reachable"
-    assert after[("no_standing", "reachable")] == "reachable"
+    assert after_drop[("no_standing", "reachable")] == before[("no_standing", "reachable")]  # R16 is redundant for a capacity
+    assert after_bar[("no_standing", "reachable")] == "reachable"  # only a disability removes it
