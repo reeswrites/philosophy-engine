@@ -36,6 +36,8 @@ properties only; for anti-monotone ones the mirror holds (removing a may never r
 properties are exempt from both. mwpa-suit minus R16 -> `no_standing` reachable is pinned as a regression test.
 
 ## Amendment 2026-11-05: default-capacity actions
+
+(Date convention: this heading and the "Experiment 2026-11-05" below were written late on 2026-11-04 local time; commit timestamps are authoritative, as computational-liberation plans/priority-slice1-results.md states.)
 The 2026-11-03 amendment made an action no `may`/`must` rule names confer no power. That is right for powers a rule
 grants (detain, attach, reassign) and wrong for default capacities an institution withholds by prohibition (coverture
 R7 `must_not contract`): cutting a sole prohibition could never move a derived power, because with nothing granting it

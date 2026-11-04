@@ -5,7 +5,7 @@ of the rules goes through `rules_reference.Reference`:
   available_for(role)   action instances (a, (role, ...)) that are powers in the current state: exactly
                         `Reference.power` (ADR 0013 reading: some may/must rule instance's condition holds and no
                         `or_else: null` disability bars it). A sanctionable must_not leaves the action available.
-                        An action no may/must rule names is never available to an agent.
+                        An action no may/must rule names is never available to an agent, unless the action is a default capacity (ADR 0013 amendment 3: then it is available unless a disability bars it).
   forbidden_for(role)   instances a sanctionable must_not rule instance forbids now (`forbidding_rules` gives the
                         rule ids); breaching one is a choice weighed against the expected sanction (A4).
   obligations_for(role) must rule instances on (a, (role, ...)) whose condition holds now (`obligation_rules`
