@@ -49,3 +49,13 @@ the absence of a duty not to, a power is a granted ability to change legal relat
 (`regulated_actions` and the firing-enablement block still let an unregulated action fire); liberty touches only the
 `(enabled ...)` pseudo-predicate in derived fluents, and the "never enabled" warning no longer fires for liberty actions.
 Both `rules_lower.Lowering.enabled` and `rules_reference.power` implement it independently.
+
+Note 2026-11-04 (after docs/reviews/2026-11-05-liberty-flag-rev3-review.md in computational-liberation): (1) the
+ABM is affected: `abm/model.py` gates available actions on `Reference.power`, so a liberty action with no `may`/`must`
+is now a lawful candidate for agents; the frozen layer-2 gate record is not guaranteed to reproduce on entries with a
+liberty action (seven coverture-chain entries), and `abm/model.py`'s docstring line stating "an action no may/must
+rule names is never available" is out of date. (2) Current code: only a disability (`must_not`, `or_else` null) bars
+a liberty action's derived power; a sanctioned `must_not` does not. The gloss above ("absence of a duty not to")
+would bar it. The reviewer also notes the name is a Hohfeldian misnomer (contracting is a power; the mechanism is a
+default capacity of that kind of agent, removed only by an express disability). Rename and the sanctioned-prohibition
+choice are open author decisions; no test pins the latter yet.
