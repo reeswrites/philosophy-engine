@@ -24,6 +24,7 @@ import sys
 import time
 
 from . import rules_ablate, rules_cache, rules_checks, rules_gate, rules_iso, rules_verdicts, scoreboard
+from .abm import parallel
 from .schemas_rules import InstitutionJSON, Property, RuleCheckReport, RulesLoadError, default_paths, load_institutions, load_properties
 
 
@@ -357,26 +358,27 @@ def cmd_ablate(a) -> int:
         for r in rows:
             print(fmt.format(*[str(x) for x in r]))
 
-    for inst in insts:
-        res = rules_ablate.ablate_multi_k(inst, props, ks, kinds, init=a.init, compliance=a.compliance, step_mode=a.step_mode)
-        results[inst.id] = res
-        r0 = res[0].by_k[ks[0]] if res else None
-        full[inst.id] = {"applicable": r0.applicable if r0 else 0,
-                         "not_applicable": r0.not_applicable if r0 else [],
-                         "check_kinds": r0.check_kinds if r0 else {},
-                         "rules": [m.to_dict() for m in res]}
-        res.sort(key=lambda m: (-m.by_k[ks[0]].load_freedom_up, m.rule_id))
-        napp = f"{r0.applicable} properties applicable, {len(r0.not_applicable)} not applicable" if r0 else "no rules"
-        print(f"== {inst.id}  ({napp}; k={','.join(map(str, ks))}; loads shown per k; flips at k={ks[0]}; open means not found within k)")
-        if r0:
-            print("   check kinds: " + ", ".join(f"{n}={c}" + (f"[{r0.check_sources[n]}]" if r0.check_sources.get(n, "expected") != "expected" else "")
-                                                for n, c in sorted(r0.check_kinds.items())) + "  ([src]: property=explicit check key, majority/suffix/default=fallback; unmarked = entry expectation)")
-        table([row(m) for m in res if not (m.by_k[ks[0]].deregulated or m.by_k[ks[0]].offcondition_free)])
-        dereg = [row(m) for m in res if m.by_k[ks[0]].deregulated or m.by_k[ks[0]].offcondition_free]
-        if dereg:
-            print("-- deregulated, not ranked (deleted rule was the action's last may/must, or the prohibit of a sole-regulator may leaks off-condition; loads shown, excluded from ranking)")
-            table(dereg)
-        print()
+    with parallel.pool(a.workers):  # one pool for every entry: spawn start-up and the base-report memo are paid once
+        for inst in insts:
+            res = rules_ablate.ablate_multi_k(inst, props, ks, kinds, init=a.init, compliance=a.compliance, step_mode=a.step_mode, workers=None)
+            results[inst.id] = res
+            r0 = res[0].by_k[ks[0]] if res else None
+            full[inst.id] = {"applicable": r0.applicable if r0 else 0,
+                             "not_applicable": r0.not_applicable if r0 else [],
+                             "check_kinds": r0.check_kinds if r0 else {},
+                             "rules": [m.to_dict() for m in res]}
+            res.sort(key=lambda m: (-m.by_k[ks[0]].load_freedom_up, m.rule_id))
+            napp = f"{r0.applicable} properties applicable, {len(r0.not_applicable)} not applicable" if r0 else "no rules"
+            print(f"== {inst.id}  ({napp}; k={','.join(map(str, ks))}; loads shown per k; flips at k={ks[0]}; open means not found within k)")
+            if r0:
+                print("   check kinds: " + ", ".join(f"{n}={c}" + (f"[{r0.check_sources[n]}]" if r0.check_sources.get(n, "expected") != "expected" else "")
+                                                    for n, c in sorted(r0.check_kinds.items())) + "  ([src]: property=explicit check key, majority/suffix/default=fallback; unmarked = entry expectation)")
+            table([row(m) for m in res if not (m.by_k[ks[0]].deregulated or m.by_k[ks[0]].offcondition_free)])
+            dereg = [row(m) for m in res if m.by_k[ks[0]].deregulated or m.by_k[ks[0]].offcondition_free]
+            if dereg:
+                print("-- deregulated, not ranked (deleted rule was the action's last may/must, or the prohibit of a sole-regulator may leaks off-condition; loads shown, excluded from ranking)")
+                table(dereg)
+            print()
     if a.summary:
         from pathlib import Path
         Path(a.summary).write_text(json.dumps(rules_ablate.summarize(results, ks), indent=1))
@@ -456,6 +458,7 @@ def register(sub) -> None:
     s.add_argument("--k", default="6,8", help="comma-separated bounds (default 6,8)")
     s.add_argument("--entry", action="append", default=None, help="restrict to this institution id (repeatable)")
     s.add_argument("--json", default=None, metavar="PATH", help="write the full structure to PATH")
+    s.add_argument("--workers", type=int, default=parallel.workers_default(), metavar="N", help="processes (spawn on macOS); default: cpu-based")
     s.add_argument("--summary", default=None, metavar="PATH",
                    help="write the per-entry ranking summary (top ranked rules, ties, inconsistent/uncounted counts) to PATH")
     s = rs.add_parser("gate", help="Phase 0 gate (a)-(f); exit 0 = PASS"); common(s)

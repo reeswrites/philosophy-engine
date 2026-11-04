@@ -312,3 +312,29 @@ def test_sole_must_not_deleted_is_ranked_not_deregulated(monkeypatch):
     assert a.flip_directions == {"held_persists": "freedom_up"} and a.load_freedom_up == 1
     summ = ra.summarize({"t": ra.ablate_multi_k(inst, props, ks=(4,))}, (4,))["entries"]["t"]
     assert "R2" in summ["top_rules"] and "R2" not in summ["deregulated_not_ranked"]
+
+
+def test_spawn_workers_match_serial(monkeypatch):
+    """workers=2 over a spawned pool returns exactly what workers=1 returns, rows in the same order, for ablate and ablate_multi_k."""
+    from philengine.abm import parallel
+    monkeypatch.setenv("PHIL_START_METHOD", "spawn")
+    inst, props = keeper_free()
+    s1 = ra.ablate(inst, props, 6, workers=1)
+    with parallel.pool(2) as n:
+        assert n == 2 and parallel._ACTIVE_METHOD[0] == "spawn"
+        s2 = ra.ablate(inst, props, 6, workers=None)
+        m2 = ra.ablate_multi_k(inst, props, (6, 8), workers=None)
+    assert [a.to_dict() for a in s1] == [a.to_dict() for a in s2] and len(s1) == 5  # R1, R1~prohibit, R2, R3, R3~prohibit
+    m1 = ra.ablate_multi_k(inst, props, (6, 8))
+    assert [m.to_dict() for m in m1] == [m.to_dict() for m in m2]
+
+
+def test_default_capacity_sole_may_is_not_deregulated():
+    inst, props = keeper_free()
+    d = inst.model_dump()
+    for a in d["actions"]:
+        if a["name"] == "exit":
+            a["default_capacity"] = True
+    cap = InstitutionJSON.model_validate(d)
+    assert {a.rule_id: a.deregulated for a in ra.ablate(cap, props, k=4) if a.variant == "deleted"}["R3"] is False
+    assert {a.rule_id: a.deregulated for a in ra.ablate(inst, props, k=4) if a.variant == "deleted"}["R3"] is True  # power action

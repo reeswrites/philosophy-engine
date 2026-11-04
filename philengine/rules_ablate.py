@@ -46,6 +46,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 from . import rules_checks
+from .abm.parallel import run_map
 from .rules_lower import TRUE_WORDS, regulated_actions, validate_property, aim_kind, parse_aim
 from .schemas_rules import InstitutionJSON, Property, RuleCheckReport
 
@@ -63,9 +64,9 @@ _UNFREEDOM_PRESENT = ("reachable", "holds_to_k", "persists")
 _UNFREEDOM_ABSENT = ("open", "violated", "fails")
 
 
-def flip_direction(name: str, before: str, after: str) -> str:
-    """freedom_up | freedom_down | unsigned (property not in UNFREEDOM)."""
-    if name not in UNFREEDOM:
+def flip_direction(name: str, before: str, after: str, unfreedom: frozenset | None = None) -> str:
+    """freedom_up | freedom_down | unsigned (property not in `unfreedom`, default the module UNFREEDOM table)."""
+    if name not in (UNFREEDOM if unfreedom is None else unfreedom):
         return "unsigned"
     if before in _UNFREEDOM_PRESENT and after in _UNFREEDOM_ABSENT:
         return "freedom_up"
@@ -220,39 +221,51 @@ def base_report(inst: InstitutionJSON, properties: dict[str, Property], k: int, 
 
 
 def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
-           kinds: dict[str, str] | None = None, **run_kw) -> list[RuleAblation]:
-    """Every applicable property in `properties` (not just the entry's expected_properties) is read before and after."""
+           kinds: dict[str, str] | None = None, workers: int | None = 1, **run_kw) -> list[RuleAblation]:
+    """Every applicable property in `properties` (not just the entry's expected_properties) is read before and after.
+    `workers` > 1 runs one job per (rule, variant) over a process pool (abm/parallel.py: spawn on macOS); the rows come
+    back in the serial order, identical to workers=1."""
+    jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw, frozenset(UNFREEDOM))
+            for rule in inst.rules for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
+    return run_map(_ablate_one, jobs, workers)
+
+
+def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, kinds: dict[str, str] | None,
+                rule_id: str, variant: str, run_kw: dict, unfreedom: frozenset | None = None) -> RuleAblation:
+    # `unfreedom` travels with the job: the polarity table is a hand input, and a spawned worker re-imports this module
+    """One (rule, variant) row. Module-level and picklable-in/plain-out so a spawned worker can run it: it rebuilds the
+    z3 lowering itself (base_report is memoised per process, so a persistent worker pays the base run once per entry/k)."""
+    rule = next(r for r in inst.rules if r.id == rule_id)
     which, na = applicable_which(inst, properties, kinds)
     base = base_report(inst, properties, k, which, **run_kw)
     bv = _verdicts(base)
-    out = []
-    for rule in inst.rules:
-        variants = [("deleted", rule.id)] + ([("prohibited", rule.id + "~prohibit")] if rule.deontic == "may" else [])
-        for variant, rid in variants:
-            ab = RuleAblation(rule_id=rid, deontic=rule.deontic if variant == "deleted" else "must_not", strand=rule.strand,
-                              implicit=rule.implicit, permission_removed=False, variant=variant, k=k,
-                              applicable=len(which), not_applicable=na, check_kinds={n: c[0] for n, c in which.items()},
-                              check_sources={n: check_source(n, inst, kinds, properties)[1] for n in which})
-            if variant == "deleted":
-                inst2, ab.orphaned_or_else = without_rule(inst, rule.id)
-                if aim_kind(rule, inst) == "action":
-                    head = parse_aim(rule.aim).pred
-                    ab.sole_rule = not any(parse_aim(r.aim).pred == head for r in inst2.rules)
-                    if rule.deontic == "may":  # only a deleted permission "deregulates"; cutting a must/must_not is a cut
-                        ab.deregulated = head not in regulated_actions(inst2)
-                ab.permission_removed = rule.deontic == "may" and not ab.deregulated
-            else:
-                inst2, ab.orphaned_or_else = prohibited(inst, rule.id)
-                ab.permission_removed = True
-                if (aim_kind(rule, inst) == "action" and rule.conditions.strip() not in TRUE_WORDS
-                        and parse_aim(rule.aim).pred not in regulated_actions(inst2)):
-                    ab.offcondition_free = True
-            _fill(ab, inst2, properties, k, which, base, bv, **run_kw)
-            out.append(ab)
-    return out
+    ab = RuleAblation(rule_id=rule.id if variant == "deleted" else rule.id + "~prohibit",
+                      deontic=rule.deontic if variant == "deleted" else "must_not", strand=rule.strand,
+                      implicit=rule.implicit, permission_removed=False, variant=variant, k=k,
+                      applicable=len(which), not_applicable=na, check_kinds={n: c[0] for n, c in which.items()},
+                      check_sources={n: check_source(n, inst, kinds, properties)[1] for n in which})
+    if variant == "deleted":
+        inst2, ab.orphaned_or_else = without_rule(inst, rule.id)
+        if aim_kind(rule, inst) == "action":
+            head = parse_aim(rule.aim).pred
+            ab.sole_rule = not any(parse_aim(r.aim).pred == head for r in inst2.rules)
+            if rule.deontic == "may":  # only a deleted permission "deregulates"; cutting a must/must_not is a cut
+                decl = next((a for a in inst.actions if a.name == head), None)
+                default_cap = bool(decl and (getattr(decl, "default_capacity", False) or getattr(decl, "liberty", False)))
+                # a default-capacity action is never regulated by permission (fires freely unless a disability bars it): ranks normally
+                ab.deregulated = head not in regulated_actions(inst2) and not default_cap
+        ab.permission_removed = rule.deontic == "may" and not ab.deregulated
+    else:
+        inst2, ab.orphaned_or_else = prohibited(inst, rule.id)
+        ab.permission_removed = True
+        if (aim_kind(rule, inst) == "action" and rule.conditions.strip() not in TRUE_WORDS
+                and parse_aim(rule.aim).pred not in regulated_actions(inst2)):
+            ab.offcondition_free = True
+    _fill(ab, inst2, properties, k, which, base, bv, unfreedom=unfreedom, **run_kw)
+    return ab
 
 
-def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
+def _fill(ab, inst2, properties, k, which, base, bv, unfreedom=None, **run_kw) -> None:
     rep = rules_checks.run_all(inst2, properties, k=k, which=which, **run_kw)
     if rep.consistent == "unsat" and base.consistent != "unsat":
         ab.inconsistent_after = True
@@ -272,7 +285,7 @@ def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
         fam = (properties[name].family if name in properties else name)
         if kind == "freedom":
             fam_all.add(fam)
-            d = ab.flip_directions[name] = flip_direction(name, before, after)
+            d = ab.flip_directions[name] = flip_direction(name, before, after, unfreedom)
             if d == "freedom_up":
                 fam_up.add(fam)
             elif d == "freedom_down":
@@ -314,8 +327,16 @@ class MultiKAblation:
 
 
 def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: tuple[int, ...] = (6, 8),
-                   kinds: dict[str, str] | None = None, **run_kw) -> list[MultiKAblation]:
-    per_k = {k: {a.rule_id: a for a in ablate(inst, properties, k, kinds, **run_kw)} for k in ks}
+                   kinds: dict[str, str] | None = None, workers: int | None = 1, **run_kw) -> list[MultiKAblation]:
+    """`workers` > 1: all (k, rule, variant) jobs of this entry go through one run_map (one `parallel.pool(N)` around a
+    loop of entries keeps the workers, and their base-report memo, alive across entries); results equal workers=1."""
+    jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw, frozenset(UNFREEDOM)) for k in ks for rule in inst.rules
+            for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
+    rows = iter(run_map(_ablate_one, jobs, workers))
+    per_k = {k: {} for k in ks}
+    for j in jobs:
+        a = next(rows)
+        per_k[j[2]][a.rule_id] = a
     out = []
     for rid in per_k[ks[0]]:
         by_k = {k: per_k[k][rid] for k in ks}

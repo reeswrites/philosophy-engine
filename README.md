@@ -25,7 +25,7 @@ If you want to know *why* institutions are encoded this way, read [computational
 | `phil abm sweep --inst ID --seeds N --param name=lo:hi:steps` | A parameter grid over seeds; every number is a rate over seeds | |
 | `phil abm score --inst ID --seeds N` | Veil-of-ignorance freedom and flourishing vectors, means over seeds | 3 on error |
 | `phil abm gate --seeds N` | Layer-2 gate, criteria (a) to (d); (d) needs 100 seeds | 0 PASS, 1 FAIL, 2 BLOCKED, 3 load error |
-| `... --workers N` (every `phil abm` command) | Seeds run over N forked processes (default: CPU count); results identical to `--workers 1`, only the reported `timing` moves | |
+| `... --workers N` (every `phil abm` command) | Seeds run over N worker processes (forked on Linux, spawned on macOS; default: CPU count); results identical to `--workers 1`, only the reported `timing` moves | |
 | `phil ingest`, `run`, `status`, `show`, `report`, `gate`, `dashboard`, `calls` | The arguments family (Phase 0); see the developer log below | |
 
 Full flags are in the module docstrings of [`philengine/cli_rules.py`](philengine/cli_rules.py) and [`philengine/cli_abm.py`](philengine/cli_abm.py). Every `phil rules` output ends with the line `'open' means not reached within k, never 'safe'`.

@@ -71,8 +71,8 @@ def test_workers_one_is_serial_and_timing_is_recorded():
     assert out["timing"]["runs"] == 4 and set(out["timing"]["per_point"]) == {"copy_rate=0.0", "copy_rate=1.0"}
 
 
-needs_fork = pytest.mark.skipif(not parallel.fork_available(), reason="no fork start method, or a multi-threaded "
-                                "process (a pytest-xdist worker): the pool is never used here; the serial run covers it")
+needs_fork = pytest.mark.skipif(not parallel.parallel_available(), reason="a pytest-xdist worker: the pool is never "
+                                "used here; the serial run covers it")  # (name kept; the pool is forked or spawned)
 
 
 @needs_fork
@@ -128,3 +128,44 @@ def test_cli_workers_flag_gives_identical_output(tmp_path, capsys):
                "--institutions", str(ip), "--properties", str(tmp_path / "properties.json"), "--workers", "2"])
     text = capsys.readouterr().out
     assert "timing (wall clock):" in text and "  total: " in text and "  d: " in text
+
+
+# ---------------------------------------------------------------- start method: spawn where fork is unsafe (macOS)
+def test_darwin_uses_spawn_and_linux_may_fork(monkeypatch):
+    monkeypatch.delenv("PHIL_START_METHOD", raising=False)
+    monkeypatch.setattr(parallel.sys, "platform", "darwin")
+    assert parallel.start_method() == "spawn" and not parallel.fork_available()
+    monkeypatch.setattr(parallel.sys, "platform", "linux")
+    monkeypatch.setattr(parallel.threading, "active_count", lambda: 1)
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+    if "fork" in parallel.multiprocessing.get_all_start_methods():
+        assert parallel.start_method() == "fork"
+    monkeypatch.setenv("PHIL_START_METHOD", "spawn")
+    assert parallel.start_method() == "spawn"
+
+
+def test_darwin_pool_is_a_spawn_context(monkeypatch):
+    monkeypatch.delenv("PHIL_START_METHOD", raising=False)
+    monkeypatch.setattr(parallel.sys, "platform", "darwin")
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+    ex = parallel._make_pool(2)
+    try:
+        assert ex._mp_context.get_start_method() == "spawn"
+    finally:
+        ex.shutdown(wait=False)
+
+
+@needs_fork
+def test_spawn_pool_matches_serial_for_abm(monkeypatch):
+    monkeypatch.setenv("PHIL_START_METHOD", "spawn")
+    inst, pay = shop_with_rest()
+    serial = [r.to_json() for r in run_abm_many(inst, range(4), 1, steps=5, agents_per_role=4, payoffs=pay)]
+    with parallel.pool(2) as n:
+        assert n == 2 and parallel._ACTIVE_METHOD[0] == "spawn"
+        got = [r.to_json() for r in run_abm_many(inst, range(4), None, steps=5, agents_per_role=4, payoffs=pay)]
+    assert got == serial
+    # a lambda predicate cannot cross a spawn: fresh=True stays serial and still agrees
+    nm = [necessary_modules(convention(), lambda m: g.name_share(m.adoption[-1], "speaker", "new_name") >= 0.5,
+                            seeds=3, steps=6, agents_per_role=6, payoffs=PAY, params={"committed_minority": 0.5},
+                            workers=w) for w in (1, 2)]
+    assert _strip(nm[0]) == _strip(nm[1])

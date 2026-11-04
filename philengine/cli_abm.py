@@ -8,7 +8,7 @@
                  [--institutions path]
   phil abm gate --seeds N [--steps 50] [--probe-steps 10] [--agents-per-role 20] [--institutions path]
                 [--properties path] [--json] [--verbose]
-  every command takes --workers N: seeds run over N forked processes (default os.cpu_count(); 1 = serial; the
+  every command takes --workers N: seeds run over N worker processes (fork on Linux, spawn on macOS) (default os.cpu_count(); 1 = serial; the
   results are identical whatever N, only the reported `timing` moves; serial where fork is unavailable)
 --seed N prints the AbmReport JSON of one run; --seeds N runs seeds 0..N-1 and prints the per-seed reports plus
 rates over seeds (mean final adoption share per role and action, mean final fluent rate, breach and sanction
