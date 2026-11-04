@@ -244,3 +244,26 @@ def test_cli_no_cache_bypass_and_cache_subcommand(tmp_path, monkeypatch, capsys)
     assert "2 entries" in capsys.readouterr().out
     assert cli_rules.cmd_cache(parse(["cache", "clear"])) == 0
     assert not list((tmp_path / "runs" / "rules-cache").glob("*.json"))
+
+
+def test_same_formal_twin_property_hit_keeps_its_own_name(tmp_path):
+    """Two properties with identical formal text share a cache entry; the hit must carry the asking property's name."""
+    twins = {"a": Property(name="a", kind="structure", formal="(exists ((w agent)) (paid w t))"),
+             "b": Property(name="b", kind="structure", formal="(exists ((w agent)) (paid w t))")}
+    which = {"a": ["reachable"], "b": ["reachable"]}
+    c = RuleCache(tmp_path)
+    r1 = rc.run_all(tiny(), twins, which=which, cache=c, k=3)
+    r2 = rc.run_all(tiny(), twins, which=which, cache=RuleCache(tmp_path), k=3)
+    assert [r.property for r in r1.results] == ["a", "b"]
+    assert [r.property for r in r2.results] == ["a", "b"]
+
+
+def test_extra_expected_property_and_changed_formal_change_keys():
+    base = tiny()
+    more = tiny(expected_properties={"worker_paid": "reachable"})
+    kw = dict(k=3, step_mode="one", init="empty", compliance="strict")
+    ik = lambda i: make_key(i, entry=rcache.INSTITUTION_KIND, **kw)
+    assert ik(base) != ik(more)
+    pk = lambda i, f: make_key(i, entry=rcache.PROPERTY_KIND, formal=f, check="reachable", **kw)
+    assert pk(base, "(exists ((w agent)) (paid w t))") != pk(base, "(exists ((w agent)) (employed w t))")
+    assert pk(base, "x") != pk(more, "x")

@@ -347,6 +347,7 @@ def run_all(
                 cached = cache.get(pkey) if cache else None
                 if cached is not None:
                     res = PropertyResult.model_validate(cached)
+                    res.property = name  # the key is formal-text based: a twin property's stored row carries ITS name
                     timing.append({"phase": "cached", "property": name, "check": kind, "build_ms": 0.0, "solve_ms": 0.0,
                                    "result": res.verdict, "retries": 0, "cached": True})
                     rep.results.append(res)
