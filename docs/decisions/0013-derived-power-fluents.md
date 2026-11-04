@@ -24,3 +24,13 @@ a args)` is constant false when no `may`/`must` rule names `a` (the warning stay
 trace semantics is unchanged: an action no rule names may still fire (that is the permissive floor of the model),
 but it confers no power, because a power is what the rules grant. Consequence: a derived fluent whose every action
 is unregulated is constant false, and a universal property over it may hold vacuously, which the vacuity flag reports.
+
+## Amendment 2026-11-03: Monotonicity laws are scoped by enablement polarity
+The metamorphic laws "adding a must_not / removing a may never adds reachability" hold only for properties monotone in
+enablement. `no_standing` (mwpa-suit) is defined over the negated derived power `has_standing := (enabled sue ...)`, so
+removing R16 (wife may sue) correctly makes it reachable. Rule (tests/test_rules_meta.py, `enablement_polarity`): walk the
+property and, transitively, the `derived` expression of every derived fluent it mentions, tracking negation parity
+(`not` and the antecedent of `=>` flip; `<=>`/`xor` count both). A property is monotone iff no `(enabled ...)` occurs
+under an odd number of negations; anti-monotone iff it occurs only under odd. The two laws are asserted for monotone
+properties only; for anti-monotone ones the mirror holds (removing a may never removes reachability). Mixed-polarity
+properties are exempt from both. mwpa-suit minus R16 -> `no_standing` reachable is pinned as a regression test.

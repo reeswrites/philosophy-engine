@@ -206,3 +206,26 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
   edited here), so airline is deliberately NOT in any `not_isomorphic_to_control`; it is in the dataset only, and `crit_b` does not
   run it. Its expectations are copied from police-crisis minus `no_standing` and hold. Retagging its care rule to tying removes
   every match (reviewer's run, not repeated here): strand tags are load-bearing human inputs.
+
+## MWPA backtest chain (2026-11-03, `plans/backtest-mwpa.md`)
+
+- Six entries off `coverture-household`, a path of pairs (`minimal_pair_of` with `differs_on`): `mwpa-creditor-exemption`
+  (1839-50 debtor-relief form, the plan's dark twin: +R10 creditor may attach [implicit, UNVERIFIED], +R11 creditor
+  must_not attach the wife's acquired property [disability; Chused 1984], +R12 husband may transfer_to_wife [implicit,
+  UNVERIFIED]; R1 kept; distance 3), `mwpa-property` (R1 -> R13 wife may hold_property; distance 1), `mwpa-earnings`
+  (+R14 may keep_earnings), `mwpa-sole-trader` (R7 -> R15 may contract), `mwpa-suit` (R4 -> R16 may sue while married),
+  and the branch `mwpa-property-narrowed` (backlash: +R17 court may construe_narrowly, +R18 R1 reinstated under
+  `narrowed`; R13 carries `(not (narrowed w))`; distance 2). Statute texts were not opened; every MWPA rule's source
+  is the plan's secondary literature (GLT, Khan, Chused 1984) and is marked [R] / UNVERIFIED where the plan is.
+- Coverture itself: rules unchanged; `controls_property` is now derived from R1 (ADR 0013: marry no longer asserts it),
+  and `controls_own_property`, `owns_earnings`, `can_contract` are declared (derived) with the actions `hold_property`
+  and `keep_earnings`, which no coverture rule names (the "never enabled" warning is the finding). Coverture's old
+  verdicts are unchanged; five expectations were added.
+- New properties: `financial_dependence`, `financial_dependence_unpropertied`, `cannot_contract` (invariants),
+  `double_burden` (DI), `creditor_shield` (DT), `backlash` (BL) (reachability). All verdicts PREREGISTERED in the
+  generator's notes and in the plan before the first run; check-all 106/106, gate PASS, no vacuity flags.
+- Matcher note: on `mwpa-creditor-exemption ~ mwpa-property` the matcher pairs the exemption's R1 with the property
+  act's R12 (same skeleton: husband may X when married) and reports R12 vs R13 unmatched; the distance is 1 either way.
+- Not expressed: a ranking of failure modes (the plan's "top-ranked risk" criterion; the engine returns verdicts, not
+  ranks); dower trade-offs (RB, [R]); divorce reform (`can_exit` is unchanged by construction); the trace floor
+  (`control_property` still fires in traces after R1 is deleted, with no power behind it, ADR 0013 amendment).

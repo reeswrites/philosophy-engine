@@ -290,6 +290,89 @@ def test_reference_derived_fluents_pinned():
     assert states and all(ref2.enabled(act, st) and not ref2.power(st, *act) for st in states)
 
 
+# ---------------------------------------------------------------- enablement polarity (ADR 0013 amendment "Monotonicity laws")
+def _sexp(text):
+    toks = re.findall(r"\(|\)|[^\s()]+", text)
+    pos = 0
+
+    def parse():
+        nonlocal pos
+        t = toks[pos]
+        pos += 1
+        if t != "(":
+            return t
+        out = []
+        while toks[pos] != ")":
+            out.append(parse())
+        pos += 1
+        return out
+    return parse()
+
+
+def enablement_polarity(inst: InstitutionJSON, formal: str) -> frozenset:
+    """Polarities (+1 / -1) in which enablement reaches `formal`: an `(enabled ...)` atom, directly or through a
+    derived fluent's definition, counts +1 under an even number of negations and -1 under an odd number
+    (`=>` flips its antecedent; `<=>`/`iff`/`xor` put both polarities on both sides)."""
+    derived = {f.name: f.derived for f in inst.fluents if f.derived is not None}
+    seen = set()
+
+    def walk(x, sign, stack):
+        if not isinstance(x, list) or not x:
+            return set()
+        head, args = x[0], x[1:]
+        if head == "enabled":
+            return {sign}
+        if head == "not":
+            return set().union(*(walk(a, -sign, stack) for a in args)) if args else set()
+        if head in ("=>", "implies") and len(args) == 2:
+            return walk(args[0], -sign, stack) | walk(args[1], sign, stack)
+        if head in ("<=>", "iff", "xor", "="):
+            return set().union(*(walk(a, s, stack) for a in args for s in (1, -1)))
+        if head in ("forall", "exists") and len(args) == 2:
+            return walk(args[1], sign, stack)
+        out = set()
+        if isinstance(head, str) and head in derived and (head, sign) not in stack:
+            out |= walk(_sexp(derived[head]), sign, stack | {(head, sign)})
+        for a in args:
+            out |= walk(a, sign, stack)
+        return out
+    return frozenset(walk(_sexp(formal), 1, frozenset()))
+
+
+def is_monotone_in_enablement(inst, formal) -> bool:
+    """No enablement under an odd number of negations: more enabled (more mays, fewer disabilities) never makes it
+    truer, so removing a may / adding a must_not cannot make it newly reachable."""
+    return -1 not in enablement_polarity(inst, formal)
+
+
+def is_antimonotone_in_enablement(inst, formal) -> bool:
+    """Enablement occurs, and only under an odd number of negations."""
+    pol = enablement_polarity(inst, formal)
+    return pol == frozenset({-1})
+
+
+def _split_by_polarity(inst, props):
+    mono = {n for n, p in props.items() if is_monotone_in_enablement(inst, p.formal)}
+    anti = {n for n, p in props.items() if is_antimonotone_in_enablement(inst, p.formal)}
+    return mono, anti
+
+
+def test_enablement_polarity_classifier():
+    inst, props = inst_derived()
+    pol = {n: enablement_polarity(inst, p.formal) for n, p in props.items()}
+    assert pol["can_sanction"] == {1}
+    assert is_monotone_in_enablement(inst, props["can_sanction"].formal)
+    assert -1 in pol["cannot_exit"] and not is_monotone_in_enablement(inst, props["cannot_exit"].formal)
+    assert not is_monotone_in_enablement(inst, "(not (can_sanction officer subject t))")
+    assert is_antimonotone_in_enablement(inst, "(not (can_sanction officer subject t))")
+    assert is_monotone_in_enablement(inst, "(not (not (can_sanction officer subject t)))")
+    assert is_monotone_in_enablement(inst, "(not (enabled detain officer subject))") is False
+    assert enablement_polarity(inst, "(=> (enabled detain officer subject) (in_custody subject t))") == {-1}
+    assert enablement_polarity(inst, "(in_custody subject t)") == frozenset()  # no enablement: both laws apply
+    inst2, props2 = inst_hire()
+    assert all(is_monotone_in_enablement(inst2, p.formal) for p in props2.values())
+
+
 def engine_verdicts(inst, props, k, step_mode="one", which=None):
     which = which or {n: list(CHECKS) for n in props}
     rep = rc.run_all(inst, props, k=k, which=which, step_mode=step_mode)
@@ -405,16 +488,20 @@ def _add_must_not(inst: InstitutionJSON) -> list[InstitutionJSON]:
     return out
 
 
-@pytest.mark.parametrize("make", [f for f in TINY if f is not inst_derived], ids=[f.__name__ for f in TINY if f is not inst_derived])
+@pytest.mark.parametrize("make", TINY, ids=[f.__name__ for f in TINY])
 def test_adding_must_not_never_opens_reachability_tiny(make):
-    """Not a law once fluents are derived from enabledness: a new disability turns (enabled ...) false, so a
-    property over `not can_exit` can become reachable. inst_derived is excluded; test_disability_closes_derived_power
-    pins the derived case."""
+    """Scoped by enablement polarity (ADR 0013): a new disability turns (enabled ...) false, so a property with a
+    negated derived power (`not can_exit`) can become reachable. The law is asserted for monotone properties only;
+    test_disability_closes_derived_power pins the derived case and the mirror test covers anti-monotone ones."""
     inst, props = make()
+    mono, _ = _split_by_polarity(inst, props)
+    assert mono, "fixture should have a monotone property"
     _, before = engine_verdicts(inst, props, 3)
     for v in _add_must_not(inst):
         _, after = engine_verdicts(v, props, 3)
         for (n, c), vb in before.items():
+            if n not in mono:
+                continue
             if c == "reachable" and vb == "open":
                 assert after[(n, c)] != "reachable", (v.rules[-1].id, n)
             if c == "invariant" and vb == "holds_to_k":
@@ -444,13 +531,14 @@ def test_disability_closes_derived_power():
 def test_adding_must_not_never_opens_reachability_dataset(iid):
     insts, props = _dataset()
     inst = next(i for i in insts if i.id == iid)
-    if inst.derived_fluents():
-        pytest.skip("not a law for institutions with derived power fluents (a disability removes a power)")
+    mono, _ = _split_by_polarity(inst, props)  # polarity can differ per institution (derived definitions do)
     which = _dataset_which(inst)
     _, before = engine_verdicts(inst, props, 4, which=which)
     for v in _add_must_not(inst):
         _, after = engine_verdicts(v, props, 4, which=which)
         for key, vb in before.items():
+            if key[0] not in mono:
+                continue
             if vb == "open":
                 assert after[key] != "reachable", (v.rules[-1].id, key)
             if vb == "holds_to_k":
@@ -516,12 +604,39 @@ def test_removing_a_may_never_adds_reachable_tiny():
     inst, props = inst_two_mays()
     variants = _droppable_mays(inst)
     assert variants, "fixture should have a droppable may rule"
+    mono, anti = _split_by_polarity(inst, props)
+    assert mono
     _, before = engine_verdicts(inst, props, 3)
     for rid, v in variants:
         _, after = engine_verdicts(v, props, 3)
         for (n, c), vb in before.items():
-            if c == "reachable" and vb == "open":
+            if c == "reachable" and vb == "open" and n in mono:
                 assert after[(n, c)] != "reachable", (rid, n)
+
+
+def test_removing_a_may_never_removes_reachable_antimonotone_tiny():
+    """Mirror law: for a property whose only enablement occurrences are negated, dropping a may (less enabled) never
+    takes away reachability, and adding it back never adds it."""
+    inst, props = inst_derived()
+    _, anti = _split_by_polarity(inst, props)
+    assert anti, "fixture should have an anti-monotone property"
+    # no may of the fixture is droppable on its own (each is its action's only rule), so give every may an unconditional
+    # twin (keeps the action named, same attribute) and drop the original: enablement can only shrink.
+    checked = 0
+    for r in [r for r in inst.rules if r.deontic == "may"]:
+        base = inst.model_dump()
+        twin = dict(next(x for x in base["rules"] if x["id"] == r.id), id=f"{r.id}_twin", conditions="true")
+        base["rules"].append(twin)
+        dropped = dict(base, rules=[x for x in base["rules"] if x["id"] != r.id])
+        base_i, var_i = InstitutionJSON.model_validate(base), InstitutionJSON.model_validate(dropped)
+        _, before = engine_verdicts(base_i, props, 3)
+        _, after = engine_verdicts(var_i, props, 3)
+        rid = r.id
+        for (n, c), vb in before.items():
+            if c == "reachable" and vb == "reachable" and n in anti:
+                checked += 1
+                assert after[(n, c)] == "reachable", (rid, n)
+    assert checked
 
 
 @slow
@@ -535,13 +650,16 @@ def test_removing_a_may_never_adds_reachable_dataset():
         variants = _droppable_mays(inst)
         if not variants:
             continue
+        mono, anti = _split_by_polarity(inst, props)
         _, before = engine_verdicts(inst, props, 4, which=which)
         for rid, v in variants:
             seen += 1
             _, after = engine_verdicts(v, props, 4, which=which)
             for key, vb in before.items():
-                if vb == "open":
+                if vb == "open" and key[0] in mono:
                     assert after[key] != "reachable", (inst.id, rid, key)
+                if vb == "reachable" and key[0] in anti:  # mirror law
+                    assert after[key] == "reachable", (inst.id, rid, key)
     if seen == 0:
         pytest.skip("no may rule in the dataset is droppable without changing the action's enabledness regime")
 
@@ -577,3 +695,22 @@ def test_round_trip_counterexample_traces():
                     problems.append((inst.id, r.property, r.check, r.verdict, bad))
     assert seen > 0
     assert not problems, "\n".join(f"{i} {p}/{c} ({v}): {b}" for i, p, c, v, b in problems)
+
+
+@slow
+def test_regression_mwpa_suit_removing_r16_makes_no_standing_reachable():
+    """no_standing is over the negated derived power has_standing := (enabled sue ...): removing the permission
+    (R16, wife may sue) legitimately makes it reachable, so the removal law must not be applied to it."""
+    insts, props = _dataset()
+    if not insts:
+        pytest.skip(NO_DATASET)
+    inst = next(i for i in insts if i.id == "mwpa-suit")
+    assert not is_monotone_in_enablement(inst, props["no_standing"].formal)
+    d = inst.model_dump()
+    assert any(r["id"] == "R16" and r["deontic"] == "may" for r in d["rules"])
+    d["rules"] = [r for r in d["rules"] if r["id"] != "R16"]
+    which = {"no_standing": ["reachable"]}
+    _, before = engine_verdicts(inst, props, 4, which=which)
+    _, after = engine_verdicts(InstitutionJSON.model_validate(d), props, 4, which=which)
+    assert before[("no_standing", "reachable")] != "reachable"
+    assert after[("no_standing", "reachable")] == "reachable"

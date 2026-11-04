@@ -51,6 +51,36 @@
   "formal": "(forall ((s agent)) (=> (is_subject s t) (and (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t))))))"
  },
  {
+  "name": "financial_dependence",
+  "gloss": "Every subject (married woman) lacks any economic resource under her own control: she neither holds separate property nor owns her earnings. holds_to_k under coverture; violated by a property act for a propertied wife (MWPA backtest, plans/backtest-mwpa.md, preregistered 2026-11-03).",
+  "formal": "(forall ((w agent)) (=> (is_subject w t) (and (not (controls_own_property w t)) (not (owns_earnings w t)))))"
+ },
+ {
+  "name": "financial_dependence_unpropertied",
+  "gloss": "Every subject who has acquired no property by gift or inheritance lacks any economic resource under her own control. Still holds_to_k after a property act (the act flips dependence 'for propertied wives only'); violated by an earnings act for a wage-earning wife (MWPA backtest, preregistered 2026-11-03).",
+  "formal": "(forall ((w agent)) (=> (and (is_subject w t) (not (acquired_property w t))) (and (not (controls_own_property w t)) (not (owns_earnings w t)))))"
+ },
+ {
+  "name": "cannot_contract",
+  "gloss": "No subject may contract in her own name. holds_to_k under coverture (R7 disability); violated once a sole-trader act grants the power (MWPA backtest, preregistered 2026-11-03).",
+  "formal": "(forall ((w agent)) (=> (is_subject w t) (not (can_contract w t))))"
+ },
+ {
+  "name": "double_burden",
+  "gloss": "Displacement (DI) check for the MWPA chain: some married wife owns her earnings and is still bound to the household's care (the implicit R3 unchanged). Reachable from the earnings act on; open before (preregistered 2026-11-03).",
+  "formal": "(exists ((h agent) (w agent)) (and (married h w t) (owns_earnings w t) (provides_care w h t)))"
+ },
+ {
+  "name": "creditor_shield",
+  "gloss": "Dark twin (DT) check: a husband has conveyed property to his wife, still manages it, and no creditor can attach it. Reachable in the 1839-50 exemption form and under narrow construction; open once the property act removes the husband's management (preregistered 2026-11-03).",
+  "formal": "(exists ((h agent) (w agent)) (and (married h w t) (transferred h w t) (controls_property h w t) (not (exists ((c agent)) (can_attach c w t)))))"
+ },
+ {
+  "name": "backlash",
+  "gloss": "Backlash (BL) check: a court has construed the property act narrowly as to a propertied wife, the husband controls her property again and she does not. Reachable only where a narrowing power exists (preregistered 2026-11-03).",
+  "formal": "(exists ((h agent) (w agent)) (and (married h w t) (acquired_property w t) (narrowed w t) (controls_property h w t) (not (controls_own_property w t))))"
+ },
+ {
   "name": "worker_uninsured",
   "gloss": "Some worker earns through the institution and holds no insurance from it (dark twin of job unbundling).",
   "formal": "(exists ((w agent)) (and (is_worker w t) (not (insured w t))))"

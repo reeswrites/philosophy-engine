@@ -67,10 +67,21 @@ inst.append({
    DV("can_exit",["w"],"(enabled leave w)"),
    DV("has_standing",["w"],"(enabled sue w)"),
    F("married",2,"h and w are married"),
-   F("controls_property",2,"h holds and manages w's property and earnings")],
+   # MWPA backtest (2026-11-03): husband's control is derived from R1 (ADR 0013), not asserted by marry; the three
+   # wife-side powers below are declared here so the coverture verdicts on the new properties are computed, not
+   # lowered as undeclared constants. No rule names hold_property / keep_earnings, so under coverture they are
+   # never enabled (the warning is the finding: the power does not exist).
+   {"name":"controls_property","arity":2,"gloss":"h holds and manages w's property and earnings","params":["h","w"],"derived":"(enabled control_property h w)"},
+   {"name":"controls_own_property","arity":1,"gloss":"w holds and controls separate property in her own right","params":["w"],"derived":"(enabled hold_property w)"},
+   {"name":"owns_earnings","arity":1,"gloss":"w's earnings are her own separate property","params":["w"],"derived":"(enabled keep_earnings w)"},
+   {"name":"can_contract","arity":1,"gloss":"w may contract in her own name","params":["w"],"derived":"(enabled contract w)"},
+   F("acquired_property",1,"w has acquired property by gift or inheritance (exogenous)"),
+   F("earns",1,"w earns wages outside the household (exogenous)")],
  "actions":[
-   A("marry",["h","w"],[E("married",["h","w"],True),E("is_subject",["w"],True),E("controls_property",["h","w"],True),
+   A("marry",["h","w"],[E("married",["h","w"],True),E("is_subject",["w"],True),
                         E("provides_care",["h","w"],True),E("provides_care",["w","h"],True)]),
+   A("hold_property",["w"],[]),
+   A("keep_earnings",["w"],[]),
    A("maintain",["h","w"],[E("provides_care",["h","w"],True)]),
    A("neglect",["h","w"],[E("provides_care",["h","w"],False)]),
    A("keep_house",["w","h"],[E("provides_care",["w","h"],True)]),
@@ -92,7 +103,9 @@ inst.append({
    R("R9","wife","may","(sue w)","(not (married h w))",None,"tying",False,BLACKSTONE+" (a feme sole may sue and be sued; it is marriage that suspends her legal existence). "+DERIVED+"has_standing(w) = sue enabled: R4 (disability) removes it while married")],
  "source_text":"'By marriage, the husband and wife are one person in law: that is, the very being or legal existence of the woman is suspended during the marriage, or at least is incorporated and consolidated into that of the husband: under whose wing, protection, and cover, she performs every thing; and is therefore called ... a feme-covert.' He cannot grant anything to her or covenant with her, she cannot sue in her own name, and 'the husband is bound to provide his wife with necessaries by law'. Blackstone, Commentaries on the Laws of England, Book I, ch. 15 (Oxford: Clarendon, 1765). Passage checked at https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/",
  "expected_properties":{"dependent_cannot_exit":"reachable","subject_cannot_exit":"reachable",
-                        "care_and_sanction_same_role":"holds_to_k","no_standing":"reachable","care_assigned_by_sex":"violated"},
+                        "care_and_sanction_same_role":"holds_to_k","no_standing":"reachable","care_assigned_by_sex":"violated",
+                        "financial_dependence":"holds_to_k","financial_dependence_unpropertied":"holds_to_k","cannot_contract":"holds_to_k",
+                        "double_burden":"unreachable_open","creditor_shield":"unreachable_open"},
  "isomorphic_to":[{"id":"police-crisis","level":"guard+strands","sub_signature":["R2~R2 provides_care~provides_care","R5~R3 chastise~detain","R6~R4 leave~leave"]},
                   {"id":"cps","level":"guard+strands","sub_signature":["R2~R4 provides_care~in_home_considered","R5~R3 chastise~remove","R6~R10 leave~leave"]}],
  "not_isomorphic_to":["crisis-team"],
@@ -580,6 +593,109 @@ inst.append({
  "notes":"EXPECTED-MATCH control (`expected_control_match: true`; third review 2026-11-03). PREREGISTERED before any run: airline-flight matches police-crisis, cps and coverture-household at guard+strands (care R2 superadditive ~ care, R3 rival ~ chastise/detain/remove, R4 exit bar ~ exit bar). The match is structural: in-flight custody has the same care + restraint + exit-bar form, so it is a finding about the form, not a failure of the encoding. Retagging R2 superadditive -> tying removes every match: the strand tags are load-bearing and the tags are human inputs. Why it is not in `not_isomorphic_to_control`: gate (b) fails on any match, and the gate has no expected-match mode (philosophy-engine is not edited here); `rules_gate` still lists it as an ordinary dataset entry. Expectations copied from police-crisis minus no_standing and are unverified until check-all. 6 rules (the review's list), not 10."
 })
 
+# ---------------------------------------------------------------- MWPA backtest chain (plans/backtest-mwpa.md, 2026-11-03)
+# A path of minimal pairs out of coverture-household, one plan delta per step; every entry shares coverture's roles,
+# fluents and actions and differs from the previous one only by the rules named in its minimal_pair_of. The plan's
+# predicted failure modes are entries of their own (DT: the 1839-50 creditor-exemption act, which is the chain's first
+# historical step; BL: courts narrowing the property act). PREREGISTERED verdicts are in each entry's expected_properties
+# and in the plan's "Layer-1 run" section, written before the first run; they are not edited to match.
+GLT = "Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md]"
+KHAN = "Khan 1996, Married Women's Property Laws and Female Commercial Activity, Table 1 (sole-trader dates; the 1839-50 wave as debt relief); https://www.laits.utexas.edu/~mbs31415/Khan_MarriedWomenPropertyRights.pdf [F, via plans/backtest-mwpa.md]"
+CHUSED84 = "Chused 1984 (https://core.ac.uk/download/230496986.pdf [F, via plans/backtest-mwpa.md]): the 1839-50 acts 'generally contained nothing more than statements exempting married women's property from the debts of husbands'; courts 'narrowly construing' the acts to keep husbands' control during marriage (citing Chused 1983 at 1400; Chused 1983 itself [R], PDF refused: UNVERIFIED)"
+NY1848 = "New York Married Women's Property Act 1848 (the statute text itself not opened: [R] UNVERIFIED; dates from "+GLT+")"
+MWPA_FLUENTS_EXTRA = [
+   F("transferred",2,"h has conveyed property of his to w"),
+   F("narrowed",1,"a court has construed the property act narrowly as to w (keeps the husband's control during marriage)"),
+   {"name":"can_attach","arity":2,"gloss":"creditor c holds the power to attach (levy on) property in w's hands for the husband's debts","params":["c","w"],"derived":"(enabled attach c w)"}]
+MWPA_ACTIONS_EXTRA = [
+   A("attach",["c","w"],[]),
+   A("transfer_to_wife",["h","w"],[E("acquired_property",["w"],True),E("transferred",["h","w"],True)])]
+COV = inst[0]; assert COV["id"] == "coverture-household"
+def _mwpa(id, name, prev, drop, add, expected, pair, source_text, notes, roles_extra=(), actions_extra=(), fluents_extra=()):
+    e = copy.deepcopy(prev)
+    e["id"] = id; e["name"] = name
+    e["roles"] = e["roles"] + list(roles_extra)
+    e["fluents"] = e["fluents"] + list(fluents_extra)
+    e["actions"] = e["actions"] + list(actions_extra)
+    e["rules"] = [r for r in e["rules"] if r["id"] not in drop] + list(add)
+    e["source_text"] = source_text
+    e["expected_properties"] = expected
+    e["isomorphic_to"] = []; e["not_isomorphic_to"] = []; e["not_isomorphic_to_control"] = []
+    e["minimal_pair_of"] = pair
+    e["notes"] = notes
+    e.pop("initial", None); e.pop("initial_free", None); e.pop("defaults", None)
+    return e
+MWPA_BASE_EXP = {"subject_cannot_exit":"reachable","care_and_sanction_same_role":"holds_to_k"}
+# Step DT (1839-50 debtor-relief wave): coverture + a creditor who may levy on the household's property (baseline,
+# implicit) but must not reach the wife's acquired property (the exemption), + the husband may convey to his wife.
+# R1 (husband manages) is KEPT: that is the dark twin (the plan: 'creditor must_not attach wife_property, husband's
+# management kept'); the task's shield reading (husband conveys to wife to put assets beyond creditors) is R12.
+EXEMPT = _mwpa("mwpa-creditor-exemption","Married women's property, 1839-50 form: creditor exemption only (dark twin)",COV,
+  drop=(), add=[
+   R("R10","creditor","may","(attach c w)","(married h w)",None,"rival",True,"implicit baseline: a husband's creditors reach the property the husband holds, which under R1 includes his wife's. "+UNV+". "+DERIVED+"can_attach(c, w) = attach enabled (R10) and not barred (R11)", var_roles={"c":"creditor","w":"wife","h":"husband"}),
+   R("R11","creditor","must_not","(attach c w)","(and (married h w) (acquired_property w))",None,"tying",False,CHUSED84+"; "+KHAN+" (Mississippi 1839 shielded property from husbands' creditors; Khan excludes it as debt relief). A disability (or_else null): the exemption removes the creditor's power, no sanction is involved", var_roles={"c":"creditor","w":"wife","h":"husband"}),
+   R("R12","husband","may","(transfer_to_wife h w)","(married h w)",None,"tying",True,"implicit: the transfer vehicle the exemption invites (conveyance to the wife, in practice through a trustee); "+CHUSED84+". "+UNV+" as a rule of the 1839-50 acts; Blackstone's bar on grants between spouses is read as lifted by the exemption acts for property so conveyed", var_roles={"h":"husband","w":"wife"})],
+  expected=dict(MWPA_BASE_EXP, **{"financial_dependence":"holds_to_k","financial_dependence_unpropertied":"holds_to_k","cannot_contract":"holds_to_k",
+            "no_standing":"reachable","double_burden":"unreachable_open","creditor_shield":"reachable","backlash":"unreachable_open"}),
+  pair={"id":"coverture-household","rule":"R10,R11,R12","differs_on":"creditor_shield"},
+  source_text="The 1839-1850 acts 'generally contained nothing more than statements exempting married women's property from the debts of husbands', passed after the panics (Chused 1984, citing Chused 1983). Mississippi's 1839 act shielded (slave) property from husbands' creditors; Khan 1996 excludes it as debt relief. Both via plans/backtest-mwpa.md.",
+  notes="DARK TWIN (DT) of the property act, encoded as the plan says: the creditor may not reach the wife's acquired property (R11) but the husband's management (R1) stands, so nothing on the wife's side changes. PREREGISTERED (2026-11-03, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (unchanged from coverture); creditor_shield REACHABLE (marry, transfer_to_wife: the husband's property sits in his wife's name, under his management, beyond his creditors); no_standing reachable, cannot_contract holds, double_burden open, backlash open (no court here). Distance 3 from coverture (R10 baseline, R11 exemption, R12 conveyance): not a one-rule pair; R10 exists only so that can_attach is a granted power the exemption removes rather than a constant. Displacement: the plan names no burden moving to another role in this wave; none is encoded.",
+  roles_extra=[{"name":"creditor","gloss":"a creditor of the husband"}], actions_extra=MWPA_ACTIONS_EXTRA, fluents_extra=MWPA_FLUENTS_EXTRA)
+inst.append(EXEMPT)
+PROP = _mwpa("mwpa-property","Married women's property act: separate property (coverture minus R1, plus may hold_property)",EXEMPT,
+  drop=("R1",), add=[
+   R("R13","wife","may","(hold_property w)","(and (married h w) (acquired_property w) (not (narrowed w)))",None,"tying",False,NY1848+"; "+GLT+" (property acts: the wife holds and controls property acquired by gift or inheritance as if a feme sole). Conditioned on (not narrowed): a narrow construction (BL entry, R17) re-disables the power. "+DERIVED+"controls_own_property(w) = hold_property enabled (R13)", var_roles={"w":"wife","h":"husband"})],
+  expected=dict(MWPA_BASE_EXP, **{"financial_dependence":"violated","financial_dependence_unpropertied":"holds_to_k","cannot_contract":"holds_to_k",
+            "no_standing":"reachable","double_burden":"unreachable_open","creditor_shield":"unreachable_open","backlash":"unreachable_open"}),
+  pair={"id":"mwpa-creditor-exemption","rule":"R1->R13","differs_on":"financial_dependence"},
+  source_text="Property acts (GLT Table 1: MA 1845, NY 1848, PA 1848, ...): a married woman holds property acquired by gift or inheritance in her own right, beyond her husband's control and his creditors. Statute texts not opened ([R]); dates and the gloss via plans/backtest-mwpa.md.",
+  notes="Plan delta `property`: delete R1 (husband may control_property), add wife may hold_property (R13); the creditor exemption (R11) and conveyance (R12) carry over from the 1839-50 form. PREREGISTERED (2026-11-03, before any run): financial_dependence VIOLATED (a propertied wife now controls her own property), financial_dependence_unpropertied holds_to_k (a wife without acquired property is as dependent as before: the flip is 'for propertied wives only'), can_exit unchanged (subject_cannot_exit reachable), has_standing unchanged (no_standing reachable), cannot_contract holds; creditor_shield OPEN (with R1 gone the husband no longer manages what he conveys: the dark twin is extinguished by the real act), backlash open, double_burden open.")
+inst.append(PROP)
+EARN = _mwpa("mwpa-earnings","Married women's earnings act (property act plus may keep_earnings)",PROP,
+  drop=(), add=[
+   R("R14","wife","may","(keep_earnings w)","(and (married h w) (earns w))",None,"tying",False,GLT+" (earnings acts: NY 1860, MA 1846/1874, PA 1872, ...: a married woman's wages are her separate property). Statute texts not opened ([R]). "+DERIVED+"owns_earnings(w) = keep_earnings enabled (R14)", var_roles={"w":"wife","h":"husband"})],
+  expected=dict(MWPA_BASE_EXP, **{"financial_dependence":"violated","financial_dependence_unpropertied":"violated","cannot_contract":"holds_to_k",
+            "no_standing":"reachable","double_burden":"reachable","creditor_shield":"unreachable_open","backlash":"unreachable_open"}),
+  pair={"id":"mwpa-property","rule":"R14","differs_on":"financial_dependence_unpropertied"},
+  source_text="Earnings acts (GLT Table 1): a married woman's earnings from her own labour are her separate property. Statute texts not opened ([R]); via plans/backtest-mwpa.md.",
+  notes="Plan delta `earnings`: add wife may keep_earnings (R14). PREREGISTERED (2026-11-03, before any run): financial_dependence_unpropertied VIOLATED (a wage-earning wife without property is no longer dependent); DISPLACEMENT (plan's DI): the implicit care obligation R3 is unchanged, so double_burden (a wife who owns her wages and still must keep house) becomes REACHABLE here and was open before; no burden moves to another role (the plan names none). cannot_contract holds, no_standing reachable, exit unchanged.")
+inst.append(EARN)
+SOLE = _mwpa("mwpa-sole-trader","Sole-trader act (earnings act minus R7, plus may contract)",EARN,
+  drop=("R7",), add=[
+   R("R15","wife","may","(contract w)","true",None,"tying",False,KHAN+" (sole-trader provisions: a married woman may carry on trade and contract in her own name; ME 1844, MA 1860, NY 1860, ...). Statute texts not opened ([R]). "+DERIVED+"can_contract(w) = contract enabled (R15), no longer barred (R7 deleted)", var_roles={"w":"wife"})],
+  expected=dict(MWPA_BASE_EXP, **{"financial_dependence":"violated","financial_dependence_unpropertied":"violated","cannot_contract":"violated",
+            "no_standing":"reachable","double_burden":"reachable","creditor_shield":"unreachable_open","backlash":"unreachable_open"}),
+  pair={"id":"mwpa-earnings","rule":"R7->R15","differs_on":"cannot_contract"},
+  source_text="Sole-trader acts (Khan 1996 Table 1): a married woman may trade and contract in her own name. Statute texts not opened ([R]); via plans/backtest-mwpa.md.",
+  notes="Plan delta `sole-trader`: delete the R7 disability on contract; because a power is what the rules grant (ADR 0013), a may contract (R15) replaces it (one replacement, distance 1). PREREGISTERED (2026-11-03, before any run): cannot_contract VIOLATED; can_exit still false (R6 stands: subject_cannot_exit reachable); no_standing still reachable (R4 stands).")
+inst.append(SOLE)
+SUIT = _mwpa("mwpa-suit","Suit act (sole-trader act minus R4, plus may sue while married)",SOLE,
+  drop=("R4",), add=[
+   R("R16","wife","may","(sue w)","(married h w)",None,"tying",False,GLT+" (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Statute texts not opened ([R]). "+DERIVED+"has_standing(w) = sue enabled: R9 (feme sole) or R16 (married), R4 deleted", var_roles={"w":"wife","h":"husband"})],
+  expected=dict(MWPA_BASE_EXP, **{"financial_dependence":"violated","financial_dependence_unpropertied":"violated","cannot_contract":"violated",
+            "no_standing":"unreachable_open","double_burden":"reachable","creditor_shield":"unreachable_open","backlash":"unreachable_open"}),
+  pair={"id":"mwpa-sole-trader","rule":"R4->R16","differs_on":"no_standing"},
+  source_text="Suit provisions: a married woman may sue and be sued in her own name. Statute texts not opened ([R]); via plans/backtest-mwpa.md.",
+  notes="Plan delta `suit`: delete R4; R9 was conditioned on (not married), so a may sue while married (R16) is added (one replacement, distance 1) and has_standing reads R9 or R16. PREREGISTERED (2026-11-03, before any run): no_standing UNREACHABLE (open) = has_standing flips true; subject_cannot_exit still REACHABLE (R6 stands: exit needs divorce reform, not encoded): the engine should say standing before exit.")
+inst.append(SUIT)
+NARROW = _mwpa("mwpa-property-narrowed","Property act under narrow construction (backlash: court reinstates the husband's control)",PROP,
+  drop=(), add=[
+   R("R17","court","may","(construe_narrowly court w)","(and (married h w) (acquired_property w))",None,"rival",False,CHUSED84+" (courts narrowly construed the acts so as to keep husbands' control during marriage). The narrowing is a one-way act: nothing in the entry un-narrows", var_roles={"w":"wife","h":"husband"}),
+   R("R18","husband","may","(control_property h w)","(and (married h w) (narrowed w))",None,"tying",False,"R1 reinstated under narrow construction (the plan's BL encoding): "+CHUSED84+". "+DERIVED+"controls_property(h, w) = control_property enabled (R18)", var_roles={"h":"husband","w":"wife"})],
+  expected=dict(MWPA_BASE_EXP, **{"financial_dependence":"violated","financial_dependence_unpropertied":"holds_to_k","cannot_contract":"holds_to_k",
+            "no_standing":"reachable","double_burden":"unreachable_open","creditor_shield":"reachable","backlash":"reachable"}),
+  pair={"id":"mwpa-property","rule":"R17,R18","differs_on":"backlash"},
+  source_text="Courts 'narrowly construing' the married women's property acts to keep husbands' control during marriage (Chused 1984 citing Chused 1983 at 1400; the 1983 article [R] not opened). Via plans/backtest-mwpa.md.",
+  notes="BACKLASH (BL) entry: mwpa-property plus a court that may construe the act narrowly (R17, sets narrowed(w)), which re-disables the wife's R13 power (its condition carries (not narrowed)) and reinstates R1 as R18 under narrowed. PREREGISTERED (2026-11-03, before any run): backlash REACHABLE (marry, construe_narrowly: the husband controls again, the wife does not); financial_dependence still VIOLATED (the court may but need not narrow, and before it does the wife holds); creditor_shield REACHABLE again (marry, transfer_to_wife, construe_narrowly: with his management reinstated the conveyance is a shield once more); everything else as mwpa-property. Distance 2 from mwpa-property (the narrowing power and the reinstated R1 are two rules). Not a chain step: a branch off mwpa-property.",
+  roles_extra=[{"name":"court","gloss":"a court construing the act"}],
+  actions_extra=[A("construe_narrowly",["court","w"],[E("narrowed",["w"],True)])])
+inst.append(NARROW)
+_mwpa_roles = {"is_subject":["wife"],"provides_care":None,"female":["wife"],"married":["husband","wife"],"acquired_property":["wife"],"earns":["wife"],
+               "transferred":["husband","wife"],"narrowed":["wife"],"can_attach":["creditor","wife"],"controls_property":["husband","wife"],
+               "controls_own_property":["wife"],"owns_earnings":["wife"],"can_contract":["wife"],"can_sanction":["husband","wife"],"can_exit":["wife"],"has_standing":["wife"]}
+_mwpa_roles = {k:v for k,v in _mwpa_roles.items() if v}
+MWPA_IDS = ["mwpa-creditor-exemption","mwpa-property","mwpa-earnings","mwpa-sole-trader","mwpa-suit","mwpa-property-narrowed"]
+
 def L(f,*a): return "(%s %s)" % (f, " ".join(a))
 def _animal_roles(owner):
     return {"owns":[owner,"animal"],"can_sanction":[owner,"animal"],"controls_reproduction":[owner,"animal"],
@@ -620,6 +736,8 @@ EXTRA = {
  "lease":({"is_subject":["tenant"],"can_exit":["tenant"],"leased":["landlord","tenant"],"habitable":["landlord","tenant"],"rent_paid":["tenant"]},[],[]),
  "public-library":({"is_subject":["patron"],"can_exit":["patron"],"open":["librarian"],"present":["patron"],"served":["librarian","patron"],"suspended":["patron"],"disruptive":["patron"]},[],["disruptive"]),
 }
+for mid in MWPA_IDS:
+    EXTRA[mid] = (_mwpa_roles, [], ["female","acquired_property","earns"])
 for i in inst:
     if i["id"] in EXTRA:
         ar, init, free = EXTRA[i["id"]]
