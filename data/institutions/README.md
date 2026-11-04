@@ -2,10 +2,10 @@
 
 Hand-reconstructed institutions for the Phase 0 institutions family (`plans/institutions-phase0.md`).
 
-- `institutions.json`: list of 13 entries (`coverture-household`, `police-crisis`, `cps`, `crisis-team`,
+- `institutions.json`: list of 14 entries (`coverture-household`, `police-crisis`, `cps`, `crisis-team`,
   `paternity-quota`, `transferable-leave`, `companion-ownership`, `companion-guardianship`,
   `companion-guardian-renamed`, the two negative controls `lease`, `public-library`, and the gate (d) pair
-  `kibbutz-childrens-house`, `kibbutz-childrens-house-no-implicit`). Each has `roles`, `fluents`, `actions` (with effects as fluent literals),
+  `kibbutz-childrens-house`, `kibbutz-childrens-house-no-implicit`, and the expected-match control `airline-flight`). Each has `roles`, `fluents`, `actions` (with effects as fluent literals),
   ADICO `rules`, `source_text`, `expected_properties`, `isomorphic_to`, `not_isomorphic_to`, `minimal_pair_of`, `notes`.
 - `properties.json`: named properties reused across entries. The plan's nine plus one extra,
   `leave_reserved_for_non_birthing_parent`, added so the paternity-quota / transferable-leave pair gets
@@ -191,3 +191,18 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
   rule R2 is the one rule separating the pair, the pair reads fails.
 - The 1970s-1990s return to family sleeping is R4's removal, kibbutz by kibbutz; it is recorded in R7's source, not
   encoded as a third entry: the gate (d) claim is that R2 survives it, and the no-implicit variant is the test.
+
+## Third review (2026-11-03, `docs/reviews/2026-11-03-phase0-third-review.md`)
+
+- **Kibbutz R2 re-encoded as a sanctioned norm.** `must_not (assign committee male_member)`, `or_else: R6`, `implicit: true`;
+  ids unchanged. The source string says it encodes a documented practice, not a written rule (the reviewer: the sources
+  support a practice, not a committee disability). Result: check-all 47/47, gate (d) still PASS (persists vs fails, R2 the one
+  separating rule), because gate (d) reads strict compliance. Expectations unchanged. `enabled` ignores sanctioned
+  prohibitions, so `can_assign` no longer reads R2; compliant traces still carry it.
+- **`airline-flight` is a permanent EXPECTED-MATCH control** (`expected_control_match: true`; 6 rules from the review, strands as
+  the reviewer tagged them: care superadditive, restrain rival, exit bar rival/disability). Preregistered before the run: it matches
+  police-crisis, cps and coverture-household at guard+strands (`partial(care+control)`; none at exact), a structural match
+  (in-flight custody). Confirmed. Gate (b) fails on any control match and has no expected-match mode (philosophy-engine is not
+  edited here), so airline is deliberately NOT in any `not_isomorphic_to_control`; it is in the dataset only, and `crit_b` does not
+  run it. Its expectations are copied from police-crisis minus `no_standing` and hold. Retagging its care rule to tying removes
+  every match (reviewer's run, not repeated here): strand tags are load-bearing human inputs.

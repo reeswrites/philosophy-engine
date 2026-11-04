@@ -505,10 +505,10 @@ KIB_ACTIONS = [
    A("visit",["x","child"],[]),
    A("sleep_home",["child"],[E("at_home",["child"],True)]),
    A("reprimand",["committee","x"],[])]
-KIB_R2 = R("R2","committee","must_not","(assign committee male_member)","true",None,"tying",True,
-   "IMPLICIT: the nanny 'was always a woman's role' (WIKI_KIB); no kibbutz by-law said so, the rota simply never put a man in the children's house. "+TIGER+". A disability (or_else null): can_assign(committee, male_member) is false by derivation, not by any effect (ADR 0013)", load_bearing=LB)
+KIB_R2 = R("R2","committee","must_not","(assign committee male_member)","true","R6","tying",True,
+   "SANCTIONED NORM encoding a documented PRACTICE, not a written rule (third review 2026-11-03: the sources support a practice, not a committee disability): the nanny 'was always a woman's role' (WIKI_KIB); no kibbutz by-law said so, the rota simply never put a man in the children's house, and "+TIGER+" reports women concentrated in child care as a pattern (the finding is framed there as women's own choice). Encoded as a prohibition the committee answers for (or_else R6, the implicit reprimand), not as a disability; under strict compliance the effect on traces is the same, which is what gate (d) reads. Earlier draft (disability, or_else null) retired by the third review", load_bearing=LB)
 KIB_RULES = [
-   R("R1","committee","may","(assign committee x)","(member x)",None,"superadditive",False,WIKI_KIB+" (members are assigned to the children's house by the committee; the rule as written is sex-blind: any member). "+DERIVED+"can_assign(committee, x) = assign enabled (R1) and not barred (R2)"),
+   R("R1","committee","may","(assign committee x)","(member x)",None,"superadditive",False,WIKI_KIB+" (members are assigned to the children's house by the committee; the rule as written is sex-blind: any member). "+DERIVED+"can_assign(committee, x) = assign enabled (R1); R2 is a sanctioned norm, so `enabled` does not read it and compliant traces carry it"),
    KIB_R2,
    R("R3","metapelet","must","(provides_care metapelet child)","(assigned metapelet)","R6","superadditive",False,WIKI_KIB+" (the metapelet runs the children's house). "+STATE+"assign establishes provides_care(x, child); neglect breaks it (sanction R6); release ends the assignment", load_bearing=LB),
    R("R4","child","must_not","(sleep_home child)","true",None,"rival",False,WIKI_KIB+" (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. "+DERIVED+"can_exit(child) = sleep_home enabled (R7) and not barred (R4)"),
@@ -525,7 +525,7 @@ inst.append({
  "isomorphic_to":[{"id":"coverture-household","level":"guard+strands","sub_signature":["R3~R3 provides_care~provides_care"]}],
  "not_isomorphic_to":["police-crisis","cps"],
  "minimal_pair_of":None,
- "notes":"Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit disability R2 (never a man in the children's house) survives: every compliant trace keeps provides_care in female hands, and can_assign(committee, male_member) is false at every step by derivation. PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); an implicit R7 'may sleep_home' carries can_exit as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform."
+ "notes":"Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit sanctioned norm R2 (never a man in the children's house; a documented practice, or_else R6) survives: every strictly compliant trace keeps provides_care in female hands. RE-ENCODED after the third review (2026-11-03): R2 was a disability (or_else null); the sources support a practice, not a committee disability, so it is now must_not + or_else R6. 'implicit' is a human tag the engine reports back; the ablation bites because R1 was written sex-blind (disclosed). PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); an implicit R7 'may sleep_home' carries can_exit as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform."
 })
 # ---------------------------------------------------------------- kibbutz-childrens-house-no-implicit (minimal pair)
 inst.append({
@@ -539,6 +539,45 @@ inst.append({
  "not_isomorphic_to":["kibbutz-childrens-house"],
  "minimal_pair_of":{"id":"kibbutz-childrens-house","rule":"R2","differs_on":"care_assigned_by_sex"},
  "notes":"PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex fails (a compliant trace assigns the male_member, R1, and provides_care(male_member, child) with female false breaks the universal). The same rules minus R2 and nothing else; the gate (d) check compares this verdict with the original's."
+})
+
+# ---------------------------------------------------------------- airline-flight (permanent negative control, EXPECTED to match)
+# Third review 2026-11-03: a flight's crew must care for passengers aboard, may restrain a disruptive one, and the
+# passenger may not leave in flight. Tagged as the reviewer tagged it (care superadditive, restrain rival, exit bar
+# disability). PREREGISTERED: it WILL match police-crisis / cps / coverture at guard+strands; the match is structural
+# (in-flight custody) and is the expected finding, so this entry is NOT in any `not_isomorphic_to_control`.
+AIR = "Reconstruction from the third review's 6-rule sketch (no statute opened): 14 CFR 91.11 / 121.580 (interference with crew; crew may restrain) and flight-attendant duties are named by the reviewer from general knowledge. "+UNV
+inst.append({
+ "id":"airline-flight",
+ "name":"Airline flight (permanent negative control, EXPECTED to match the care+control cluster)",
+ "roles":[{"name":"crew","gloss":"cabin crew; serves and may restrain"},{"name":"passenger","gloss":"a passenger aboard; the counterparty"}],
+ "fluents":fl("is_subject","provides_care") + [
+   DV("can_sanction",["c","p"],"(enabled restrain c p)"),
+   DV("can_exit",["p"],"(enabled leave p)"),
+   F("aboard",1,"p is aboard a flight in the air"),
+   F("disruptive",1,"p is behaving disruptively (exogenous)"),
+   F("restrained",1,"p is physically restrained")],
+ "actions":[
+   A("board",["c","p"],[E("aboard",["p"],True),E("is_subject",["p"],True),E("provides_care",["c","p"],True)]),
+   A("attend",["c","p"],[E("provides_care",["c","p"],True)]),
+   A("withdraw",["c","p"],[E("provides_care",["c","p"],False)]),
+   A("restrain",["c","p"],[E("restrained",["p"],True)]),
+   A("leave",["p"],[E("aboard",["p"],False),E("is_subject",["p"],False),E("provides_care",["crew","p"],False)]),
+   A("complain",["p"],[])],
+ "rules":[
+   R("R1","crew","may","(board c p)","(not (aboard p))",None,"tying",False,AIR,var_roles={"c":"crew","p":"passenger"}),
+   R("R2","crew","must","(provides_care c p)","(aboard p)",None,"superadditive",False,AIR+" (crew must care for passengers aboard). "+STATE+"board establishes provides_care; attend restores it, withdraw breaks it",load_bearing=LB,var_roles={"c":"crew","p":"passenger"}),
+   R("R3","crew","may","(restrain c p)","(and (aboard p) (disruptive p))",None,"rival",False,AIR+" (crew may restrain a disruptive passenger)",var_roles={"c":"crew","p":"passenger"}),
+   R("R4","passenger","must_not","(leave p)","(aboard p)",None,"rival",False,AIR+" (a passenger cannot leave in flight)."+EXIT+" "+DERIVED+"can_exit(p) = leave enabled (R5), which this disability makes false aboard"),
+   R("R5","passenger","may","(leave p)","true",None,"rival",True,"implicit: the physical possibility of leaving is always there; R4 removes it in flight. "+DERIVED+"can_exit(p) = leave enabled (R5) and not barred (R4)"),
+   R("R6","passenger","may","(complain p)","true",None,"tying",False,AIR+" (a passenger may complain)")],
+ "source_text":"Reconstruction, not a quotation: a flight's crew must care for passengers aboard, may restrain a disruptive passenger, and a passenger must not leave in flight (may leave on the ground); the passenger may complain. Supplied by the third review (2026-11-03) as a structural negative control for the care+control match.",
+ "expected_properties":{"subject_cannot_exit":"reachable","dependent_cannot_exit":"reachable","care_and_sanction_same_role":"holds_to_k"},
+ "isomorphic_to":[],
+ "not_isomorphic_to":[],
+ "expected_control_match": True,
+ "minimal_pair_of":None,
+ "notes":"EXPECTED-MATCH control (`expected_control_match: true`; third review 2026-11-03). PREREGISTERED before any run: airline-flight matches police-crisis, cps and coverture-household at guard+strands (care R2 superadditive ~ care, R3 rival ~ chastise/detain/remove, R4 exit bar ~ exit bar). The match is structural: in-flight custody has the same care + restraint + exit-bar form, so it is a finding about the form, not a failure of the encoding. Retagging R2 superadditive -> tying removes every match: the strand tags are load-bearing and the tags are human inputs. Why it is not in `not_isomorphic_to_control`: gate (b) fails on any match, and the gate has no expected-match mode (philosophy-engine is not edited here); `rules_gate` still lists it as an ordinary dataset entry. Expectations copied from police-crisis minus no_standing and are unverified until check-all. 6 rules (the review's list), not 10."
 })
 
 def L(f,*a): return "(%s %s)" % (f, " ".join(a))
@@ -577,6 +616,7 @@ EXTRA = {
  "companion-guardian-renamed":(_animal_roles("guardian"),_animal_init("guardian"),["best_interest"]),
  "kibbutz-childrens-house":(_kib_roles,_kib_init,[]),
  "kibbutz-childrens-house-no-implicit":(_kib_roles,_kib_init,[]),
+ "airline-flight":({"is_subject":["passenger"],"can_sanction":["crew","passenger"],"provides_care":["crew","passenger"],"can_exit":["passenger"],"aboard":["passenger"],"disruptive":["passenger"],"restrained":["passenger"]},[],["disruptive"]),
  "lease":({"is_subject":["tenant"],"can_exit":["tenant"],"leased":["landlord","tenant"],"habitable":["landlord","tenant"],"rent_paid":["tenant"]},[],[]),
  "public-library":({"is_subject":["patron"],"can_exit":["patron"],"open":["librarian"],"present":["patron"],"served":["librarian","patron"],"suspended":["patron"],"disruptive":["patron"]},[],["disruptive"]),
 }
