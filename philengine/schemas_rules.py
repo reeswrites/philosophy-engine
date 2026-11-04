@@ -77,6 +77,7 @@ class ActionDecl(BaseModel):
     arg_roles: list[str | None] | None = None  # one role (or null) per parameter; None = heuristic typing
     effects: list[Effect] = []
     gloss: str = ""
+    liberty: bool = False  # ADR 0013 amendment 2026-11-05: (enabled a ...) is true unless a disability bars it
 
     @model_validator(mode="before")
     @classmethod

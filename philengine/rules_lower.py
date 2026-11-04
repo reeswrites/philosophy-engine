@@ -43,7 +43,11 @@ Encoding (fully grounded over a finite agent domain, so z3 sees no quantifiers):
                 its condition true at t and no must_not disability (or_else null) on it does; an action no
                 may/must rule names is NOT enabled (constant false; a warning flags the reference, since the
                 action can still fire freely in traces: the trace floor and the rule-granted power are different
-                questions, ADR 0013 amendment 2026-11-03). A derived fluent gets a Bool per (args, t)
+                questions, ADR 0013 amendment 2026-11-03), UNLESS the action is declared `liberty: true`
+                (ADR 0013 amendment 2026-11-05; Hohfeldian liberty vs power): a liberty action is enabled at t iff no
+                disability on that instance has its condition true, whether or not any may/must names it (a
+                may/must on it is redundant for enablement). Liberty affects only (enabled ...) in derived
+                fluents, never which actions may fire in traces. A derived fluent gets a Bool per (args, t)
                 defined by an equation, no frame axiom, no init, and cannot appear in effects / initial /
                 defaults / initial_free / a rule's aim (validation error); cycles through derived fluents or rule
                 conditions are errors. Power fluents (can_sanction, has_standing) are meant to be derived.
@@ -620,14 +624,16 @@ class Grounded:
     def enabled(self, action: str, args: tuple, t: int):
         """(enabled action args) at t: some may/must rule instance's condition holds and no disability's does;
         constant false for a non-instance and for an action no may/must rule regulates (ADR 0013 amendment:
-        a power is what the rules grant, and no rule grants an unregulated action)."""
+        a power is what the rules grant, and no rule grants an unregulated action). A `liberty` action
+        (amendment 2026-11-05) is enabled unless a disability bars it, whatever may/must name it."""
         args = tuple(args)
         if args not in self.action_instances.get(action, []):
             return z3.BoolVal(False)
+        liberty = next(a.liberty for a in self.inst.actions if a.name == action)
         ris = [ri for ri in self.rule_instances if ri.kind == "action" and ri.action == action and ri.args == args]
         on = [self.cond_at(ri, t) for ri in ris if ri.rule.deontic in ("may", "must")]
         off = [self.cond_at(ri, t) for ri in ris if ri.rule.deontic == "must_not" and ri.rule.or_else is None]
-        en = z3.Or(*on) if on else z3.BoolVal(False)
+        en = z3.BoolVal(True) if liberty else (z3.Or(*on) if on else z3.BoolVal(False))
         return z3.And(en, z3.Not(z3.Or(*off))) if off else en
 
     def action(self, name: str, args: tuple, t: int):
@@ -849,10 +855,11 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
     barred = {parse_aim(r.aim).pred for r in inst.rules if r.deontic == "must_not" and kinds[r.id] == "action"}
     for name in derived_order(inst):
         for a in sorted(_enabled_actions(G.derived[name])):
-            if a not in G.regulated:
+            if a not in G.regulated and not next(x.liberty for x in inst.actions if x.name == a):
                 tail = "only a prohibition names it" if a in barred else "it can still fire freely in traces"
                 G.warnings.append(f"derived fluent {name}: (enabled {a} ...) names an action no may/must rule regulates; "
-                                  f"it is never enabled ({tail})")
+                                  f"it is never enabled ({tail}; declare `liberty: true` on the action if it is a "
+                                  f"liberty, enabled unless a disability bars it)")
         for tup in G.fluent_tuples[name]:
             for t in range(k + 1):
                 G.fluent(name, tup, t)

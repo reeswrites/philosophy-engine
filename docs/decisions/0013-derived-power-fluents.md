@@ -34,3 +34,18 @@ property and, transitively, the `derived` expression of every derived fluent it 
 under an odd number of negations; anti-monotone iff it occurs only under odd. The two laws are asserted for monotone
 properties only; for anti-monotone ones the mirror holds (removing a may never removes reachability). Mixed-polarity
 properties are exempt from both. mwpa-suit minus R16 -> `no_standing` reachable is pinned as a regression test.
+
+## Amendment 2026-11-05: liberty actions
+The 2026-11-03 amendment made an action no `may`/`must` rule names confer no power. That is right for powers a rule
+grants (earnings, standing) and wrong for liberties an institution withholds by prohibition (coverture R7 `must_not
+contract`): cutting a sole prohibition could never move a derived power, because with nothing granting it the power was
+already constant false. Experiment 2026-11-05: flipping nameless actions to enabled across the board moved 14
+preregistered verdicts (coverture read liberal), so the split cannot be a global default; it is declared per action by
+the encoder, preregistered. `ActionDecl.liberty: bool = False`. For a liberty action instance, `(enabled a args)` at t is
+true iff no disability (a `must_not` with `or_else` null) on that instance has its condition true at t, whether or not a
+`may`/`must` names it (a `may`/`must` on it is redundant for enablement; a `must` still matters as an obligation). A
+power action (the default) keeps the 2026-11-03 semantics. This is the Hohfeldian liberty/power distinction: a liberty is
+the absence of a duty not to, a power is a granted ability to change legal relations. Trace semantics is unchanged
+(`regulated_actions` and the firing-enablement block still let an unregulated action fire); liberty touches only the
+`(enabled ...)` pseudo-predicate in derived fluents, and the "never enabled" warning no longer fires for liberty actions.
+Both `rules_lower.Lowering.enabled` and `rules_reference.power` implement it independently.
