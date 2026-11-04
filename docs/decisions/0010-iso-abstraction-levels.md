@@ -14,3 +14,6 @@ Every cross-domain "same form" result carries its level. The open question was a
 
 ## Status
 accepted
+
+## Status: amended 2026-11-03
+The third review found that strand tags are hand inputs the cluster match depends on, so the care + control match is partly set by the encoder. Claim L11 is refuted (docs/claims.md). A strand-tag redesign is parked in docs/plan.md. This ADR is to be superseded by a redesign ADR once that exists. The body above is left as written.
