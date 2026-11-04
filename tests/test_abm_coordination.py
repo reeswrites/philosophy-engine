@@ -78,6 +78,17 @@ def test_initial_practice_and_committed_minority_setup():
     assert pick(0) == pick(0) and any(pick(s) != pick(0) for s in range(1, 6))
 
 
+def test_committed_draw_does_not_perturb_the_main_rng_stream():
+    """Review finding 6: the committed set is drawn from a child rng, so the main stream is in the same state with and
+    without a committed minority and every later draw (thresholds apart, which come first) is shared."""
+    mk = lambda frac: InstitutionModel(convention(), seed=3, agents_per_role=10, modules=("coordination",), payoffs=PAY,
+                                       params={"committed_minority": frac})
+    m0, m1, m2 = mk(0.0), mk(0.1), mk(0.3)
+    assert m0.random.getstate() == m1.random.getstate() == m2.random.getstate()
+    assert [m0.random.random() for _ in range(5)] == [m2.random.random() for _ in range(5)]
+    assert any(a.committed for a in m1.agents) and not any(a.committed for a in m0.agents)
+
+
 def test_committed_minority_errors_and_warning():
     with pytest.raises(ValueError, match="committed_minority > 0 needs a committed action"):
         InstitutionModel(convention(), agents_per_role=4, modules=("coordination",), payoffs={"old_name": 1.0},
@@ -218,16 +229,19 @@ def test_tipping_sweep_has_a_rise_whose_location_is_not_a_constant():
     x_k = _crossing(grid, _curve(inst, grid, seeds, k=10))
     locations = [x for x in (x_base, x_thr, x_k) if x is not None]
     assert len(locations) >= 2 and max(locations) - min(locations) > 0.01, (x_base, x_thr, x_k)
-    assert not any(isinstance(v, float) and abs(v - x_base) < 1e-9 for v in DEFAULT_PARAMS.values())
+    # not a default constant, except by grid coincidence (review finding 7: the threshold rule's implicit 0.5 also
+    # shapes the location, so this is a coincidence check only; the gate states the implicit 0.5 in its report)
+    assert x_base in grid or not any(isinstance(v, float) and abs(v - x_base) < 1e-9 for v in DEFAULT_PARAMS.values())
 
 
 # ---------------------------------------------------------------- necessary_modules
 def test_necessary_modules_on_a_toy_where_only_coordination_tips():
-    """With a committed minority of 0.5 the convention flips to `new_name` only under configurations with the
+    """With a committed minority of 0.6 (0.5 sits on the tipping edge once the committed set is drawn from the child
+    rng, review finding 6) the convention flips to `new_name` only under configurations with the
     coordination module (the minority belongs to it); material alone keeps the initial practice."""
     inst = convention()
     out = necessary_modules(inst, lambda m: new_share(m) >= 0.75, seeds=4, steps=30, agents_per_role=16, payoffs=PAY,
-                            params={"committed_minority": 0.5})
+                            params={"committed_minority": 0.6})
     assert set(out["rates"]) == {"{}", "material", "coordination", "material+coordination"}
     assert out["rates"]["{}"] == 0.0 and out["rates"]["material"] == 0.0
     assert out["rates"]["coordination"] >= 0.8 and out["rates"]["material+coordination"] >= 0.8
@@ -288,5 +302,5 @@ def test_gate_b_body_reads_the_committed_action_share():
         assert b.numbers["committed_share_by_point"][key] == {"0.1": 0.125, "0.5": 0.5}
         assert b.numbers["jump_at"][key] == [0.1, 0.5]
     assert "material" not in b.numbers["adoption_by_point"]  # (b) runs the coordination configurations only
-    assert any("reviewer item" in l for l in b.lines)
+    assert any("location caveat" in l and "implicit" in l.lower() for l in b.lines)
     json.dumps(b.to_dict())

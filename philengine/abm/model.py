@@ -85,6 +85,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import random
 from pathlib import Path
 
 import mesa
@@ -291,7 +292,12 @@ class InstitutionModel(mesa.Model):
         for inst in self.resolve_instances("committed_action", spec):
             members = self.by_role.get(inst[1][0], [])
             n = int(round(frac * len(members)))
-            for a in self.random.sample(members, n):
+            # child rng (review finding 6): sampling from `self.random` would shift its state, so runs with and without
+            # a committed minority would differ in every later draw. The child is seeded from the main rng's current
+            # state (str seeds are hashed deterministically) WITHOUT consuming a draw, so the main stream is untouched
+            # and runs at committed_minority 0 and 0.05 share the rest of it.
+            child = random.Random(str(self.random.getstate()))
+            for a in child.sample(members, n):
                 a.committed = inst
                 a.practice = inst
 

@@ -9,7 +9,8 @@ under every grid point; `committed_minority` is a DEFAULT_PARAMS axis (gate (b))
 
 `necessary_modules(inst, predicate, seeds)` (plan: "Eight configurations; `necessary_modules` lists the minimal
 subsets under which the expected outcome occurs in >= 80% of seeds"): runs every subset of the modules that can
-run (the stubs are left out and named; `{}` is included, it is static but it is a configuration) and reports,
+run (the stubs are left out and named; `{}` is included as a configuration: nothing adapts to payoffs under it, but it is
+NOT static when an `initial_practice` is set, since the threshold rule still chooses every step; review finding 9) and reports,
 per subset, the rate of seeds where `predicate(model)` holds on the finished model, plus the MINIMAL subsets
 whose rate meets `rate_min` (no proper subset meets it). The predicate reads the finished `InstitutionModel`
 (its `report()`, `state`, `ref`), so a gate letter can evaluate a dataset property through the reference.

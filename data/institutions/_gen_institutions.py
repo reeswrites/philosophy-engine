@@ -50,7 +50,7 @@ CCP1161 = "Cal. Code Civ. Proc. s. 1161(2)-(3) (tenant guilty of unlawful detain
 CIV1946 = "Cal. Civ. Code s. 1946 (a hiring of real property for an unspecified term is terminated by either party's written notice); https://california.public.law/codes/ca_civ_code_section_1946"
 BPL = "Berkeley Public Library, Patron Suspension Policy (orig. 2002-09-11, rev. 2018-11-14, Res. R18-053): the Library aims to 'provide and maintain a welcoming and safe environment for all patrons and library staff'; 'Violation of the Library's Rules of Use Policy may warrant a suspension of library privileges'; 'Authorized library staff will instruct anyone displaying these behaviors to leave the library facility immediately'; https://www.berkeleypubliclibrary.org/sites/default/files/files/inline/patron_suspension_policy_approved_14nov2018.pdf"
 DERIVED = "[ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] "
-CONTROLS = ["lease","public-library"]
+CONTROLS = ["lease","public-library","naming-convention"]  # naming-convention: layer-2 gate (b) coordination game, must match nothing (2026-11-04)
 EXIT = " [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.]"
 STATE = "[ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] "
 
@@ -488,6 +488,37 @@ inst.append({
  "notes":"Second negative control for gate (b), unrelated to the lease: a service duty (R2) and a rival power over the same person by the same attribute (R3, suspend) with no bar on the patron's own exit (R4). The duty to serve is inferred from the policy's premise of service to all, so R2 is marked UNVERIFIED as a rule. refuse_service is the breaker that keeps R2 from being inert."
 })
 
+# ---------------------------------------------------------------- naming-convention (layer-2 gate (b); calibration control)
+# Not a liberation case and not a historical institution: Centola et al.'s online naming game, a pure coordination
+# game, encoded so the layer-2 coordination module's tipping dynamics can be swept against it (plans/layer2-abm.md
+# gate (b)). ADR 0004: no forward claim; ADR 0011: the agents stand in for experimental subjects in an artificial
+# game, not for any real population. The paper could NOT be opened from this session (science.org, PubMed, Crossref,
+# Europe PMC, Semantic Scholar all refused), so the citation and figures are from memory and UNVERIFIED as quotations.
+CENTOLA = "Centola, Becker, Brackbill & Baronchelli, 'Experimental evidence for tipping points in social convention', Science 360(6393):1116-1119, 8 June 2018, doi:10.1126/science.aas8827. NOT OPENED (2026-11-04: every host tried is outside this session's allowed network); cited from memory, UNVERIFIED as a quotation"
+CONSIST = " plans/layer2-abm.md records these sources as opened on 2026-11-03 by the planning session; this entry's encoder could not reopen them on 2026-11-04."
+COORD = "[coordination: the payoff is the matching reward of the naming game; a name pays only when the partner uses it, which the layer-2 coordination module reads from the `payoffs` block (A1) and its own `threshold`; at layer 1 the rule is just a permission] "
+inst.append({
+ "id":"naming-convention",
+ "name":"Naming convention (Centola et al. 2018 naming game; layer-2 gate (b) calibration control)",
+ "roles":[{"name":"member","gloss":"a participant in the naming game; everyone is a peer (one role, ADR 0006/0011: an institutional sort, not a population)"}],
+ "fluents":[
+   F("uses_old",1,"m uses the established (old) name for the object"),
+   F("uses_new",1,"m uses the new name for the object (the one the committed minority introduces)")],
+ "actions":[
+   A("use_old",["m"],[E("uses_old",["m"],True),E("uses_new",["m"],False)]),
+   A("use_new",["m"],[E("uses_new",["m"],True),E("uses_old",["m"],False)])],
+ "rules":[
+   R("R1","member","may","(use_old m)","true",None,"superadditive",False,CENTOLA+" (each round a paired participant proposes any name; both are rewarded when the names match, penalised when they do not; no name is required or forbidden). "+COORD),
+   R("R2","member","may","(use_new m)","true",None,"superadditive",False,CENTOLA+" (as R1: the alternative name; the committed minority holds it regardless of payoff, which is a model parameter, not a rule). "+COORD)],
+ "payoffs":{"use_old":1.0,"use_new":1.0,"coordinated":["use_old","use_new"],"committed_action":"use_new","initial_practice":"use_old"},
+ "source_text":"From memory, NOT a verified quotation (the page could not be opened from this session): the experiment ran online groups of 20-30 participants who, in randomly paired rounds, each proposed a name for a pictured object and were paid a small reward when the two names matched and charged a small penalty when they did not; once a group had converged on one name, a committed minority instructed to use a different name was added, and minorities of about 25% of the group overturned the established name while smaller ones (around 20% and below) did not. The abstract (as recalled) reports 'direct empirical demonstration of the existence of a tipping point in the dynamics of changing social conventions' and that minority groups that reached the critical mass 'were consistently able to overturn the established behavior'. "+CENTOLA+CONSIST,
+ "expected_properties":{"new_convention_adopted":"reachable"},
+ "isomorphic_to":[],
+ "not_isomorphic_to":["coverture-household","police-crisis","cps"],
+ "minimal_pair_of":None,
+ "notes":"Calibration / control entry for layer-2 gate (b) (plans/layer2-abm.md; philengine/abm/gate.py crit_b reads id `naming-convention`, the payoffs-block key `committed_action`, parameter `committed_minority`; the property `new_convention_adopted` was its placeholder reading until engine slice 4, see the drift note). A pure coordination game, not a liberation case: no subject, no care, no sanction, no exit; the only question it serves is whether the coordination module's tipping location emerges from the sweep rather than from a constant. committed_minority: share of agents holding `use_new` regardless of payoff; Centola's observed tipping band ~ 25%: largest failing minority ~21%, smallest succeeding ~25% (UNVERIFIED, from memory; reworded 2026-11-04 per the encoding review finding 9 from 'between 21% and 31%', 31% being the largest minority tested, not the band's edge). Recorded here, not asserted by the model. Payoffs (A1): both actions 1.0, because the coordination module pays only on matching, so the payoff IS the matching reward and the two names are symmetric; the gate sweeps committed_minority, not payoffs. Rules: two `may` with condition true (ADR 0015 A6 strict enabledness: every action needs a may) and no must or must_not (the game has no sanction: a mismatch forgoes the reward, it breaks no rule). Fluents: `uses_old` / `uses_new` are two fluents rather than one, because the ABM's state is role-level and shared (A2 deferred) and `Reference.successor` lets set-true win over set-false, so when members fire both names in one step both atoms are true; the property therefore asks for new-and-not-old, which on the shared state reads 'some member fired use_new and no member fired use_old this step', i.e. the convention has switched. `initial: (uses_old member)` records the established convention at layer 1. The payoffs block also carries the three RESERVED keys the engine's slice-4 coordination module reads (philengine/abm/model.py RESERVED_PAYOFF_KEYS, ASSUMED, added by the engine agent concurrently on 2026-11-04 after the first material-only run here showed the agents bootstrapping practice from a payoff tie by rng and ignoring `initial`): `coordinated: [use_old, use_new]` (both names are assurance-gated: a name pays only when the agent's same-role neighbour share of it meets its threshold), `committed_action: use_new` (what the committed_minority holds whatever it pays), `initial_practice: use_old` (every uncommitted member starts on the old name, so an established convention exists for the minority to tip). These keys are hand inputs, like the numbers (A1); nothing in them names a tipping location. Layer 2 with the coordination module (information, not a dataset verdict; written before the first (b) run): some adjacent pair of sweep points 0.05..0.50 is expected to show an adoption jump > 0.5 (crit_b PASS) and the location is NOT preregistered: the gate's own point is that the dataset records Centola's band and the model does not assert it. DRIFT, recorded not edited (2026-11-04, after the run): the engine's slice-4 crit_b no longer reads `new_convention_adopted` (its review finding 6: a property mean cannot express a population share under shared role state) but the member role's last-step share of `committed_action`; at 30 seeds that share by committed_minority 0.05..0.50 is [0.05, 0.10, 0.15, 0.20, 0.35, 0.54, 0.70, 0.80, 0.90, 0.97]: equal to the committed share through 0.20 (no uncommitted member converts), above it from 0.25 on, so the tipping begins at the 0.20 -> 0.25 boundary, inside Centola's band, but the curve is graded and the max adjacent jump is 0.19, not > 0.5: crit_b FAIL under both coordination configurations. The location was not set by the dataset (the entry carries no threshold); whether the sharpness criterion, the threshold draw U(0, threshold_max) or the 20-agent graph is what grades the curve is an engine question, not a dataset one. `new_convention_adopted` stays the layer-1 property (reachable, as preregistered) and an information line at layer 2. Negative control in spirit: it is listed in CONTROLS (`not_isomorphic_to_control` on the three care+control cluster members, ADR 0007 / ADR 0013) because it must match nothing: PREREGISTERED none@guard+strands against coverture-household, police-crisis and cps (no must, no rival may, no subject). PREREGISTERED (2026-11-04, before any run): new_convention_adopted reachable (one use_new step from the declared initial state); persists / holds_to_k are not claimed and would read fails / violated (use_old is always permitted); no inert rule (both are may); no vacuity flag (no invariant claimed); layer-1 gate unchanged except the three new control pairs reading none. Layer 2, material only (information, no verdict): with equal payoffs, imitation never fires (no neighbour out-earns) and the step-0 bootstrap splits practice by rng, so the property's last-step rate over seeds is expected to be coin-flip-shaped (neither ~0 nor ~1), not a tipping curve; crit_b stays BLOCKED until the coordination module and committed_minority exist. Deviations from the plan sketch: no `coordinated(member)` derived fluent (nothing reads it; the coordination module tags actions by the payoffs block, A1); source not fetched (network), so every figure is marked UNVERIFIED. Sources: "+CENTOLA+"."+CONSIST
+})
+
 # ---------------------------------------------------------------- kibbutz-childrens-house (gate d)
 # Sources opened 2026-11-03. WIKI_KIB: the nanny (metapelet) "was always a woman's role"; children "lived in the
 # children's house, where they had communal sleeping arrangements" and "visited their parents for 2-3 hours a day".
@@ -526,8 +557,9 @@ KIB_RULES = [
    R("R3","metapelet","must","(provides_care metapelet child)","(assigned metapelet)","R6","superadditive",False,WIKI_KIB+" (the metapelet runs the children's house). "+STATE+"assign establishes provides_care(x, child); neglect breaks it (sanction R6); release ends the assignment", load_bearing=LB),
    R("R4","child","must_not","(sleep_home child)","true",None,"rival",False,WIKI_KIB+" (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. "+DERIVED+"can_exit(child) = sleep_home enabled (R7) and not barred (R4)"),
    R("R5","male_member","may","(visit male_member child)","true",None,"superadditive",False,WIKI_KIB+" (children 'visited their parents for 2-3 hours a day'; the father's relation to the children's house is the visit, not care)"),
-   R("R6","committee","may","(reprimand committee x)","true",None,"rival",True,"implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). "+UNV+". "+DERIVED+"can_sanction(committee, x) = reprimand enabled (R6)"),
-   R("R7","child","may","(sleep_home child)","true",None,"rival",True,"implicit: the physical possibility of sleeping at the parents' home is always there; R4 removes it. What the 1970s-1990s reform changed is R4 (dropped kibbutz by kibbutz, last at Baram in 1997: "+JTA_BARAM+"); the reform did not touch R2 ("+SCMP_BARAM+"). "+DERIVED+"can_exit(child) = sleep_home enabled (R7) and not barred (R4)")]
+   R("R6","committee","may","(reprimand committee x)","true",None,"rival",True,"implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). Guard (assigned x) tried 2026-11-04 and reverted (see the entry notes): with it can_sanction(committee, child) is unreachable and care_and_sanction_same_role flips to holds_to_k (vacuous). "+UNV+". "+DERIVED+"can_sanction(committee, x) = reprimand enabled (R6)"),
+   R("R7","child","may","(sleep_home child)","true",None,"rival",True,"implicit: the physical possibility of sleeping at the parents' home is always there; R4 removes it. What the 1970s-1990s reform changed is R4 (dropped kibbutz by kibbutz, last at Baram in 1997: "+JTA_BARAM+"); the reform did not touch R2 ("+SCMP_BARAM+"). "+DERIVED+"can_exit(child) = sleep_home enabled (R7) and not barred (R4)"),
+   R("R8","metapelet","may","(neglect metapelet child)","(assigned metapelet)",None,"superadditive",True,"implicit, added 2026-11-04 per ADR 0015 A6 (strict enabledness at layer 2: an action needs a may/must rule) so that the breaker of R3 is an enabled action for the layer-2 ABM: the metapelet can always fail the children's house, and that is the choice R3's or_else R6 answers. Under layer 1 the permissive floor already let the unregulated neglect fire in traces, so no verdict should change; the rule makes neglect regulated, which narrows its firing to the assigned metapelet (the only bearer of R3). Condition mirrors R3: neglect is a breach only while assigned. Tagged superadditive as the care strand's own breach (R3), as companion R10 `may feed` is tagged for the restore. "+UNV)]
 KIB_SOURCE = "'Children's lives had three focal points: the children's house, parents' house, and the whole kibbutz.' 'They lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day.' 'The nanny position was always a woman's role. Teacher positions were both for women and men.' (Wikipedia, 'Kibbutz communal child rearing and collective education', read 2026-11-03.) 'The era ended over the weekend, when the 80 children at Kibbutz Baram in the lower Galilee moved into their parents' homes' (JTA, 1997-06-16); the pressure came 'particularly from young mothers' (SCMP, 1997)."
 inst.append({
  "id":"kibbutz-childrens-house",
@@ -538,7 +570,7 @@ inst.append({
  "isomorphic_to":[{"id":"coverture-household","level":"guard+strands","sub_signature":["R3~R3 provides_care~provides_care"]}],
  "not_isomorphic_to":["police-crisis","cps"],
  "minimal_pair_of":None,
- "notes":"Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit sanctioned norm R2 (never a man in the children's house; a documented practice, or_else R6) survives: every strictly compliant trace keeps provides_care in female hands. RE-ENCODED after the third review (2026-11-03): R2 was a disability (or_else null); the sources support a practice, not a committee disability, so it is now must_not + or_else R6. 'implicit' is a human tag the engine reports back; the ablation bites because R1 was written sex-blind (disclosed). PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); an implicit R7 'may sleep_home' carries can_exit as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform."
+ "notes":"Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit sanctioned norm R2 (never a man in the children's house; a documented practice, or_else R6) survives: every strictly compliant trace keeps provides_care in female hands. RE-ENCODED after the third review (2026-11-03): R2 was a disability (or_else null); the sources support a practice, not a committee disability, so it is now must_not + or_else R6. 'implicit' is a human tag the engine reports back; the ablation bites because R1 was written sex-blind (disclosed). PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); an implicit R7 'may sleep_home' carries can_exit as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform. PREREGISTERED 2026-11-04 (before any run; ADR 0015 A6: R8 'metapelet may neglect when assigned', implicit, in KIB_RULES so it flows into the no-implicit pair too): expected effect on this entry's three properties is NONE. care_assigned_by_sex persists (neglect can only clear provides_care, never put it in male hands; at layer 1 the unregulated neglect already fired freely under the trace floor, and making it regulated narrows its firing to the assigned metapelet, which removes no trace that bears on the property); subject_cannot_exit reachable (R4/R7 untouched); care_and_sanction_same_role violated (the committee's reprimand power and the metapelet's care are untouched; the violating trace needs assign, not neglect). Minimal pair kibbutz-childrens-house-no-implicit: unchanged (fails / reachable / violated), distance to this entry stays 1 with R2 the one separating rule (R8 is in both). isomorphic_to coverture-household at guard+strands: it already reads NO today (matched 0, distance 9: a pre-existing disagreement with the claim as written, found while baselining, not caused by this change) and is expected to stay NO with matched 0 and distance 9, because coverture has no may-rule tagged superadditive for R8 to match and distance = max(8, 9) - 0 is unchanged; not_isomorphic_to police-crisis / cps stay yes. Gate (d): PASS unchanged (persists vs fails, R2 the one separating rule). check-all: 106/106, no inert rule (R8 is a may). Layer 2 (information only): neglect becomes an available action for the assigned metapelet; the baseline ABM run (2026-11-04, before R8) shows the metapelet with no available action at all. PREREGISTERED 2026-11-04 (before any run; R6 guard, accepted decision of 2026-11-04): R6 'may reprimand' gains the condition (assigned x) (ASSUMED: the committee disciplines only a member on the rota; previously 'true', under which the layer-2 ABM had the committee reprimand random members about half the time). Expected effect on the three expected_properties: NONE. care_assigned_by_sex persists (reprimand has no effects; nothing new puts care in male hands); subject_cannot_exit reachable (R4/R7 untouched); care_and_sanction_same_role violated (can_sanction(committee, x) = (enabled reprimand committee x) now holds only while assigned(x); assigned(metapelet) is in the initial state, so can_sanction(committee, metapelet) is still true in compliant traces while the metapelet provides care, and the property's (= z x) fails exactly as before). The or_else links R2->R6 and R3->R6 are unaffected: under compliance=sanctioned a breach enables the or_else action whatever its condition, and check-all runs strict, where or_else is not read. Minimal pair kibbutz-childrens-house-no-implicit: unchanged (fails / reachable / violated), distance 1 with R2 the separating rule (R6 is in both via KIB_RULES). check-all: 106/106 agreement, no inert rule (R6 is a may); the 'R6: untyped variable(s) [x]' warning stays. Gate: PASS; (d) unchanged (persists vs fails, R2 the one separating rule); (a) 0 inert; (b), (c), (e), (f) untouched (kibbutz is outside the cluster). isomorphic_to coverture-household at guard+strands: stays NO, matched 0, distance 9 (R6's skeleton becomes (may, (role, var), guarded, no or_else, rival); coverture R5 chastise is (may, (var, var), guarded, no or_else, rival): the aim patterns differ, so no new pair); not_isomorphic_to police-crisis / cps stay yes (distances 10 / 11 move by at most 1). Layer 2 (information only; baseline run 2026-11-04 before the guard, 10 seeds x 30 steps, committee adoption split: assign(committee,metapelet) 0.32, reprimand(committee,metapelet) 0.275, reprimand(committee,child) 0.225, reprimand(committee,male_member) 0.18): expected after the guard, reprimand(committee,child) and reprimand(committee,male_member) disappear (never assigned; the committee's R2 breach rate is 0.0 in the baseline) and the committee splits between assign(committee,metapelet) and reprimand(committee,metapelet) (plus 'none' if the material module prefers it); metapelet, male_member and child unchanged. If any verdict flips the guard is reverted, not the expectation. R6 guard tried 2026-11-04 and reverted: care_and_sanction_same_role flipped from violated to holds_to_k (flags vacuous, antecedent-unreachable) in this entry AND in kibbutz-childrens-house-no-implicit (check-all 104/106; gate still PASS). The preregistration above was wrong about which binding carries the verdict: the property quantifies sanction power over the SUBJECT ((is_subject y) and (can_sanction z y) and (provides_care x y) => (= z x)), so the violating trace needs can_sanction(committee, child) = (enabled reprimand committee child), which R6 'true' grants and (assigned child) never does (the child is not a member, so R1 cannot put it on the rota: the antecedent becomes unreachable and the invariant holds vacuously). The guard would have to be '(or (assigned x) (is_subject x))' or the property's reading changed; neither was accepted, so R6 is back to 'true' and the ABM keeps reprimanding random members (committee split with the guard, 10 seeds x 30 steps: assign(committee,metapelet) 0.685, reprimand(committee,metapelet) 0.315, as preregistered for layer 2; without it: 0.32 / 0.275 / child 0.225 / male_member 0.18). Layer-2 reading of R8 at step 0 (2026-11-04): assigned(metapelet) is in the entry's `initial` (_kib_init, alongside provides_care(metapelet, child)), so Reference.initial_split puts it in the fixed set and the ABM's step-0 state carries it; neglect(metapelet, child) is therefore a power at step 0 (verified with Reference.power on the ABM's initial state: available_for('metapelet') = [neglect]); the slice-3 observation that it was not predates R8 reaching institutions.json, and the metapelet's 'none' adoption is a choice (neglect breaches R3, sanctioned by R6), not an absence of power; no rule change. DISAGREEMENT 2026-11-04: iso with coverture-household at guard+strands reads NO (matched 0, distance 9) under the current matcher; claim not edited; cause unexamined (candidate: the matcher needs the same strand tag on R3 and coverture R3 and a shared guard shape). Encoder observation, not a cause finding: rules_iso.rule_skeleton keys the aim by literal-role vs variable positions, and this entry's R3 aim names roles (provides_care metapelet child) while coverture R3 uses bound variables (provides_care w h)."
 })
 # ---------------------------------------------------------------- kibbutz-childrens-house-no-implicit (minimal pair)
 inst.append({
@@ -596,8 +628,8 @@ inst.append({
 # ---------------------------------------------------------------- MWPA backtest chain (plans/backtest-mwpa.md, 2026-11-03)
 # A path of minimal pairs out of coverture-household, one plan delta per step; every entry shares coverture's roles,
 # fluents and actions and differs from the previous one only by the rules named in its minimal_pair_of. The plan's
-# predicted failure modes are entries of their own (DT: the 1839-50 creditor-exemption act, which is the chain's first
-# historical step; BL: courts narrowing the property act). PREREGISTERED verdicts are in each entry's expected_properties
+# predicted failure modes are entries of their own (DT (Capture per ADR 0016): the 1839-50 creditor-exemption act, which is the chain's first
+# historical step; BL (backlash; filed Erosion by ADR 0016 on 2026-11-03, reverted by its council pass 2026-11-04): courts narrowing the property act). PREREGISTERED verdicts are in each entry's expected_properties
 # and in the plan's "Layer-1 run" section, written before the first run; they are not edited to match.
 GLT = "Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md]"
 KHAN = "Khan 1996, Married Women's Property Laws and Female Commercial Activity, Table 1 (sole-trader dates; the 1839-50 wave as debt relief); https://www.laits.utexas.edu/~mbs31415/Khan_MarriedWomenPropertyRights.pdf [F, via plans/backtest-mwpa.md]"
@@ -626,11 +658,11 @@ def _mwpa(id, name, prev, drop, add, expected, pair, source_text, notes, roles_e
     e.pop("initial", None); e.pop("initial_free", None); e.pop("defaults", None)
     return e
 MWPA_BASE_EXP = {"subject_cannot_exit":"reachable","care_and_sanction_same_role":"holds_to_k"}
-# Step DT (1839-50 debtor-relief wave): coverture + a creditor who may levy on the household's property (baseline,
+# Step DT (Capture per ADR 0016) (1839-50 debtor-relief wave): coverture + a creditor who may levy on the household's property (baseline,
 # implicit) but must not reach the wife's acquired property (the exemption), + the husband may convey to his wife.
 # R1 (husband manages) is KEPT: that is the dark twin (the plan: 'creditor must_not attach wife_property, husband's
 # management kept'); the task's shield reading (husband conveys to wife to put assets beyond creditors) is R12.
-EXEMPT = _mwpa("mwpa-creditor-exemption","Married women's property, 1839-50 form: creditor exemption only (dark twin)",COV,
+EXEMPT = _mwpa("mwpa-creditor-exemption","Married women's property, 1839-50 form: creditor exemption only (dark twin; Capture per ADR 0016)",COV,
   drop=(), add=[
    R("R10","creditor","may","(attach c w)","(married h w)",None,"rival",True,"implicit baseline: a husband's creditors reach the property the husband holds, which under R1 includes his wife's. "+UNV+". "+DERIVED+"can_attach(c, w) = attach enabled (R10) and not barred (R11)", var_roles={"c":"creditor","w":"wife","h":"husband"}),
    R("R11","creditor","must_not","(attach c w)","(and (married h w) (acquired_property w))",None,"tying",False,CHUSED84+"; "+KHAN+" (Mississippi 1839 shielded property from husbands' creditors; Khan excludes it as debt relief). A disability (or_else null): the exemption removes the creditor's power, no sanction is involved", var_roles={"c":"creditor","w":"wife","h":"husband"}),
@@ -639,7 +671,7 @@ EXEMPT = _mwpa("mwpa-creditor-exemption","Married women's property, 1839-50 form
             "no_standing":"reachable","double_burden":"unreachable_open","creditor_shield":"reachable","backlash":"unreachable_open"}),
   pair={"id":"coverture-household","rule":"R10,R11,R12","differs_on":"creditor_shield"},
   source_text="The 1839-1850 acts 'generally contained nothing more than statements exempting married women's property from the debts of husbands', passed after the panics (Chused 1984, citing Chused 1983). Mississippi's 1839 act shielded (slave) property from husbands' creditors; Khan 1996 excludes it as debt relief. Both via plans/backtest-mwpa.md.",
-  notes="DARK TWIN (DT) of the property act, encoded as the plan says: the creditor may not reach the wife's acquired property (R11) but the husband's management (R1) stands, so nothing on the wife's side changes. PREREGISTERED (2026-11-03, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (unchanged from coverture); creditor_shield REACHABLE (marry, transfer_to_wife: the husband's property sits in his wife's name, under his management, beyond his creditors); no_standing reachable, cannot_contract holds, double_burden open, backlash open (no court here). Distance 3 from coverture (R10 baseline, R11 exemption, R12 conveyance): not a one-rule pair; R10 exists only so that can_attach is a granted power the exemption removes rather than a constant. Displacement: the plan names no burden moving to another role in this wave; none is encoded.",
+  notes="DARK TWIN (DT; relabelled Capture by ADR 0016, 2026-11-03, verdicts unchanged) of the property act, encoded as the plan says: the creditor may not reach the wife's acquired property (R11) but the husband's management (R1) stands, so nothing on the wife's side changes. PREREGISTERED (2026-11-03, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (unchanged from coverture); creditor_shield REACHABLE (marry, transfer_to_wife: the husband's property sits in his wife's name, under his management, beyond his creditors); no_standing reachable, cannot_contract holds, double_burden open, backlash open (no court here). Distance 3 from coverture (R10 baseline, R11 exemption, R12 conveyance): not a one-rule pair; R10 exists only so that can_attach is a granted power the exemption removes rather than a constant. Displacement: the plan names no burden moving to another role in this wave; none is encoded.",
   roles_extra=[{"name":"creditor","gloss":"a creditor of the husband"}], actions_extra=MWPA_ACTIONS_EXTRA, fluents_extra=MWPA_FLUENTS_EXTRA)
 inst.append(EXEMPT)
 PROP = _mwpa("mwpa-property","Married women's property act: separate property (coverture minus R1, plus may hold_property)",EXEMPT,
@@ -678,7 +710,7 @@ SUIT = _mwpa("mwpa-suit","Suit act (sole-trader act minus R4, plus may sue while
   source_text="Suit provisions: a married woman may sue and be sued in her own name. Statute texts not opened ([R]); via plans/backtest-mwpa.md.",
   notes="Plan delta `suit`: delete R4; R9 was conditioned on (not married), so a may sue while married (R16) is added (one replacement, distance 1) and has_standing reads R9 or R16. PREREGISTERED (2026-11-03, before any run): no_standing UNREACHABLE (open) = has_standing flips true; subject_cannot_exit still REACHABLE (R6 stands: exit needs divorce reform, not encoded): the engine should say standing before exit.")
 inst.append(SUIT)
-NARROW = _mwpa("mwpa-property-narrowed","Property act under narrow construction (backlash: court reinstates the husband's control)",PROP,
+NARROW = _mwpa("mwpa-property-narrowed","Property act under narrow construction (backlash; filed Erosion by ADR 0016 on 2026-11-03, reverted by its council pass 2026-11-04: court reinstates the husband's control)",PROP,
   drop=(), add=[
    R("R17","court","may","(construe_narrowly court w)","(and (married h w) (acquired_property w))",None,"rival",False,CHUSED84+" (courts narrowly construed the acts so as to keep husbands' control during marriage). The narrowing is a one-way act: nothing in the entry un-narrows", var_roles={"w":"wife","h":"husband"}),
    R("R18","husband","may","(control_property h w)","(and (married h w) (narrowed w))",None,"tying",False,"R1 reinstated under narrow construction (the plan's BL encoding): "+CHUSED84+". "+DERIVED+"controls_property(h, w) = control_property enabled (R18)", var_roles={"h":"husband","w":"wife"})],
@@ -686,7 +718,7 @@ NARROW = _mwpa("mwpa-property-narrowed","Property act under narrow construction 
             "no_standing":"reachable","double_burden":"unreachable_open","creditor_shield":"reachable","backlash":"reachable"}),
   pair={"id":"mwpa-property","rule":"R17,R18","differs_on":"backlash"},
   source_text="Courts 'narrowly construing' the married women's property acts to keep husbands' control during marriage (Chused 1984 citing Chused 1983 at 1400; the 1983 article [R] not opened). Via plans/backtest-mwpa.md.",
-  notes="BACKLASH (BL) entry: mwpa-property plus a court that may construe the act narrowly (R17, sets narrowed(w)), which re-disables the wife's R13 power (its condition carries (not narrowed)) and reinstates R1 as R18 under narrowed. PREREGISTERED (2026-11-03, before any run): backlash REACHABLE (marry, construe_narrowly: the husband controls again, the wife does not); financial_dependence still VIOLATED (the court may but need not narrow, and before it does the wife holds); creditor_shield REACHABLE again (marry, transfer_to_wife, construe_narrowly: with his management reinstated the conveyance is a shield once more); everything else as mwpa-property. Distance 2 from mwpa-property (the narrowing power and the reinstated R1 are two rules). Not a chain step: a branch off mwpa-property.",
+  notes="BACKLASH (BL) entry (backlash; filed Erosion by ADR 0016 on 2026-11-03, reverted by its council pass 2026-11-04; verdicts unchanged; see docs/reviews/2026-11-04-adr0016-council.md): mwpa-property plus a court that may construe the act narrowly (R17, sets narrowed(w)), which re-disables the wife's R13 power (its condition carries (not narrowed)) and reinstates R1 as R18 under narrowed. PREREGISTERED (2026-11-03, before any run): backlash REACHABLE (marry, construe_narrowly: the husband controls again, the wife does not); financial_dependence still VIOLATED (the court may but need not narrow, and before it does the wife holds); creditor_shield REACHABLE again (marry, transfer_to_wife, construe_narrowly: with his management reinstated the conveyance is a shield once more); everything else as mwpa-property. Distance 2 from mwpa-property (the narrowing power and the reinstated R1 are two rules). Not a chain step: a branch off mwpa-property.",
   roles_extra=[{"name":"court","gloss":"a court construing the act"}],
   actions_extra=[A("construe_narrowly",["court","w"],[E("narrowed",["w"],True)])])
 inst.append(NARROW)
@@ -695,6 +727,266 @@ _mwpa_roles = {"is_subject":["wife"],"provides_care":None,"female":["wife"],"mar
                "controls_own_property":["wife"],"owns_earnings":["wife"],"can_contract":["wife"],"can_sanction":["husband","wife"],"can_exit":["wife"],"has_standing":["wife"]}
 _mwpa_roles = {k:v for k,v in _mwpa_roles.items() if v}
 MWPA_IDS = ["mwpa-creditor-exemption","mwpa-property","mwpa-earnings","mwpa-sole-trader","mwpa-suit","mwpa-property-narrowed"]
+
+# ---------------------------------------------------------------- footbinding (layer-2 gate (a); plans/layer2-abm.md)
+# Encoded 2026-11-04 for ABM gate test (a) (philengine/abm/gate.py crit_a: institution id `footbinding`, property
+# `binding_practised` true while the practice is in force, pledge actions named `<action>_pledge` for a declared
+# `<action>`, ADR 0015 A3). SOURCES: the session's network allowed no page fetch (semanticscholar, jstor, wikipedia,
+# cambridge.org, the cognitionandculture.net PDF mirror all refused), so every source below was read as a web-search
+# snippet, never as the page: Mackie's ABSTRACT was returned verbatim by the search index ([F] for the abstract's
+# sentences, [R] for anything in the body); the pledge wording and the societies' dates come from Wikipedia snippets
+# ('Tian Zu Hui', 'Heavenly Foot Society', 'Foot Emancipation Society') and are [R]; Brown et al. 2012 is its abstract
+# only ([R]). Rules reconstructed beyond those snippets are UNVERIFIED.
+MACKIE = ("Mackie, 'Ending Footbinding and Infibulation: A Convention Account', ASR 61(6):999-1017 (1996), abstract "
+  "(read 2026-11-04 as a search-index snippet, the article itself not opened: https://www.jstor.org/stable/2096305 "
+  "paywalled, PDF mirrors unreachable from this session): 'Female footbinding in China lasted for 1,000 years but ended "
+  "in a single generation. I show that each practice is a self-enforcing convention, in Schelling's (1960) sense, "
+  "maintained by interdependent expectations on the marriage market'; 'A Schelling coordination diagram explains how the "
+  "three methods of the Chinese campaign to abolish footbinding succeeded in bringing it to a quick end'; 'The convention "
+  "hypothesis predicts that promotion of such pledge associations would help bring female genital mutilation to an end' "
+  "[F for these sentences; body [R]]")
+PLEDGE_SRC = ("Anti-footbinding pledge associations: Heavenly Foot Society (Xiamen, 1874, MacGowan) and the Tian Zu Hui / "
+  "Natural Foot Society (Shanghai, 1895, Alicia Little; Chinese reformers' societies from 1897, claimed membership "
+  "~300,000): members pledged not to bind their daughters' feet and not to let their sons marry women with bound feet "
+  "(Wikipedia 'Tian Zu Hui', 'Heavenly Foot Society', 'Foot Emancipation Society', read 2026-11-04 as search snippets "
+  "only, pages not opened: [R]; Mackie 1996 names the same two-part pledge for the FGC analogue, abstract [F])")
+BROWN = ("Brown, Bossen, Gates & Satterthwaite-Phillips, 'Marriage Mobility and Footbinding in Pre-1949 Rural China', "
+  "J. Asian Studies 71(4):1035-1067 (2012), abstract only (search snippet, 2026-11-04, [R]): in a sample of 7,314 rural "
+  "women footbinding did not guarantee a better marriage (two-thirds did not marry up); the marriage-market reading is "
+  "Mackie's, and this entry encodes it as the convention, not as a claim that binding bought mobility")
+FB_UNV = "UNVERIFIED (reconstructed from the convention account; no primary text opened)"
+ANALOGY = " Strand tag by analogy with the house exit pattern, not from the source (encoding review 2026-11-04 finding 6)."
+FB_ROLES = [{"name":"family","gloss":"the household deciding for a daughter (Mackie's 'parents' who bind, or pledge not to); the institutional sort, not a demographic (ADR 0011)"},
+            {"name":"daughter","gloss":"the subject: the girl whose feet are bound or left unbound; bound in childhood, so she decides nothing"},
+            {"name":"suitor","gloss":"the family of a prospective groom: the marriage-market counterparty whose expectations hold the convention"}]
+FB_FLUENTS = fl("is_subject") + [
+   DV("can_exit",["d"],"(enabled refuse_binding d)"),
+   F("bound",1,"d's feet are bound (the practice is in force for the current cohort)"),
+   F("pledged",1,"x has joined a pledge association: a family's daughters are not bound (leave_unbound_pledge), a suitor's sons marry only unbound women (accept_match_pledge); untyped union slot family|suitor"),
+   F("married",1,"d has been married off"),
+   {"name":"marriageable","arity":2,"gloss":"f can marry off d on the marriage market (bound, or unbound inside a pledge association)","params":["f","d"],"derived":"(enabled marry_off f d)"}]
+FB_ACTIONS = [
+   A("bind",["family","daughter"],[E("bound",["daughter"],True)]),
+   A("leave_unbound",["family","daughter"],[E("bound",["daughter"],False)]),
+   A("leave_unbound_pledge",["family","daughter"],[E("pledged",["family"],True)]),
+   A("accept_match_pledge",["suitor","daughter"],[E("pledged",["suitor"],True)]),
+   A("marry_off",["family","daughter"],[E("married",["daughter"],True)]),
+   A("reject_match",["suitor","daughter"],[]),
+   A("accept_match",["suitor","daughter"],[E("married",["daughter"],True)]),
+   A("refuse_binding",["daughter"],[])]
+FB_R3 = R("R3","family","must_not","(leave_unbound family daughter)","(is_subject daughter)","R5","tying",True,
+   "SANCTIONED NORM (implicit; a convention, not a written rule): a family that leaves a daughter unbound loses her on the marriage market: "+MACKIE+". or_else R5 (the suitor's rejection) is the market sanction; the norm is stated unconditionally because it is the wider society's expectation, and it is the SANCTION (R5) that a pledge association lifts, not the norm. Tying: binding is tied to marriage, which is Mackie's whole point", load_bearing=False)
+FB_R4 = R("R4","family","may","(leave_unbound_pledge family daughter)","(is_subject daughter)",None,"superadditive",False,
+   "the anti-footbinding pledge (ADR 0015 A3 stand-in: `leave_unbound_pledge` is the pledge for `leave_unbound`): "+PLEDGE_SRC+". Effect pledged(family). The son half of the pledge (no bound bride) is R10 accept_match_pledge (suitor), read by R5/R6 as (pledged suitor); until the encoding review of 2026-11-04 (finding 2) it was folded into R5/R6's (pledged family) condition, which mis-attributed the sons' pledge to the daughter's family. The association's own marriage pool is what R6 reads. Superadditive: the pledge pays only in numbers (Mackie: the pledge associations' 'critical mass')")
+FB_R10 = R("R10","suitor","may","(accept_match_pledge suitor daughter)","(is_subject daughter)",None,"superadditive",True,
+   "the son half of the anti-footbinding pledge (ADR 0015 A3 stand-in: `accept_match_pledge` is the pledge for `accept_match`, i.e. the suitor family commits to marry its sons to unbound women): "+PLEDGE_SRC+". Effect pledged(suitor), read by R5 (lifts the rejection) and R6 (accepts the unbound bride). Added 2026-11-04 after the encoding review (finding 2: Mackie's pool is made by pledged SUITOR families). implicit: the rule is reconstructed, no text says a suitor 'may' pledge. Superadditive like R4. "+FB_UNV)
+FB_RULES = [
+   R("R1","family","may","(bind family daughter)","(is_subject daughter)",None,"tying",False,MACKIE+" (the practice; each step is a cohort decision, so the rule stays enabled while a subject exists). "+FB_UNV+" as a rule: no text says a family 'may' bind, the convention presupposes it"),
+   R("R2","family","may","(leave_unbound family daughter)","(is_subject daughter)",None,"tying",True,"implicit: leaving a daughter unbound is always physically open to the family; R3 is what sanctions it. Per ADR 0015 A6 every action an agent may take needs a may rule. "+FB_UNV),
+   FB_R3,
+   FB_R4,
+   FB_R10,
+   R("R5","suitor","may","(reject_match suitor daughter)","(and (is_subject daughter) (not (bound daughter)) (not (pledged family)) (not (pledged suitor)))",None,"rival",True,"implicit: the marriage market refuses an unbound bride (R3's or_else), 'maintained by interdependent expectations on the marriage market' ("+MACKIE+"); NOT enabled once the family or the suitor has pledged, because pledged families' sons marry only unbound women ("+PLEDGE_SRC+"; (pledged suitor) added 2026-11-04, encoding review finding 2): that lapse of the sanction is the mechanism. Rival: a match refused here is a match made elsewhere."+ANALOGY+" "+FB_UNV+" as a rule"),
+   R("R6","suitor","may","(accept_match suitor daughter)","(and (is_subject daughter) (or (bound daughter) (pledged family) (pledged suitor)))",None,"tying",False,"the convention from the groom's side: a bound daughter is acceptable; an unbound one only inside the pledge association, on either side's pledge ("+MACKIE+"; "+PLEDGE_SRC+"; (pledged suitor) added 2026-11-04, encoding review finding 2). "+FB_UNV+" as a rule"),
+   R("R7","family","may","(marry_off family daughter)","(and (is_subject daughter) (or (bound daughter) (pledged family)))",None,"tying",False,"the marriage condition: "+MACKIE+" ('interdependent expectations on the marriage market'); "+BROWN+" (the data qualify mobility, not marriageability as encoded). "+DERIVED+"marriageable(f, d) = marry_off enabled (R7)"),
+   R("R8","daughter","may","(refuse_binding daughter)","true",None,"rival",True,"implicit: the physical possibility of refusal is always there; R9 removes it."+ANALOGY+" "+DERIVED+"can_exit(d) = refuse_binding enabled (R8) and not barred (R9)"),
+   R("R9","daughter","must_not","(refuse_binding daughter)","(is_subject daughter)",None,"rival",True,"binding is done to a young girl by her family: she has no say. A disability (or_else null), the subject-side exit bar per ADR 0013."+EXIT+ANALOGY+" "+FB_UNV+" (age at binding and the mother's role are general knowledge, no text opened; implicit set True 2026-11-04, encoding review finding 6: an UNVERIFIED rule with no text opened is implicit)")]
+FB_SOURCE = ("'Female footbinding in China lasted for 1,000 years but ended in a single generation. I show that each practice is a "
+  "self-enforcing convention, in Schelling's (1960) sense, maintained by interdependent expectations on the marriage market.' "
+  "'A Schelling coordination diagram explains how the three methods of the Chinese campaign to abolish footbinding succeeded in "
+  "bringing it to a quick end.' 'The convention hypothesis predicts that promotion of such pledge associations would help bring "
+  "female genital mutilation to an end.' (Mackie 1996, abstract, via a search-index snippet 2026-11-04; the article was not "
+  "opened.) Pledge associations: members pledged not to bind their daughters' feet and not to let their sons marry women with "
+  "bound feet (Wikipedia 'Tian Zu Hui' / 'Heavenly Foot Society', snippets, [R])."+CONSIST)
+FB_PREREG = ("PREREGISTERED (2026-11-04, before any run; layer 1 under init declared, strict compliance, step one): "
+  "binding_practised PERSISTS in footbinding AND in footbinding-no-pledge (bound(daughter) is initial; the only action that "
+  "clears it, leave_unbound, is forbidden by the sanctioned norm R3, which strict compliance never breaches; the pledge R4 "
+  "changes nothing at layer 1 because the norm R3 is unconditional and only the sanction R5 reads pledged). "
+  "marriage_requires_binding HOLDS_TO_K in both (R7 is the only marry_off rule and its condition is bound-or-pledged; "
+  "non-vacuous because marriageable(family, daughter) is true at t=0). subject_cannot_exit and dependent_cannot_exit REACHABLE "
+  "in both (t=0: is_subject(daughter) and R9 bars refuse_binding). The pair's layer-1 verdicts are IDENTICAL "
+  "(minimal_pair_of.differs_on is null on purpose: the pair differs only at layer 2). Expected warnings: can_sanction, "
+  "provides_care, has_standing, can_claim_for undeclared (no care or standing here); care_and_sanction_same_role is not "
+  "expected (it would be vacuous: no provides_care). Isomorphism: not_isomorphic_to the care+control cluster (no carer, no "
+  "sanctioner over a cared-for subject; the sanction here is a counterparty's refusal); isomorphic_to nothing (no entry has "
+  "the convention shape). Information only, not an expectation: under --compliance sanctioned binding_practised should FAIL in "
+  "both (leave_unbound may fire and pay the sanction).")
+FB_NOTES_COORD = (" LAYER 2 (for the engine's coordination module, which is a stub at writing): the actions the module should "
+  "treat as `coordinated` are bind and leave_unbound (a family's choice pays only when enough neighbouring families choose the "
+  "same, Mackie's marriage-market assurance game); the pledge is leave_unbound_pledge (A3 naming convention, counts as "
+  "adoption of leave_unbound for neighbours' thresholds). philengine has no action tag for this yet (ActionDecl has no `tags`), "
+  "so the entry carries an ASSUMED extra field `coordinated: [bind, leave_unbound]` that pydantic ignores. Two things the "
+  "engine agent should know: (1) state is role-level (A2 deferred), so `pledged(family)` flips for every family when one agent "
+  "pledges and `Reference.successor` lets set-true beat set-false, so bound(daughter) stays true while any family still binds: "
+  "collapse of binding_practised needs every family to leave unbound in one step; the gate's collapse reading should probably "
+  "use the adoption share of leave_unbound instead, or the module should read pledges per agent; (2) `payoffs` sets bind and "
+  "leave_unbound both to 1.0 (the A1 default made explicit) so the gate can sweep them; the sanction R5 is what the material "
+  "run prices.")
+FB_PREREG2 = (" PREREGISTERED (2026-11-04, encoding review finding 2, written and committed before the first run with the suitor "
+  "pledge): adding accept_match_pledge(suitor, daughter) [effect pledged(suitor)] with rule R10 suitor may accept_match_pledge, "
+  "and reading (pledged suitor) in R5 (and-not) and R6 (or), changes NO layer-1 verdict in footbinding or footbinding-no-pledge: "
+  "binding_practised persists, marriage_requires_binding holds_to_k, subject_cannot_exit and dependent_cannot_exit reachable "
+  "in both; the new pledge only lifts the sanction R5 (and widens R6), R3 is unconditional, R7 is untouched, and pledged is a "
+  "fluent per role (footbinding-no-pledge strips BOTH pledge actions and both pledge rules R4 and R10, so nothing sets "
+  "pledged(suitor) there). Iso: still none at every level against the care+control cluster; isomorphic_to nothing. Expected "
+  "warnings unchanged (can_sanction, provides_care, has_standing, can_claim_for undeclared). Layer 2 (information, not an "
+  "expectation): pledged(suitor) is role-level too (A2), so one suitor's pledge lifts R5 for every suitor, the same "
+  "coarseness as pledged(family): the A2 caveat now applies on both sides; gate (a)'s _has_pledges reading is unchanged "
+  "(true via either pledge) and ablate_pledges strips both. If any verdict flips, the drift is recorded here and the "
+  "expectations are not edited.")
+FB_DRIFT3 = (" Drift 2026-11-04 (encoding review finding 3): marriage_requires_binding is by construction (marriageable is "
+  "derived from R7's enabledness and R7's condition is bound-or-pledged, so the property restates the rule); kept in "
+  "expected_properties for the record, not evidence; the property carries by_construction: true, which the engine ignores.")
+FB_COHORT = (" Layer 1 has one cohort (encoding review 2026-11-04 finding 4): one daughter, bound at t=0, and `married` never "
+  "clears, so no trace shows a per-cohort binding decision before the market; a `new_cohort` action clearing bound/married "
+  "is deferred to the author.")
+FB_RESULT2 = (" RESULT (2026-11-04, after the run, commit b6f48aa preceding it): no drift. check-all 115/115 with all four "
+  "verdicts as preregistered in both entries; `phil rules gate` PASS; pytest 15 passed; no warning printed for either entry "
+  "(none was printed before the change either). ABM information, `--seeds 5 --steps 60 --modules material,coordination`: "
+  "bound 1.0 in every seed (persistence), pledged 0.667 over seeds, i.e. true on the family and the suitor role tuple and "
+  "not the daughter's: the A2 caveat on both sides, as the preregistration said; breach, sanction and unavoidable rates 0.")
+inst.append({
+ "id":"footbinding",
+ "name":"Footbinding as a marriage-market convention (Mackie 1996), with pledge associations",
+ "roles":FB_ROLES,"fluents":FB_FLUENTS,"actions":FB_ACTIONS,"rules":FB_RULES,
+ "source_text":FB_SOURCE,
+ "expected_properties":{"binding_practised":"persists","marriage_requires_binding":"holds_to_k",
+                        "subject_cannot_exit":"reachable","dependent_cannot_exit":"reachable"},
+ "isomorphic_to":[],
+ "not_isomorphic_to":["coverture-household","police-crisis","cps"],
+ "minimal_pair_of":None,
+ "payoffs":{"bind":1.0,"leave_unbound":1.0},
+ "coordinated":["bind","leave_unbound"],
+ "initial_practice":"bind",
+ "notes":("Layer-2 gate (a) institution. Mackie's convention: a family binds because every other family binds and suitors expect it "
+   "(R3 sanctioned norm, R5 the market's refusal, R6/R7 the marriage condition); the campaign's pledge associations (R4) create a "
+   "marriage pool in which an unbound daughter is marriageable, so the sanction R5 lapses for pledged families and leave_unbound "
+   "(R2) becomes costless once enough neighbours pledge. Deviations from the task sketch: no matchmaker/community role (no source "
+   "gives one a rule); a `suitor` role instead, because the sanction needs an actor and Mackie's sanction is the other side of "
+   "the market; the pledge's son half is a second pledge action R10 accept_match_pledge (suitor) read by R5/R6 (until 2026-11-04 it was folded into the family's pledge; encoding review finding 2); marriageable is derived (ADR 0013) "
+   "from R7 rather than asserted; R3 is unconditional and R5 carries the (not pledged) condition, so that the pledge changes "
+   "nothing at layer 1 (the preregistration the gate pair needs). Sources: every text was read as a search snippet, none as a "
+   "page (network closed in this session); the abstract sentences are verbatim from the index, everything else is [R] or "
+   "UNVERIFIED and says so per rule. "+FB_PREREG+FB_PREREG2+FB_RESULT2+FB_DRIFT3+FB_COHORT+FB_NOTES_COORD)
+})
+inst.append({
+ "id":"footbinding-no-pledge",
+ "name":"Footbinding without the pledge action (minimal pair for gate (a))",
+ "roles":FB_ROLES,"fluents":FB_FLUENTS,
+ "actions":[a for a in FB_ACTIONS if not a["name"].endswith("_pledge")],
+ "rules":[r for r in FB_RULES if r["id"] not in ("R4","R10")],
+ "source_text":"Construction: footbinding with both pledge actions (leave_unbound_pledge, accept_match_pledge) and their rules R4 and R10 deleted (R10 since 2026-11-04, encoding review finding 2); pledged stays declared but nothing sets it. Historically the pre-1874 situation (no pledge associations).",
+ "expected_properties":{"binding_practised":"persists","marriage_requires_binding":"holds_to_k",
+                        "subject_cannot_exit":"reachable","dependent_cannot_exit":"reachable"},
+ "isomorphic_to":[],
+ "not_isomorphic_to":["coverture-household","police-crisis","cps"],
+ "minimal_pair_of":{"id":"footbinding","rule":"R4,R10","differs_on":None},
+ "payoffs":{"bind":1.0,"leave_unbound":1.0},
+ "coordinated":["bind","leave_unbound"],
+ "initial_practice":"bind",
+ "notes":("PREREGISTERED (2026-11-04, before any run): the same four verdicts as footbinding (persists, holds_to_k, reachable, "
+   "reachable): pledges change nothing at layer 1. The pair is the gate (a) 'pledge actions exist' half: crit_a reads "
+   "_has_pledges on `footbinding` itself, so this entry is the dataset's record of what the no-pledge world looks like and "
+   "`differs_on` is null by design (no layer-1 property separates them). At layer 2 the preregistration is the plan's: "
+   "binding persists here under every module."+FB_PREREG2+FB_RESULT2+FB_DRIFT3+FB_COHORT)
+})
+
+# ---------------------------------------------------------------- ectogenesis / gestational-surrogacy (plans/ectogenesis.md)
+# Encoded 2026-11-04 from the preregistration plans/ectogenesis.md (committed before this block, CONTRIBUTING step 2).
+# Author decisions, all ASSUMED (given to the encoder in chat 2026-11-04, not in the plan file): (1) the R2+R3 substitution
+# counts as a minimal pair; (2) E's R2/R3 are tagged `superadditive`, no new strand value; (3) R7 has no birth condition;
+# (4) R5 triggers on female(p); (5) no leave action, the leave property rows are dropped; (6) neither entry is added to
+# CONTROLS; (7) gestator consent is out of scope.
+ECTO_UNV = ("UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; "
+  "the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)")
+FIRESTONE = ("Firestone, The Dialectic of Sex (1970), ch.1 (the demand to free women from 'the tyranny of their reproductive biology' "
+  "and to spread child-bearing and child-rearing across society; wording from memory, check before quoting) and ch.10 "
+  "'The Ultimate Revolution' (artificial reproduction and the end of the biological family; from memory). "+ECTO_UNV)
+SURR_UNV = "Statute citations still to be added (state surrogacy acts vary). UNVERIFIED: no statute or case opened."
+ECTO_DECISIONS = ("ASSUMED author decisions (2026-11-04, from the encoder's brief, not from the plan file): R2+R3 substituted counts as a minimal "
+  "pair; E R2/R3 tagged `superadditive` by hand (no new strand value; claim L11 is refuted for this reason, plan section 5c); R7 has no "
+  "birthing_parent condition; R5 triggers on female(p) (role not body: Kleven, docs/theory.md); no leave action, so the plan's "
+  "leave_reserved_for_non_birthing_parent row is dropped; neither entry is in CONTROLS (ectogenesis is not registered as a "
+  "care-without-control control); gestator consent is out of scope. BY CONSTRUCTION, flagged in advance (plan section 5): birth_labor_rival "
+  "in ectogenesis restates R2's effect list (gestates is never set there), and care_decoupled_from_birth in ectogenesis is reachable "
+  "because decant omits birthing_parent (the only non-trivial leg is R7's missing birth condition); both properties carry "
+  "by_construction: true, which the engine ignores. Treat those two verdicts as information, as marriage_requires_binding was, not as "
+  "evidence; non-circular evidence needs layer 2/3. Also by construction: gestated_ex_utero exists only to mark an absence.")
+ECTO_PREREG = ("PREREGISTERED (plans/ectogenesis.md section 3, before any run; layer 1, init declared, strict compliance, k=6). "
+  "gestational-surrogacy: birth_labor_rival holds_to_k; care_decoupled_from_birth unreachable_open; solo_care_by_non_birthing_parent "
+  "reachable; care_assigned_by_sex violated. ectogenesis: birth_labor_rival violated; care_decoupled_from_birth reachable; "
+  "solo_care_by_non_birthing_parent reachable; care_assigned_by_sex violated. Headline difference: birth_labor_rival. Iso (ADR 0010, "
+  "about 65% confident): ectogenesis ~ surrogacy iso at guard, not iso at guard+strands (R2/R3 rival to superadditive tag flip), not iso at "
+  "exact; ectogenesis not iso coverture-household / police-crisis / cps / kibbutz-childrens-house (no control permission over the subject, "
+  "no exit bar, so the care+control sub-signature fails); vs transferable-leave / paternity-quota a guess of partial at guard+strands, two "
+  "legs (R5~R7 implicit must-care by attribute; R4~R5 may care), about 40% confident. Failure modes (ADR 0016): surrogacy Displacement "
+  "(layer 3); ectogenesis Dark twin (layer 3), Capture (needs a new rule), Dead letter (layer 2); R5 surviving is partial reform, no mode. "
+  "Layer 2 not required.")
+ECTO_ROLES = [{"name":"intended_parent","gloss":"the person or couple who will raise the child; the carer; the institutional sort, not a demographic (ADR 0011)"},
+              {"name":"child","gloss":"the subject: the child, a subject only once born (is_subject is set only by a birth action)"},
+              {"name":"provider","gloss":"the clinic or lab that starts, transfers, implants or decants gestation"},
+              {"name":"registry","gloss":"vital records / court: registers parentage and reprimands"}]
+SURR_ROLES = ECTO_ROLES + [{"name":"gestator","gloss":"the surrogate whose body carries the child; the rival input (one body, a short window; docs/theory.md 'Pregnancy, birth, nursing')"}]
+ECTO_FLUENTS_COMMON = fl("is_subject","provides_care","female","parent","birthing_parent") + [
+   F("in_gestation",1,"c is being carried or incubated, anywhere")]
+ECTO_FLUENTS = ECTO_FLUENTS_COMMON + [
+   F("gestated_ex_utero",1,"c is in a device (ectogenesis only; exists to mark an absence of a body)")]
+SURR_FLUENTS = ECTO_FLUENTS_COMMON + [
+   F("gestates",2,"x's body carries c (surrogacy only)")]
+_ECTO_SHARED_ACTIONS = [
+   A("start_gestation",["provider","child"],[E("in_gestation",["child"],True)]),
+   A("register_parentage",["registry","intended_parent","child"],[E("parent",["intended_parent","child"],True)]),
+   A("provide_care",["intended_parent","child"],[E("provides_care",["intended_parent","child"],True)]),
+   A("reprimand",["registry","x"],[])]
+ECTO_ACTIONS = _ECTO_SHARED_ACTIONS + [
+   A("transfer_to_device",["provider","child"],[E("gestated_ex_utero",["child"],True)]),
+   A("decant",["provider","child"],[E("is_subject",["child"],True),E("in_gestation",["child"],False),E("gestated_ex_utero",["child"],False)])]
+SURR_ACTIONS = _ECTO_SHARED_ACTIONS + [
+   A("implant",["provider","gestator","child"],[E("gestates",["gestator","child"],True)]),
+   A("give_birth",["gestator","child"],[E("birthing_parent",["gestator","child"],True),E("is_subject",["child"],True),
+                                        E("in_gestation",["child"],False),E("gestates",["gestator","child"],False)])]
+def _ecto_common_rules():
+    return {
+     "R1":R("R1","provider","may","(start_gestation provider child)","true",None,"rival",False,FIRESTONE+" (the technology that makes gestation a service; for surrogacy, the clinic's role in assisted conception)"),
+     "R4":R("R4","intended_parent","may","(provide_care intended_parent child)","(and (parent intended_parent child) (is_subject child))",None,"superadditive",False,"care by any registered parent of a born child is permitted, men included; nothing here bars it. "+ECTO_UNV),
+     "R5":R("R5","intended_parent","must","(provide_care intended_parent child)","(and (parent intended_parent child) (is_subject child) (female intended_parent))","R6","tying",True,
+            "implicit sanctioned norm (a care-norm, not a written rule): the female registered parent of a born child must care for it. The condition names female and parent, NOT birthing_parent: the Kleven finding in docs/theory.md (adoptive mothers take the same hit, so role not body carries it). ASSUMED decision (author, 2026-11-04): trigger on female(p), so the norm survives the loss of the body. Not load-bearing at layer 1: it fires either way, so 'the tying strand outlives the rival input' is carried by the encoding, not discovered. "+ECTO_UNV),
+     "R6":R("R6","registry","may","(reprimand registry x)","true",None,"tying",False,"the registry's sanction for R3 and R5 (or_else target). Condition 'true' as in kibbutz-childrens-house R6; x is untyped (the sanctioned party differs by rule). "+ECTO_UNV),
+     "R7":R("R7","registry","may","(register_parentage registry intended_parent child)","(is_subject child)",None,"tying",False,"parentage is registered for any born child; NO birthing_parent condition (ASSUMED author decision, 2026-11-04; the legal default today keys it to the birth, which would make care_decoupled_from_birth unreachable in E). "+ECTO_UNV)}
+_c = _ecto_common_rules()
+ECTO_RULES = [_c["R1"],
+  R("R2","provider","may","(transfer_to_device provider child)","(in_gestation child)",None,"superadditive",False,FIRESTONE+". Strand tag is a HAND TAG (ASSUMED author decision 2026-11-04; plan section 5c): the rival input is deleted, not redistributed, and no strand value says 'no strand'."),
+  R("R3","provider","must","(decant provider child)","(gestated_ex_utero child)","R6","superadditive",False,FIRESTONE+". The birth duty moves from a body to a device operator; decant never sets birthing_parent. Strand tag is a HAND TAG (ASSUMED author decision 2026-11-04)."),
+  _c["R4"],_c["R5"],_c["R6"],_c["R7"]]
+_c = _ecto_common_rules()
+SURR_RULES = [_c["R1"],
+  R("R2","provider","may","(implant provider gestator child)","(in_gestation child)",None,"rival",False,"gestational surrogacy: the clinic implants an embryo in the gestator. "+SURR_UNV),
+  R("R3","gestator","must","(give_birth gestator child)","(gestates gestator child)","R6","rival",False,"the gestator carries to term and gives birth; the rival input sits in one body. "+SURR_UNV+" Gestator consent and the right to keep the child are out of scope (ASSUMED author decision 2026-11-04)."),
+  _c["R4"],_c["R5"],_c["R6"],_c["R7"]]
+inst.append({
+ "id":"ectogenesis",
+ "name":"Ectogenesis (artificial womb; Firestone 1970): gestation in a device, no birthing parent",
+ "roles":ECTO_ROLES,"fluents":ECTO_FLUENTS,"actions":ECTO_ACTIONS,"rules":ECTO_RULES,
+ "source_text":"Firestone, The Dialectic of Sex (1970), ch.1 and ch.10: the demand to free women from the tyranny of their reproductive biology by artificial reproduction and to spread child-bearing and child-rearing across society. ALL UNVERIFIED: wording from memory, no page opened (plans/ectogenesis.md section 2). The mechanism is a thought-experiment technology; no statute exists.",
+ "expected_properties":{"birth_labor_rival":"violated","care_decoupled_from_birth":"reachable",
+                        "solo_care_by_non_birthing_parent":"reachable","care_assigned_by_sex":"violated"},
+ "isomorphic_to":[{"id":"gestational-surrogacy","level":"guard","sub_signature":[]}],
+ "not_isomorphic_to":["gestational-surrogacy","coverture-household","police-crisis","cps","kibbutz-childrens-house"],
+ "minimal_pair_of":{"id":"gestational-surrogacy","rule":"R2,R3","differs_on":"birth_labor_rival"},
+ "notes":("Firestone's claim: ectogenesis removes the rival input itself (one body, a short window), where transferable-leave and kibbutz-childrens-house redistribute the care obligation around it. Substitution pair with gestational-surrogacy: R2 (transfer_to_device vs implant) and R3 (decant vs give_birth) swapped; everything else is shared. "+ECTO_DECISIONS+" "+ECTO_PREREG),
+})
+inst.append({
+ "id":"gestational-surrogacy",
+ "name":"Gestational surrogacy: the rival input moves to another body (control for ectogenesis)",
+ "roles":SURR_ROLES,"fluents":SURR_FLUENTS,"actions":SURR_ACTIONS,"rules":SURR_RULES,
+ "source_text":"Construction, not a statute: gestational surrogacy as the control for ectogenesis (plans/ectogenesis.md section 1). "+SURR_UNV,
+ "expected_properties":{"birth_labor_rival":"holds_to_k","care_decoupled_from_birth":"unreachable_open",
+                        "solo_care_by_non_birthing_parent":"reachable","care_assigned_by_sex":"violated"},
+ "isomorphic_to":[{"id":"ectogenesis","level":"guard","sub_signature":[]}],
+ "not_isomorphic_to":["ectogenesis","coverture-household","police-crisis","cps","kibbutz-childrens-house"],
+ "minimal_pair_of":None,
+ "notes":("Control: the rival input moves to a weaker party (failure mode Displacement; the model case is the global care chain; layer 3). The minimal pair is recorded on ectogenesis. "+ECTO_DECISIONS+" "+ECTO_PREREG),
+})
 
 def L(f,*a): return "(%s %s)" % (f, " ".join(a))
 def _animal_roles(owner):
@@ -734,7 +1026,12 @@ EXTRA = {
  "kibbutz-childrens-house-no-implicit":(_kib_roles,_kib_init,[]),
  "airline-flight":({"is_subject":["passenger"],"can_sanction":["crew","passenger"],"provides_care":["crew","passenger"],"can_exit":["passenger"],"aboard":["passenger"],"disruptive":["passenger"],"restrained":["passenger"]},[],["disruptive"]),
  "lease":({"is_subject":["tenant"],"can_exit":["tenant"],"leased":["landlord","tenant"],"habitable":["landlord","tenant"],"rent_paid":["tenant"]},[],[]),
+ "footbinding":({"is_subject":["daughter"],"can_exit":["daughter"],"bound":["daughter"],"married":["daughter"],"marriageable":["family","daughter"]},[L("is_subject","daughter"),L("bound","daughter")],[]),
+ "footbinding-no-pledge":({"is_subject":["daughter"],"can_exit":["daughter"],"bound":["daughter"],"married":["daughter"],"marriageable":["family","daughter"]},[L("is_subject","daughter"),L("bound","daughter")],[]),
  "public-library":({"is_subject":["patron"],"can_exit":["patron"],"open":["librarian"],"present":["patron"],"served":["librarian","patron"],"suspended":["patron"],"disruptive":["patron"]},[],["disruptive"]),
+ "ectogenesis":({"is_subject":["child"],"provides_care":["intended_parent","child"],"female":["intended_parent"],"parent":["intended_parent","child"],"birthing_parent":["intended_parent","child"],"in_gestation":["child"],"gestated_ex_utero":["child"]},[],["female"]),
+ "gestational-surrogacy":({"is_subject":["child"],"provides_care":["intended_parent","child"],"female":["intended_parent"],"parent":["intended_parent","child"],"birthing_parent":["gestator","child"],"in_gestation":["child"],"gestates":["gestator","child"]},[],["female"]),
+ "naming-convention":({"uses_old":["member"],"uses_new":["member"]},[L("uses_old","member")],[]),
 }
 for mid in MWPA_IDS:
     EXTRA[mid] = (_mwpa_roles, [], ["female","acquired_property","earns"])

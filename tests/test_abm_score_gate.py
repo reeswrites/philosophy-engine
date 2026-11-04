@@ -332,36 +332,50 @@ def test_gate_a_runs_the_iff_as_a_sweep_and_ablates_pledges(monkeypatch):
     prop = Property(name=g.A_PROP, formal="(going family t)")
     configs = [("material",), ("coordination",), ("material", "coordination")]
 
-    def fake(rates):  # rates[(entry has pledges, config has coordination)] -> late share per seed
-        def run(inst, ast, seed, steps, apr, cfg, pay, params, role, name):
-            v = rates[(g._has_pledges(inst), "coordination" in cfg)][seed]
+    _po = lambda inst_id: {"initial_practice": "go"}  # the base practice (review finding 2: step-0 guard)
+    grids = dict(sanction_grid=[0.0, 1.0], payoff_grid=[1.0, 2.0], payoffs_of=_po)
+
+    def fake(rates, low=True):  # rates[(entry has pledges, config has coordination)] -> late share per seed
+        # low: with no sanction (w = 0) the persistence cells collapse too, as the real engine does at payoff >= 1.5
+        # (review finding 3): the crit_c band condition needs persistence to depend on the sanction
+        def run(inst, ast, seed, steps, apr, cfg, pay, params, signals):
+            expect = g._has_pledges(inst) and "coordination" in cfg
+            v = 1.0 if (low and not expect and params["sanction_weight"] == 0.0) else rates[(g._has_pledges(inst), "coordination" in cfg)][seed]
             return {"share": [0.0, v], "prop": [1, int(v < 0.5)]}
         monkeypatch.setattr(g, "a_run", run)
     # the iff pattern: collapse (>= 80% of seeds) with coordination and pledges, persistence (<= 20%) otherwise
     fake({(True, True): [1.0] * 8 + [0.0] * 2, (True, False): [0.0] * 8 + [1.0] * 2, (False, True): [0.0] * 10, (False, False): [0.0] * 10})
-    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0])
-    assert a.status == g.PASS and a.numbers["matching_points"] == [{"sanction_weight": 1.0, "payoff": 1.0}]
+    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, **grids)
+    assert a.status == g.PASS and a.numbers["matching_points"] == [{"sanction_weight": 1.0, "payoff": 1.0}, {"sanction_weight": 1.0, "payoff": 2.0}]
+    assert a.numbers["band"] == [1.0] and a.numbers["out_paying"] == [2.0] and a.numbers["collapse_below_band"] == {"2.0": [0.0]}
+    # crit_c band condition (review finding 8): the iff holds at every point but persistence never depends on the sanction
+    fake({(True, True): [1.0] * 10, (True, False): [0.0] * 10, (False, True): [0.0] * 10, (False, False): [0.0] * 10}, low=False)
+    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, **grids)
+    assert a.status == g.FAIL and a.numbers["band_ok"] is False and a.numbers["matching_points"]
     assert a.numbers["collapse_action"] == "stop" and a.numbers["role"] == "family" and a.numbers["pair"].endswith("-no-pledge-ablated")
     assert a.numbers["pair_has_pledges"] is False
     # 79% collapse is not persistence (finding 6a) and 79% is not collapse either (100 seeds: lift the budget cap)
     monkeypatch.setattr(g, "A_SEEDS_MAX", 100)
     fake({(True, True): [1.0] * 79 + [0.0] * 21, (True, False): [0.0] * 100, (False, True): [0.0] * 100, (False, False): [0.0] * 100})
-    assert g.crit_a({fb.id: fb}, {prop.name: prop}, 100, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0]).status == g.FAIL
+    assert g.crit_a({fb.id: fb}, {prop.name: prop}, 100, configs, {}, agents_per_role=3, **grids).status == g.FAIL
     fake({(True, True): [1.0] * 100, (True, False): [1.0] * 21 + [0.0] * 79, (False, True): [0.0] * 100, (False, False): [0.0] * 100})
-    assert g.crit_a({fb.id: fb}, {prop.name: prop}, 100, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0]).status == g.FAIL
+    assert g.crit_a({fb.id: fb}, {prop.name: prop}, 100, configs, {}, agents_per_role=3, **grids).status == g.FAIL
     fake({(True, True): [1.0] * 100, (True, False): [1.0] * 20 + [0.0] * 80, (False, True): [0.0] * 100, (False, False): [0.0] * 100})
-    assert g.crit_a({fb.id: fb}, {prop.name: prop}, 100, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0]).status == g.PASS
+    assert g.crit_a({fb.id: fb}, {prop.name: prop}, 100, configs, {}, agents_per_role=3, **grids).status == g.PASS
     # nothing ever collapses: FAIL named vacuous
-    fake({k: [0.0] * 10 for k in [(True, True), (True, False), (False, True), (False, False)]})
-    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0])
+    fake({k: [0.0] * 10 for k in [(True, True), (True, False), (False, True), (False, False)]}, low=False)
+    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, **grids)
     assert a.status == g.FAIL and a.detail.startswith("vacuous")
+    # step-0 guard (review finding 2): a base practice nobody holds at step 0 makes the persistence arm vacuous: BLOCKED
+    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0])
+    assert a.status == g.BLOCKED and "persistence arm vacuous" in a.blocked_reason
     # a dataset pair is preferred over ablation, and a pair that still has pledges is warned about
     pair = _pledge_entry(g.A_PAIR)
-    a = g.crit_a({fb.id: fb, pair.id: pair}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, sanction_grid=[1.0], payoff_grid=[1.0])
-    assert a.numbers["pair"] == g.A_PAIR and a.numbers["pair_has_pledges"] and "WARNING" in a.lines[0]
+    a = g.crit_a({fb.id: fb, pair.id: pair}, {prop.name: prop}, 10, configs, {}, agents_per_role=3, **grids)
+    assert a.numbers["pair"] == g.A_PAIR and a.numbers["pair_has_pledges"] and any("WARNING" in l for l in a.lines)
     monkeypatch.undo()
     # the real body on a small grid: runs, serialises, reads the share of `stop` in `family`
-    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 3, configs, {}, agents_per_role=4, sanction_grid=[0.0, 1.0], payoff_grid=[1.0, 2.0], steps=8)
+    a = g.crit_a({fb.id: fb}, {prop.name: prop}, 3, configs, {}, agents_per_role=4, sanction_grid=[0.0, 1.0], payoff_grid=[1.0, 2.0], steps=8, payoffs_of=_po)
     assert a.status in (g.PASS, g.FAIL) and len(a.numbers["grid"]) == 2 and "information (not a criterion)" in "\n".join(a.lines)
     cell = a.numbers["grid"]["1.0"]["2.0"]["cells"]["footbinding|material+coordination"]
     assert cell["expected"] == "collapse" and 0.0 <= cell["collapse_rate"] <= 1.0 and len(cell["per_seed"]) == 3
@@ -480,7 +494,11 @@ def test_cli_abm_score_and_gate(capsys, dataset_env):
     d = json.loads(capsys.readouterr().out)
     assert d["verdict"] in ("BLOCKED", "FAIL") and rc == d["exit_code"] and rc in (1, 2)
     assert [c["key"] for c in d["criteria"]] == ["a", "b", "c", "d"]
-    assert d["criteria"][0]["status"] == "BLOCKED" and d["criteria"][3]["blocked_reason"].startswith("fewer than 100")
+    # (a): BLOCKED without footbinding in the dataset; with it, the engine's honest reading on a 3-step toy run is FAIL
+    # (the iff does not hold: it was BLOCKED "ambiguous" before the two-pledge reading, review finding 1)
+    has_fb = any(i.id == g.FOOTBINDING for i in load_institutions(ip))
+    assert d["criteria"][0]["status"] in (("FAIL", "BLOCKED") if has_fb else ("BLOCKED",))
+    assert d["criteria"][3]["blocked_reason"].startswith("fewer than 100")
     assert d["configs_run"][0] == ["material"] and "imagination" in d["configs_not_run"] and "coordination" not in d["configs_not_run"]
     rc = main(["abm", "gate", "--seeds", "2", "--steps", "3", "--probe-steps", "2", "--agents-per-role", "3",
                "--institutions", str(ip)])

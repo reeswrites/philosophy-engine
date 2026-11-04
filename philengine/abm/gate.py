@@ -20,8 +20,17 @@ blocked, else PASS.
     otherwise), seeds capped at A_SEEDS_MAX per point. Pass criterion, written before the run: at SOME grid point
     every (entry, configuration) cell meets its expectation (collapse under every coordination configuration of
     the pledge entry; persistence under every other configuration and under every configuration of the ablated
-    entry); FAIL otherwise, named vacuous when the collapse action is never adopted anywhere. BLOCKED: no
-    FOOTBINDING entry, no coordination configuration, no `*_pledge` action (the collapse action is undefined).
+    entry) AND the crit_c band condition (review finding 8: a band of sanction_weights at which the iff holds at
+    every payoff, and for every out-paying payoff a persistence cell that collapses at a sanction_weight below the
+    band, so persistence must depend on the sanction); FAIL otherwise, named vacuous when the collapse action is never
+    adopted anywhere. BLOCKED: no FOOTBINDING entry, no coordination configuration, no `*_pledge` action (the
+    collapse action is undefined), or an entry whose base practice (`initial_practice`, both footbinding entries
+    carry `bind`) has step-0 share < A_SHARE_HIGH (review finding 2: the persistence arm would be vacuous).
+    COLLAPSE READING, two pledge actions (family `leave_unbound_pledge`, suitor `accept_match_pledge`): either is a
+    collapse signal through its base action in its actor role; a run is collapsed if any READ signal's late share
+    is >= A_SHARE_HIGH. A base is read only if a sanctioned must_not forbids it at step 0 (the norm being collapsed:
+    `leave_unbound`, R3); a lawful base (`accept_match`) is adopted by suitors at step 1 under every configuration,
+    so reading it would call every persisting run collapsed. Such bases are reported, not read.
 (b) committed minority (Centola 2018), slice 4: sweep B_PARAM (`committed_minority`, a DEFAULT_PARAMS entry) over
     B_SWEEP on NAMING under every coordination configuration; the committed agents hold the entry's
     `committed_action` (payoffs block or entry key; BLOCKED when absent: the new-convention action is a dataset
@@ -29,8 +38,12 @@ blocked, else PASS.
     (`adoption_shares`, review finding 6: a property mean cannot express a population share under shared role
     state), mean over seeds per sweep point; PASS iff it jumps by more than B_JUMP between adjacent points under
     every coordination configuration. The sweep's resolution (0.05) sets only how finely the location is seen;
-    the location itself comes from thresholds (`threshold_max`), the graph and the entry; "no constant in the code
-    sets the location" stays a reviewer item printed with the result, Centola's band is recorded in the dataset.
+    the location comes from thresholds (`threshold_max`), the graph, the entry AND an implicit 0.5: the threshold rule
+    (agent.py, step 5) takes the MAX-share candidate among those whose share meets the threshold, which with two
+    candidates is a local-majority rule for every threshold <= 0.5 (review finding 7), so "no constant sets the
+    location" is NOT claimed. The verdict is unchanged (jump > B_JUMP, plan values); the report states the implicit-0.5
+    location and prints, as reported information and NOT the verdict, whether the jump location lies in Centola's band
+    (B_CENTOLA_BAND, ASSUMED; the dataset note reads ~25%, UNVERIFIED).
 (c) kibbutz regendering, redesigned 2026-11-04 (review finding 1: the first cut was decided at step 1 by the
     choice-set rule and was flat under any sanction sweep). The test is a TWO-AXIS SWEEP (plan: "swept, not
     calibrated"; ADR 0015 A1 payoff ranges, A4 swept sanction weight, A7 rates over a sweep): `sanction_weight`
@@ -69,8 +82,9 @@ blocked, else PASS.
 Module configurations: of the plan's eight, the gate runs those `_check_modules` accepts, minus the empty set:
 since slice 4 that is {material}, {coordination}, {material, coordination}; the four subsets with `imagination`
 (a stub) are listed as not run with the reason, and the empty set because the bootstrap rule (an agent with no
-practice takes the best-paying candidate) belongs to the adaptive modules, so under {} no agent ever starts a
-practice and every run is static.
+practice takes the best-paying candidate) belongs to the adaptive modules, so under {} no agent ever STARTS a
+practice. `{}` is static only for entries WITH an `initial_practice` in the sense that nothing adapts; it is not
+static in general, since under `{}` naming chooses by the threshold rule every step (review finding 9).
 
 Workers: every letter's seed loop goes through `parallel.run_map` (`workers` forked processes; 1 = serial; the
 CLI passes `--workers`, default `os.cpu_count()`); the verdicts and numbers are identical whatever the count. Each
@@ -113,6 +127,7 @@ B_ACTION_KEY = "committed_action"  # dataset: payoffs-block / entry key naming t
 B_PARAM = "committed_minority"  # plan (b): the swept share of committed agents (DEFAULT_PARAMS since slice 4)
 B_SWEEP = [round(0.05 * i, 2) for i in range(1, 11)]  # plan (b): 0.05-0.50
 B_JUMP = 0.5  # plan (b): "> 0.5 between adjacent sweep points"
+B_CENTOLA_BAND = (0.21, 0.31)  # ASSUMED (plan; the dataset note reads ~25%, UNVERIFIED): Centola 2018 tipping band; REPORTED, never the verdict
 C_HIGH = 0.90  # ASSUMED: late-window rate at or above which care counts as sex-assigned ("toward 1")
 C_WINDOW = 0.20  # ASSUMED: share of the run averaged at each end for the early / late rates
 C_FLAT_TOL = 0.10  # ASSUMED: tolerance on late - early for "ends below high" and on early - late for "rises"
@@ -129,7 +144,7 @@ D_RHO_MIN = 0.90  # plan (d): "Spearman >= 0.9"
 ASSUMPTIONS = {
     "SEED_RATE_MIN": SEED_RATE_MIN, "A_STEPS": A_STEPS, "A_PROP": A_PROP, "A_SHARE_HIGH": A_SHARE_HIGH,
     "A_PAYOFF_GRID": A_PAYOFF_GRID, "A_SANCTION_GRID": A_SANCTION_GRID, "A_SEEDS_MAX": A_SEEDS_MAX,
-    "B_ACTION_KEY": B_ACTION_KEY, "B_PARAM": B_PARAM, "B_SWEEP": B_SWEEP, "B_JUMP": B_JUMP, "C_HIGH": C_HIGH, "C_WINDOW": C_WINDOW, "C_FLAT_TOL": C_FLAT_TOL,
+    "B_ACTION_KEY": B_ACTION_KEY, "B_PARAM": B_PARAM, "B_SWEEP": B_SWEEP, "B_JUMP": B_JUMP, "B_CENTOLA_BAND": B_CENTOLA_BAND, "C_HIGH": C_HIGH, "C_WINDOW": C_WINDOW, "C_FLAT_TOL": C_FLAT_TOL,
     "C_FORBIDDEN": C_FORBIDDEN, "C_FORBIDDEN_ROLE": C_FORBIDDEN_ROLE, "C_SANCTION_GRID": C_SANCTION_GRID,
     "C_PAYOFF_GRID": C_PAYOFF_GRID, "C_SHARE_LOW": C_SHARE_LOW, "C_SHARE_HIGH": C_SHARE_HIGH, "C_SEEDS_MAX": C_SEEDS_MAX,
     "D_MIN_SEEDS": D_MIN_SEEDS, "D_RHO_MIN": D_RHO_MIN, "D_HALVES": "first half of the seeds vs second half",
@@ -139,13 +154,19 @@ ASSUMPTIONS = {
                       "(last ceil(C_WINDOW*(A_STEPS+1)) values) of the actor role's share of the collapse action (the "
                       "base of the entry's `*_pledge` action) >= A_SHARE_HIGH; expected collapse (rate >= SEED_RATE_MIN) "
                       "iff the configuration has coordination and the entry has pledges, else persistence (rate <= "
-                      "1 - SEED_RATE_MIN). PASS iff some grid point meets every expectation; FAIL named vacuous when "
-                      "the collapse action is never adopted at any point. A_PROP trace at the default point is "
-                      "information"),
+                      "1 - SEED_RATE_MIN). Either pledge action (family, suitor) is a collapse signal through its base action; "
+                      "only bases a sanctioned must_not forbids at step 0 are read (a lawful base is adopted at step 1 "
+                      "under every configuration), the rest are reported. BLOCKED when an entry's base practice "
+                      "(`initial_practice`) has step-0 share < A_SHARE_HIGH (persistence arm vacuous). PASS iff some grid "
+                      "point meets every expectation AND the crit_c band condition holds (the iff holds at every payoff "
+                      "for a band of sanction_weights, and every out-paying payoff has a persistence cell that collapses "
+                      "at a sanction_weight below the band); FAIL named vacuous when the collapse action is never "
+                      "adopted at any point. A_PROP trace at the default point is information"),
     "B_DEFINITIONS": ("per coordination configuration and sweep point v of committed_minority: adoption = mean over "
                       "seeds of the actor role's last-step share of the entry's committed_action (committed agents "
                       "included, round(v*n) of n per role); PASS iff max adjacent jump > B_JUMP in every coordination "
-                      "configuration"),
+                      "configuration. Reported, not the verdict: jump location vs B_CENTOLA_BAND, and the implicit 0.5 the threshold "
+                      "rule puts at the location"),
     "C_DEFINITIONS": ("per seed and grid point (sanction_weight x payoff of C_FORBIDDEN), late = mean over the last "
                       "ceil(C_WINDOW*(steps+1)) values (step 0 included): excluded = late share of C_FORBIDDEN in "
                       "C_FORBIDDEN_ROLE <= C_SHARE_LOW; adopted = late share >= C_SHARE_HIGH; out-pays = payoff > best "
@@ -295,17 +316,19 @@ def name_share(row: dict[str, dict[str, float]], role: str, name: str) -> float:
 
 # ------------------------------------------------------------------ (a) footbinding
 def a_run(inst: InstitutionJSON, prop_ast, seed: int, steps: int, agents_per_role: int, modules, payoffs: dict | None,
-          params: dict, role: str, name: str) -> dict:
-    """One (a) run: {share: the role's share of action `name` at steps 0..steps, prop: A_PROP at steps 0..steps
-    through `Reference.prop` (all None when the property is missing)}."""
+          params: dict, signals: list[tuple[str, str]]) -> dict:
+    """One (a) run: {share: at steps 0..steps the MAX over `signals` ((role, action name) pairs, the collapse
+    signals) of the role's share of that action, shares: {name: that series per signal}, prop: A_PROP at steps
+    0..steps through `Reference.prop` (all None when the property is missing)}."""
     m = InstitutionModel(inst, seed=seed, agents_per_role=agents_per_role, modules=modules, payoffs=payoffs, params=params)
-    share = [name_share(m.adoption_shares(), role, name)]
+    by_sig = {name: [name_share(m.adoption_shares(), role, name)] for role, name in signals}
     prop = [int(m.ref.prop(prop_ast, [m.state], 0)) if prop_ast is not None else None]
     for _ in range(steps):
         m.step()
-        share.append(name_share(m.adoption[-1], role, name))
+        for role, name in signals:
+            by_sig[name].append(name_share(m.adoption[-1], role, name))
         prop.append(int(m.ref.prop(prop_ast, [m.state], 0)) if prop_ast is not None else None)
-    return {"share": share, "prop": prop}
+    return {"share": [max(v) for v in zip(*by_sig.values())], "shares": by_sig, "prop": prop}
 
 
 def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: dict[str, str],
@@ -325,20 +348,29 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
     inst = by[FOOTBINDING]
     pledges = _pledge_names(inst)
     bases = sorted({n[: -len(PLEDGE_SUFFIX)] for n in pledges})
-    if len(bases) != 1:
-        why = (f"{FOOTBINDING} has no `*_pledge` action: the collapse action (the pledge's base) is undefined"
-               if not bases else f"{FOOTBINDING} has pledges for several actions {bases}: the collapse action is ambiguous")
+    if not bases:
+        why = f"{FOOTBINDING} has no `*_pledge` action: the collapse action (the pledge's base) is undefined"
         return Criterion("a", BLOCKED, why, blocked_reason=why)
-    name = bases[0]
     if seeds < 1:
         return Criterion("a", BLOCKED, "seeds must be >= 1", blocked_reason="no seeds")
     base_pay = dict((payoffs_of(FOOTBINDING) if payoffs_of else None) or {})
     probe = InstitutionModel(inst, seed=0, agents_per_role=agents_per_role, modules=coord[0], payoffs=base_pay)
-    roles = sorted({a[1][0] for a in probe.ref.action_insts if a[0] == name})
-    if len(roles) != 1:
-        why = f"collapse action {name!r} has actor roles {roles}; expected exactly one"
-        return Criterion("a", BLOCKED, why, blocked_reason=why)
-    role = roles[0]
+    # either pledge action (family and suitor) is a collapse signal: its base action is read in its actor role. A base
+    # is the NORM being collapsed only if a sanctioned must_not forbids it at step 0 (leave_unbound, R3); a lawful
+    # base (accept_match) is adopted by suitors at step 1 under every configuration, so reading it would call every
+    # persisting run collapsed. Only norm bases decide the verdict; the others are reported (numbers["info_signals"]).
+    sig_all: list[tuple[str, str]] = []
+    for b in bases:
+        broles = sorted({a[1][0] for a in probe.ref.action_insts if a[0] == b})
+        if len(broles) != 1:
+            why = f"collapse action {b!r} has actor roles {broles}; expected exactly one"
+            return Criterion("a", BLOCKED, why, blocked_reason=why)
+        sig_all.append((broles[0], b))
+    forbidden0 = {x[0] for r_ in {r for r, _ in sig_all} for x in probe.forbidden_for(r_)}
+    signals = [sg for sg in sig_all if sg[1] in forbidden0] or sig_all
+    info_signals = [sg for sg in sig_all if sg not in signals]
+    name = "|".join(n_ for _, n_ in signals)  # the collapse action(s); one name in the single-pledge case
+    role = "|".join(r_ for r_, _ in signals)
     if A_PAIR in by:
         pair, pair_src = by[A_PAIR], f"dataset entry {A_PAIR}"
     else:
@@ -349,11 +381,29 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
     seeds_asked, seeds = seeds, min(seeds, A_SEEDS_MAX)
     persist_max = round(1 - SEED_RATE_MIN, 9)  # rounded so 20/100 is not > 0.19999999999999996 (finding 6a)
     entries = [(FOOTBINDING, inst, base_pay, True), (pair.id, pair, pair_pay, _has_pledges(pair))]
+    # step-0 guard (review finding 2): persistence is only a claim about a practice that is practised. If the entry's
+    # base practice (`initial_practice`) is absent or below A_SHARE_HIGH at step 0, the persistence arm is vacuous.
+    prac0 = {}
+    for inst_id, e, pay0, _ in entries:
+        pm = InstitutionModel(e, seed=0, agents_per_role=agents_per_role, modules=coord[0], payoffs=pay0)
+        ip = pm.initial_practice
+        sh0 = name_share(pm.adoption_shares(), ip[1][0], ip[0]) if ip else 0.0
+        prac0[inst_id] = {"practice": action_label(ip) if ip else None, "step0_share": sh0}
+        if sh0 < A_SHARE_HIGH:
+            why = (f"persistence arm vacuous: {inst_id} has base practice {prac0[inst_id]['practice']!r} with step-0 share "
+                   f"{sh0:.2f} < {A_SHARE_HIGH} (set `initial_practice`); nobody practises, so 'persists' would hold of nothing")
+            return Criterion("a", BLOCKED, why, blocked_reason=why, numbers={"base_practice_step0": prac0})
     numbers: dict = {"collapse_action": name, "role": role, "pledge_actions": pledges, "pair": pair.id, "pair_source": pair_src,
                      "pair_has_pledges": _has_pledges(pair), "steps": steps, "seeds": seeds, "seeds_asked": seeds_asked,
                      "sanction_grid": sanction_grid, "payoff_grid": payoff_grid, "property": A_PROP if prop else None,
-                     "grid": {}, "matching_points": [], "ever_collapsed": False}
-    lines = [f"  collapse action {name} (base of {pledges}) in role {role!r}; ablated entry: {pair_src}"
+                     "grid": {}, "matching_points": [], "ever_collapsed": False, "collapse_signals": signals,
+                     "info_signals": info_signals, "base_practice_step0": prac0}
+    lines = [f"  reading: either pledge action ({pledges}) is a collapse signal through its base action; the verdict reads "
+             f"the bases a sanctioned must_not forbids at step 0, {[f'{n_}@{r_}' for r_, n_ in signals]}"
+             f"{'; ' + str([f'{n_}@{r_}' for r_, n_ in info_signals]) + ' lawful at step 0, reported not read' if info_signals else ''}; "
+             f"collapsed = any read signal's late share >= {A_SHARE_HIGH}",
+             f"  base practice at step 0: {prac0}",
+             f"  collapse action {name} (base of {pledges}) in role {role!r}; ablated entry: {pair_src}"
              f"{'' if _has_pledges(pair) is False else ' (WARNING: it still has pledge actions)'}; late-window share >= "
              f"{A_SHARE_HIGH} = collapsed; {seeds} seed(s) per cell, {steps} steps"]
     if prop is None:
@@ -364,9 +414,9 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
             t0 = clock.seconds
             cell: dict = {"sanction_weight": w, "payoff": pv, "cells": {}, "match": True}
             for inst_id, e, pay0, has in entries:
-                pay = dict(pay0, **{name: pv})
+                pay = dict(pay0, **{n_: pv for _, n_ in signals})
                 for cfg in configs:
-                    runs = run_map(a_run, [(e, ast, s_, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, role, name)
+                    runs = run_map(a_run, [(e, ast, s_, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, signals)
                                            for s_ in range(seeds)], workers)
                     n_runs += seeds
                     late = [windows(r["share"])[1] for r in runs]
@@ -391,7 +441,7 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
             summ = "; ".join(f"{k}: {v['collapse_rate']:.0%}{'' if v['ok'] else ' NOT ok'}" for k, v in cell["cells"].items())
             lines.append(f"  sanction_weight={w} payoff({name})={pv}: {'MATCH' if cell['match'] else 'no match'} [{summ}]")
     dw = DEFAULT_PARAMS["sanction_weight"]
-    dp = base_pay.get(name, DEFAULT_PARAMS["default_payoff"])
+    dp = base_pay.get(signals[0][1], DEFAULT_PARAMS["default_payoff"])
     if ast is not None and dw in sanction_grid and dp in payoff_grid:
         info = {k: v["property_late_mean"] for k, v in numbers["grid"][str(dw)][str(dp)]["cells"].items()}
         lines.append(f"  information (not a criterion): {A_PROP} late-window mean at the entry's own point "
@@ -399,7 +449,23 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
                      + "; under shared role-level state the property flips only when every family leaves unbound in one step")
     if seeds < seeds_asked:
         lines.append(f"  budget: (a) ran {seeds} of the {seeds_asked} seeds per cell (A_SEEDS_MAX={A_SEEDS_MAX})")
-    ok = bool(numbers["matching_points"])
+    # crit_c band condition (review finding 8): the iff must hold at EVERY payoff for a band of sanction_weights, and for
+    # every out-paying payoff (the collapse action pays more than the base practice) a persistence cell must collapse
+    # at some sanction_weight BELOW the band: persistence has to depend on the sanction, not hold regardless of it.
+    g_ = numbers["grid"]
+    band = [w for w in sanction_grid if all(g_[str(w)][str(pv)]["match"] for pv in payoff_grid)]
+    ip0 = InstitutionModel(inst, seed=0, agents_per_role=agents_per_role, modules=coord[0], payoffs=base_pay).initial_practice
+    prac_pay = InstitutionModel(inst, seed=0, agents_per_role=agents_per_role, modules=coord[0], payoffs=base_pay).payoff(ip0)
+    out_paying = [pv for pv in payoff_grid if pv > prac_pay]
+    below = {str(pv): [w for w in sanction_grid if band and w < min(band) and any(
+        c["expected"] == "persistence" and c["collapse_rate"] >= SEED_RATE_MIN for c in g_[str(w)][str(pv)]["cells"].values())]
+        for pv in out_paying}
+    band_ok = bool(band) and bool(out_paying) and all(below[str(pv)] for pv in out_paying)
+    numbers.update(band=band, out_paying=out_paying, collapse_below_band=below, band_ok=band_ok)
+    lines.append(f"  sanction band (iff holds at every payoff): {band or 'NONE'}; out-paying payoffs {out_paying} (base practice "
+                 f"pays {prac_pay}); persistence cell collapses below the band at sanction_weight {below}: "
+                 f"{'ok' if band_ok else 'NOT ok'}")
+    ok = bool(numbers["matching_points"]) and band_ok
     tm = timing(clock.seconds, n_runs, workers, per_point=per_point)
     if not numbers["ever_collapsed"]:
         detail = (f"vacuous: {name} is never adopted (late share >= {A_SHARE_HIGH}) by any seed at any grid point under any "
@@ -407,7 +473,8 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
         return Criterion("a", FAIL, detail, numbers=numbers, lines=lines, timing=tm)
     detail = (f"iff pattern (collapse under coordination with pledges, persistence otherwise) holds at grid points "
               f"{numbers['matching_points'] or 'NONE'} of {len(sanction_grid) * len(payoff_grid)} (sanction_weight x "
-              f"payoff of {name}); min {SEED_RATE_MIN:.0%} of {seeds} seeds per cell; {len(configs)} configuration(s)")
+              f"payoff of {name}); sanction band {band or 'NONE'}, persistence collapses below the band at {below}; "
+              f"min {SEED_RATE_MIN:.0%} of {seeds} seeds per cell; {len(configs)} configuration(s)")
     return Criterion("a", PASS if ok else FAIL, detail, numbers=numbers, lines=lines, timing=tm)
 
 
@@ -483,15 +550,28 @@ def crit_b(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
         numbers["max_jump"][key] = mj
         numbers["jump_at"][key] = [sweep_points[at], sweep_points[at + 1]] if at is not None else None
         numbers["per_seed"][key] = per_seed
+        loc = None
+        if at is not None:  # reported information, not the verdict: where the biggest jump sits against Centola's band
+            lo_, hi_ = sweep_points[at], sweep_points[at + 1]
+            mid = (lo_ + hi_) / 2
+            loc = {"between": [lo_, hi_], "midpoint": mid, "band": list(B_CENTOLA_BAND),
+                   "midpoint_in_band": B_CENTOLA_BAND[0] <= mid <= B_CENTOLA_BAND[1]}
+        numbers.setdefault("jump_location_vs_band", {})[key] = loc
         good = mj > B_JUMP
         ok &= good
         lines.append(f"  {key}: last-step share of {name} in {role!r} by {B_PARAM} "
                      f"{[round(x, 2) for x in adoption]} (committed share {[round(x, 2) for x in committed_share]}); "
                      f"max adjacent jump {mj:.2f} at {numbers['jump_at'][key]} ({'>' if good else '<='} {B_JUMP}): "
                      f"{'ok' if good else 'NOT ok'}")
-    lines.append("  reviewer item (not mechanical): no constant in the code may set the tipping location (the sweep "
-                 "resolution sets sharpness only; thresholds are U(0, threshold_max), swept); Centola's band is "
-                 "recorded in the dataset, not asserted by the model")
+        if loc:
+            lines.append(f"  {key} reported, NOT the verdict: jump location {loc['between']} (midpoint {loc['midpoint']:.3f}) "
+                         f"{'IS' if loc['midpoint_in_band'] else 'is NOT'} inside Centola's band "
+                         f"{B_CENTOLA_BAND[0]:.0%}-{B_CENTOLA_BAND[1]:.0%} (ASSUMED band)")
+    lines.append("  location caveat (review finding 7): the threshold rule takes the max-share candidate among those meeting "
+                 "the threshold, so with two candidates it is a local-majority rule for every threshold <= 0.5: an IMPLICIT "
+                 "0.5 in the rule, not only thresholds U(0, threshold_max) and the graph, sets where the sigmoid sits; "
+                 "'no constant sets the location' is not claimed. The verdict criterion (jump > B_JUMP, plan values) is "
+                 "unchanged; the band line above is information only")
     return Criterion("b", PASS if ok else FAIL, f"max adjacent jump {numbers['max_jump']} at {numbers['jump_at']} "
                      f"(min > {B_JUMP}; {seeds} seeds per point, {steps} steps)", numbers=numbers, lines=lines,
                      timing=timing(clock.seconds, n_runs, workers, per_point=per_point))

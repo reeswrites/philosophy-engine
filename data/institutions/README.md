@@ -2,10 +2,12 @@
 
 Hand-reconstructed institutions for the Phase 0 institutions family (`plans/institutions-phase0.md`).
 
-- `institutions.json`: list of 14 entries (`coverture-household`, `police-crisis`, `cps`, `crisis-team`,
+- `institutions.json`: list of 25 entries (`coverture-household`, `police-crisis`, `cps`, `crisis-team`,
   `paternity-quota`, `transferable-leave`, `companion-ownership`, `companion-guardianship`,
-  `companion-guardian-renamed`, the two negative controls `lease`, `public-library`, and the gate (d) pair
-  `kibbutz-childrens-house`, `kibbutz-childrens-house-no-implicit`, and the expected-match control `airline-flight`). Each has `roles`, `fluents`, `actions` (with effects as fluent literals),
+  `companion-guardian-renamed`, the negative controls `lease`, `public-library` and `naming-convention`, the gate (d) pair
+  `kibbutz-childrens-house`, `kibbutz-childrens-house-no-implicit`, the expected-match control `airline-flight`,
+  the six-entry MWPA chain `mwpa-creditor-exemption`, `mwpa-property`, `mwpa-earnings`, `mwpa-sole-trader`,
+  `mwpa-suit`, `mwpa-property-narrowed`, the layer-2 gate (a) pair `footbinding`, `footbinding-no-pledge`, and the ectogenesis pair `ectogenesis`, `gestational-surrogacy`). Each has `roles`, `fluents`, `actions` (with effects as fluent literals),
   ADICO `rules`, `source_text`, `expected_properties`, `isomorphic_to`, `not_isomorphic_to`, `minimal_pair_of`, `notes`.
 - `properties.json`: named properties reused across entries. The plan's nine plus one extra,
   `leave_reserved_for_non_birthing_parent`, added so the paternity-quota / transferable-leave pair gets
@@ -224,8 +226,126 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
 - New properties: `financial_dependence`, `financial_dependence_unpropertied`, `cannot_contract` (invariants),
   `double_burden` (DI), `creditor_shield` (DT), `backlash` (BL) (reachability). All verdicts PREREGISTERED in the
   generator's notes and in the plan before the first run; check-all 106/106, gate PASS, no vacuity flags.
+  Relabelled by ADR 0016 (2026-11-03): `creditor_shield` DT -> Capture, the `narrowed` branch BL -> Erosion; property
+  names and verdicts unchanged. The Erosion relabel was reverted on 2026-11-04 by the ADR's council-pass amendment (the
+  branch adds rules, which is backlash); `double_burden` was relabelled partial reform (no mode) the same day.
 - Matcher note: on `mwpa-creditor-exemption ~ mwpa-property` the matcher pairs the exemption's R1 with the property
   act's R12 (same skeleton: husband may X when married) and reports R12 vs R13 unmatched; the distance is 1 either way.
 - Not expressed: a ranking of failure modes (the plan's "top-ranked risk" criterion; the engine returns verdicts, not
   ranks); dower trade-offs (RB, [R]); divorce reform (`can_exit` is unchanged by construction); the trace floor
   (`control_property` still fires in traces after R1 is deleted, with no power behind it, ADR 0013 amendment).
+
+## Footbinding (2026-11-04, layer-2 gate (a); `plans/layer2-abm.md`, ADR 0015 A1/A3/A6)
+
+- `footbinding` (Mackie 1996, the marriage-market convention) and its pair `footbinding-no-pledge` (same entry minus the
+  pledge actions `leave_unbound_pledge` / `accept_match_pledge` and their rules R4 / R10). Roles `family`, `daughter` (subject), `suitor` (the market
+  counterparty). Rules: R1 family may bind; R2 family may leave_unbound (implicit); **R3 family must_not leave_unbound,
+  or_else R5, implicit, tying** (the sanctioned norm); R4 may leave_unbound_pledge (A3 stand-in, effect `pledged(family)`); R10
+  suitor may accept_match_pledge (the pledge's son half, effect `pledged(suitor)`; added 2026-11-04, encoding review
+  finding 2); R5 suitor may reject_match while unbound and neither side pledged (the market sanction, which either
+  pledge lifts); R6 suitor may accept_match when bound or either side pledged; R7 family may marry_off when bound or pledged (`marriageable(f, d)` is derived
+  from it, ADR 0013); R8/R9 the daughter's exit (may refuse_binding, barred by a disability: `can_exit`). `initial`:
+  `is_subject(daughter)`, `bound(daughter)`, so `binding_practised` holds at t=0 (the ABM gate excludes seeds where it
+  does not).
+- New properties: `binding_practised` (exists a bound subject; the gate's `A_PROP`) and `marriage_requires_binding`
+  (marriageable implies bound or pledged; flagged `by_construction` 2026-11-04 after the encoding review, finding 3: it
+  restates R7, so its holds_to_k is information, kept as the preregistration for the record).
+- **Sources: no page could be opened from the session** (jstor paywalled; semanticscholar, wikipedia, cambridge.org and
+  two PDF mirrors unreachable). Mackie's abstract sentences came back verbatim in a search-index snippet and are quoted
+  as [F]; the pledge wording (daughters not bound, sons not married to bound women; Heavenly Foot Society 1874, Tian Zu
+  Hui 1895) is from Wikipedia snippets [R]; Brown et al. 2012 is its abstract [R]. Every rule says what was read and
+  the reconstructed ones carry UNVERIFIED.
+- **Preregistered before the first run** (in the generator's notes): identical layer-1 verdicts in both entries:
+  `binding_practised` persists, `marriage_requires_binding` holds_to_k, `subject_cannot_exit` / `dependent_cannot_exit`
+  reachable; `minimal_pair_of.differs_on` null by design (the pair differs only at layer 2). Result: all 8 as
+  preregistered (check-all 114/114, `phil rules gate` PASS, no vacuity flags). Information runs, not expectations:
+  under `--compliance sanctioned` `binding_practised` fails in both (leave_unbound fires and pays R5), as the notes said
+  it should; `phil abm run --inst footbinding --seeds 5 --steps 60` (material only) keeps `bound` at 1.0 in every seed
+  (persistence), with `pledged` flipping to 1.0 role-wide as soon as one family pledges (the A2 coarseness noted above).
+- **Encoding review 2026-11-04** (`docs/reviews/2026-11-04-footbinding-naming-encoding-review.md`): the suitor pledge R10
+  was preregistered and committed (b6f48aa) before its first run: no layer-1 verdict changes in either entry. Result: no
+  drift (check-all 115/115, gate PASS, 15 tests); ABM information run (material+coordination, 5 seeds, 60 steps): `bound`
+  1.0 in every seed, `pledged` 0.667 (true on the family and suitor role tuples, the A2 coarseness now on both sides).
+  Also from the review: `marriage_requires_binding` flagged by construction (finding 3, kept for the record); one-cohort
+  note and a deferred `new_cohort` action (finding 4); R9 implicit, rival tags on R5/R8/R9 marked as by analogy (finding
+  6); the naming band reworded (finding 9); source_text notes that plans/layer2-abm.md lists Mackie and Centola as opened
+  by the planning session.
+- Extra fields the engine ignores: `payoffs` (bind and leave_unbound 1.0, the A1 default made explicit so the gate can
+  sweep them) and an ASSUMED `coordinated: [bind, leave_unbound]` list, because `ActionDecl` has no action tag yet; the
+  notes tell the coordination-module author which actions are coordinated and that role-level `pledged` plus set-true-wins
+  in `Reference.successor` mean one pledge flips every family and collapse needs every family to leave unbound in one step.
+## Layer-2 gate (b): `naming-convention` (2026-11-04)
+
+- Centola, Becker, Brackbill & Baronchelli 2018 (Science 360(6393):1116-1119) naming game, encoded as the calibration
+  entry `philengine/abm/gate.py` crit_b reads: one role `member`, fluents `uses_old` / `uses_new`, actions `use_old` /
+  `use_new`, two `may ... when true` rules (ADR 0015 A6), no must / must_not (the game has no sanction), `payoffs`
+  block `{use_old: 1.0, use_new: 1.0}` (A1: the payoff is the matching reward, so the names are symmetric),
+  `initial (uses_old member)`. A pure coordination game, not a liberation case and not a historical institution
+  (ADR 0004: no forward claim; ADR 0011: the agents stand in for experimental subjects, not a real population).
+  `committed_minority` is a model parameter the entry's notes record (Centola's band ~ 25%: largest failing minority ~21%,
+  smallest succeeding ~25%, UNVERIFIED, from memory; reworded 2026-11-04 per the encoding review), never a rule. The paper could not be opened from the encoding session (every host refused), so its figures
+  and quotations are marked UNVERIFIED in the entry.
+- New property `new_convention_adopted`: `(forall m (and (uses_new m t) (not (uses_old m t))))`, new-and-not-old so
+  that a committed minority's own use of the new name does not read as adoption on the ABM's shared role-level state
+  (where set-true wins over set-false in the successor).
+- Added to `CONTROLS` (`not_isomorphic_to_control` on the three care+control members): it must match nothing.
+- **Preregistered before the first run** (entry notes): reachable; none@guard+strands against all three cluster
+  members; no inert rule; layer-2 material-only rate coin-flip-shaped. Result: all as preregistered (check-all 107/107,
+  `phil rules gate` PASS with the three new control pairs none@guard+strands, 15 tests pass; `phil abm run --seeds 5`
+  material only, before the reserved keys below: last-step `use_new` share 0.8 / 0.4 / 0.9 / 0.7 / 0.0 over seeds,
+  mean 0.56, a coin flip as expected; with `initial_practice: use_old` every member stays on the old name, 5/5 seeds).
+- The payoffs block also carries the engine's slice-4 RESERVED keys (`philengine/abm/model.py RESERVED_PAYOFF_KEYS`,
+  ASSUMED; added concurrently on 2026-11-04 after the first material-only run showed agents bootstrapping practice
+  from a payoff tie by rng and ignoring `initial`): `coordinated: [use_old, use_new]`, `committed_action: use_new`,
+  `initial_practice: use_old`. Hand inputs like the numbers (A1); none names a tipping location.
+- **Layer-2 drift, recorded not edited.** Engine slice-4 crit_b reads the member role's last-step share of
+  `committed_action` (not the property: a property mean cannot express a population share under shared role state).
+  At 30 seeds, share by `committed_minority` 0.05..0.50 = [0.05, 0.10, 0.15, 0.20, 0.35, 0.54, 0.70, 0.80, 0.90, 0.97]:
+  equal to the committed share through 0.20, above it from 0.25 on (tipping begins at 0.20 -> 0.25, inside Centola's
+  band), but graded: max adjacent jump 0.19, not > 0.5, so (b) FAILs under both coordination configurations. The
+  entry carries no threshold; what grades the curve (the > 0.5 criterion, thresholds U(0, threshold_max), the 20-agent
+  graph) is an engine question. `new_convention_adopted` stays the layer-1 property (reachable, as preregistered).
+
+## Ectogenesis pair (2026-11-04)
+
+- `ectogenesis` (Firestone 1970: gestation in a device, nobody is the birthing parent) and `gestational-surrogacy`
+  (control: the rival input moves to another body), encoded from the preregistration `plans/ectogenesis.md` (never edited).
+  Roles `intended_parent`, `child` (subject), `provider`, `registry`; `gestator` in surrogacy only. Seven rules each, five
+  shared (R1 provider may start_gestation; R4 parent may provide_care; **R5 implicit tying must provide_care when
+  `female(p)`, or_else R6**; R6 registry may reprimand; R7 registry may register_parentage with no birth condition). R2/R3
+  are the substitution: surrogacy `implant` (may) and `give_birth` (gestator must, or_else R6), ectogenesis
+  `transfer_to_device` (may) and `decant` (provider must, or_else R6), both hand-tagged `superadditive`. `initial_free`
+  `female` (so a non-female carer is reachable); `is_subject` is set only by a birth action.
+- New properties `birth_labor_rival` and `care_decoupled_from_birth`, formulas as in the plan, both flagged
+  `by_construction: true` in advance (the same mechanism as `marriage_requires_binding`: a property key plus a `history`
+  line; the engine ignores it). The flag was written before any run.
+- **ASSUMED author decisions** (from the encoder's brief, recorded in both entries' notes): R2+R3 substitution counts as a
+  minimal pair (recorded on `ectogenesis`, `differs_on birth_labor_rival`); R2/R3 tagged `superadditive`; R7 no birth
+  condition; R5 on `female(p)`; no leave action, so the plan's `leave_reserved_for_non_birthing_parent` row is dropped;
+  neither entry in `CONTROLS`; gestator consent out of scope.
+- Deviations from the plan: `gestates` is not declared in `ectogenesis` (plan: surrogacy only), so the property lowers it
+  as constant false and the engine warns; `reprimand(registry, x)` has an untyped `x` (as kibbutz R6); source_text and
+  statute citations are UNVERIFIED throughout (no page opened).
+- **Verdicts, observed vs preregistered** (layer 1, k=6, strict, init declared): 7 of 8 as preregistered.
+  ectogenesis: `birth_labor_rival` violated, `care_decoupled_from_birth` reachable, `solo_care_by_non_birthing_parent`
+  reachable, `care_assigned_by_sex` violated. gestational-surrogacy: `care_decoupled_from_birth` unreachable_open,
+  `solo_care_by_non_birthing_parent` reachable, `care_assigned_by_sex` violated.
+- **DRIFT 1 (verdict, recorded not edited):** `gestational-surrogacy` `birth_labor_rival` is **violated**, preregistered
+  holds_to_k. The plan's own skeleton causes it: `start_gestation` (R1) sets `in_gestation(c)` before `implant` sets
+  `gestates`, so the first step after R1 has a gestation held by no body (trace: start_gestation, implant, give_birth,
+  start_gestation). The invariant therefore does not separate the pair: it is violated in both, and the headline
+  difference the plan names (`differs_on birth_labor_rival`) does not appear at layer 1 as encoded. Cause is the
+  property/skeleton pairing, not the engine. Not tuned; a repaired property (guard on implant having fired) or a combined
+  start-and-implant action would be a new preregistration.
+- **DRIFT 2 (iso, recorded not edited):** ectogenesis ~ surrogacy was preregistered iso at `guard`; observed NOT iso at
+  guard, with strands on or off (distance 2, matched 5 of 7: R2 and R3 unmatched). So it is not the strand tag that
+  separates them, as the plan guessed: the aim skeletons differ (surrogacy `implant` and `give_birth` have a gestator
+  argument; the role-vs-variable aim pattern differs from `transfer_to_device` / `decant`). Not iso at exact, as
+  preregistered. Against `coverture-household` (distance 9, matched 0), `police-crisis` (10, 0), `cps` (11, 0),
+  `kibbutz-childrens-house` (guard 5, matched 3; guard+strands 6, matched 2): not iso, as preregistered, for both entries.
+  Against `transferable-leave` / `paternity-quota`: preregistered a guess of partial at guard+strands (about 40%); observed
+  none, matched 0, distance 9, at every level, for both entries (no `partial` claim is expressible in `isomorphic_to`, so
+  this is in the notes and here only).
+- Checks: `phil rules check-all` 122/123 (was 115/115; the one miss is DRIFT 1); `phil rules gate` PASS (criteria a to f;
+  25 institutions, 0 inert); pytest 15 passed. `phil abm gate` not run (a full run was in progress elsewhere).
+- Layer 2 not required by the plan. Failure modes (ADR 0016) as in the plan section 5.

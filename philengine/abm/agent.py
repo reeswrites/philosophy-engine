@@ -29,17 +29,26 @@ obligations in ADR 0015, amendment 2026-11-04), in this priority order (ASSUMED)
   3. with probability `copy_rate`, imitate the neighbour whose last action earned most (Axelrod-style), if it earned
      more than this agent did;
   4. else material payoff-following: switch to the candidate whose net payoff strictly beats the current practice's;
-  5. else take the candidate whose same-role neighbour share (practice or pledge, A3) meets this `threshold`;
+  5. else take the candidate whose same-role neighbour share (practice or pledge, A3) meets this `threshold`. IMPLICIT
+     0.5 (review finding 7): among the candidates that meet the threshold it takes the one with the MAX share, so with
+     two candidates whose shares sum to 1 this is a local-majority rule for every threshold <= 0.5, whatever the
+     threshold draw. The tipping location in gate (b) is therefore set by this 0.5 as well as by `threshold_max` and
+     the graph; the gate reports that and does not claim "no constant sets the location";
   6. else, with no usable practice, bootstrap: the best net-paying candidate (ties by the model rng). The rule
      belongs to the material module and, since slice 4, to the coordination module too (ASSUMED: an adaptive
      module needs a first practice to adapt; under coordination the net is the assurance-gated one, so at a cold
      start every coordinated action ties at 0 and the rng picks). Under `{}` no agent ever starts a practice.
   7. else keep the practice; with obligations in force and no usable practice, a random lawful candidate.
 Choosing a `*_pledge` action sets `pledge` to the base instance and leaves practice unchanged (A3 stand-in).
+Pledge flip (2b), ratchet (review finding 5): the flip reads the snapshotted shares, fires before copy, and is a
+ONE-WAY RATCHET: a pledge is never retracted, so a pledger who later lapses (no longer practises the base) still
+counts in neighbours' shares (`neighbour_shares` reads practice OR pledge) forever.
 Assurance (coordination module, Skyrms 2004 / plan "Modules"): an action named in the entry's `coordinated` list
 pays its payoff, expected (in `net`, so in copy / switch / bootstrap comparisons) and realised (`settle`), only
 when this agent's same-role neighbour share of it (practice or pledge, snapshotted at the step's start) meets
-this `threshold`; otherwise it pays 0. Sanctions are charged as before. With the module off nothing is gated.
+this `threshold`; otherwise it pays 0. Both `net` (expected, in choice) and `settle` (realised) gate on the shares
+read ONCE in `choose` from the snapshot, pledges counted (review finding 5). An agent with no same-role
+neighbours has no shares, so it is assured only at threshold 0 (its `_shares` is empty). Sanctions are charged as before. With the module off nothing is gated.
 Updates are synchronous: every choice reads the practices and pledges snapshotted at the start of the step. Every
 random draw goes through `model.random`, seeded once per run.
 
@@ -59,7 +68,9 @@ EXPECTS before breaching is the total of that charge over the window, per-step c
 breach inside the window replaces the running sanction with the new (graduated, higher) one rather than stacking
 (ASSUMED). A sanction lands only when its `or_else` rule is in force in the state the breach produces
 (`model.sanction_in_force`, slice 4, ASSUMED): otherwise the breach is booked in `breached` but prices and charges
-nothing and starts no sanction window.
+nothing and starts no sanction window. Caveat (review finding 4): a sanction conditioned on a fluent that the breach
+itself clears never lands, because the rule is tested in the state the breach produces (the `tiny()` fixture in
+test_abm.py repoints its `or_else` for this reason; the assertion was not weakened).
 Trust (A5): my trust in neighbour n moves when n keeps (+delta) or breaches (-beta*delta) an obligation bearing on
 me: my role is among the aim's DECLARED argument roles other than the actor's (`model.bears_on`, from the action's or
 fluent's `arg_roles` as the reference types them, never from instance values).
