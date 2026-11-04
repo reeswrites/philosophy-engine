@@ -2,7 +2,9 @@ import pytest
 import z3
 
 from philengine import rules_lower as rl
-from philengine.schemas_rules import InstitutionJSON, Property, load_institutions, load_properties, default_paths
+from philengine.schemas_rules import InstitutionJSON, Property, load_institutions, load_properties
+
+from .helpers import require_dataset
 
 
 def tiny(**over) -> InstitutionJSON:
@@ -103,7 +105,7 @@ def test_property_lowering_quantifiers_and_succ():
 
 
 def test_dataset_loads_and_grounds():
-    ip, pp = default_paths()
+    ip, pp = require_dataset()
     insts = load_institutions(ip)
     props = load_properties(pp)
     assert {i.id for i in insts} >= {"coverture-household", "police-crisis", "crisis-team"}
@@ -265,7 +267,7 @@ def test_step_mode_one_vs_many():
 
 
 def test_dataset_loads_with_declared_init():
-    ip, pp = default_paths()
+    ip, pp = require_dataset()
     for inst in load_institutions(ip):
         G = rl.ground(inst, k=2)
         assert G.init == ("declared" if inst.declares_init() else "empty"), inst.id

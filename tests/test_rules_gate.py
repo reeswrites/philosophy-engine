@@ -9,18 +9,22 @@ import pytest
 
 from philengine import rules_checks as rc
 from philengine import rules_gate as rg
-from philengine.schemas_rules import InstitutionJSON, Property, default_paths, load_institutions, load_properties
+from philengine.schemas_rules import InstitutionJSON, Property, load_institutions, load_properties
 
+from .helpers import dataset_paths, require_dataset
 from .test_rules_iso import care_control, lease
 from .test_rules_lower import derived_police
 
 
 def _dataset_reencoded() -> bool:
-    insts = load_institutions(default_paths()[0])
+    paths = dataset_paths()
+    if paths is None:
+        return False
+    insts = load_institutions(paths[0])
     return any(i.derived_fluents() for i in insts) and any(i.not_isomorphic_to_control for i in insts)
 
 
-awaiting = pytest.mark.skipif(not _dataset_reencoded(), reason="awaiting dataset re-encode (ADR 0013: derived power "
+awaiting = pytest.mark.skipif(not _dataset_reencoded(), reason="no institutions dataset, or awaiting its re-encode (ADR 0013: derived power "
                               "fluents, not_isomorphic_to_control, minimal_pair_of.differs_on, load_bearing)")
 
 
@@ -177,7 +181,7 @@ def test_format_gate_prints_findings():
 # ------------------------------------------------------------ real dataset
 @awaiting
 def test_gate_f_over_real_dataset():
-    insts = load_institutions(default_paths()[0])
+    insts = load_institutions(require_dataset()[0])
     by = {i.id: i for i in insts}
     c = rg.crit_f(by, insts)
     assert c.status == "PASS", c.detail
@@ -190,7 +194,7 @@ def test_gate_f_over_real_dataset():
 
 @awaiting
 def test_gate_b_c_d_over_real_dataset():
-    insts = load_institutions(default_paths()[0])
+    insts = load_institutions(require_dataset()[0])
     by = {i.id: i for i in insts}
     b = rg.crit_b(by)
     assert b.status == "PASS", b.detail
@@ -201,8 +205,8 @@ def test_gate_b_c_d_over_real_dataset():
 
 @awaiting
 def test_full_gate_passes():
-    insts = load_institutions(default_paths()[0])
-    props = load_properties(default_paths()[1])
+    insts = load_institutions(require_dataset()[0])
+    props = load_properties(require_dataset()[1])
     rep = rg.run_gate(insts, props)
     assert rep.passed, rg.format_gate(rep, verbose=True)
     assert rep.agreement is not None and rep.agreement >= rg.AGREEMENT_MIN
@@ -211,7 +215,7 @@ def test_full_gate_passes():
 
 
 @awaiting
-def test_cli_iso_and_gate():
+def test_cli_iso_and_gate(dataset_env):
     out = subprocess.run([sys.executable, "-m", "philengine.cli", "rules", "iso", "--pair", "companion-ownership",
                           "companion-guardian-renamed"], capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
@@ -221,7 +225,7 @@ def test_cli_iso_and_gate():
     assert "GATE PASS" in out.stdout
 
 
-def test_cli_gate_runs_and_reports_findings_on_current_dataset():
+def test_cli_gate_runs_and_reports_findings_on_current_dataset(dataset_env):
     """Whatever the dataset's state, the gate runs end to end and prints the per-criterion table."""
     out = subprocess.run([sys.executable, "-m", "philengine.cli", "rules", "gate", "--k", "3"], capture_output=True, text=True)
     assert out.returncode in (0, 1), out.stderr

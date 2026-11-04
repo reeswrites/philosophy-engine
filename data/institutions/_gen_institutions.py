@@ -475,6 +475,72 @@ inst.append({
  "notes":"Second negative control for gate (b), unrelated to the lease: a service duty (R2) and a rival power over the same person by the same attribute (R3, suspend) with no bar on the patron's own exit (R4). The duty to serve is inferred from the policy's premise of service to all, so R2 is marked UNVERIFIED as a rule. refuse_service is the breaker that keeps R2 from being inert."
 })
 
+# ---------------------------------------------------------------- kibbutz-childrens-house (gate d)
+# Sources opened 2026-11-03. WIKI_KIB: the nanny (metapelet) "was always a woman's role"; children "lived in the
+# children's house, where they had communal sleeping arrangements" and "visited their parents for 2-3 hours a day".
+# JTA_BARAM / SCMP_BARAM: Kibbutz Baram, the last holdout, moved its 80 children into their parents' homes in June 1997
+# after "a stormy debate"; the first kibbutzim had ended children's houses roughly twenty years earlier, and the
+# pressure came "particularly from young mothers". Tiger & Shepher 1975 is cited by the Wikipedia article (pp. 41, 167)
+# and its existence / sample (34,040 members) is confirmed by the Kirkus review; its finding on women's work
+# assignments was not read directly and stays UNVERIFIED here.
+WIKI_KIB = "Wikipedia, 'Kibbutz communal child rearing and collective education' (read 2026-11-03): 'The nanny position was always a woman's role. Teacher positions were both for women and men.'; children 'lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day'; https://en.wikipedia.org/wiki/Kibbutz_communal_child_rearing_and_collective_education"
+JTA_BARAM = "JTA, 'Last kibbutz children's house closes', 1997-06-16: 'The era ended over the weekend, when the 80 children at Kibbutz Baram in the lower Galilee moved into their parents' homes'; Baram 'was the last holdout'; 'After a stormy debate, the decision to do away with the children's houses was made more than a year ago'; https://www.jta.org/archive/last-kibbutz-childrens-house-closes-2"
+SCMP_BARAM = "South China Morning Post, 'Kibbutz children go home to parents' (1997): a few of Israel's 230 kibbutzim ended children's houses roughly twenty years earlier and the reform then gained momentum; at Baram the 'pressure, particularly from young mothers' built over two years; https://amp.scmp.com/article/170090/kibbutz-children-go-home-parents"
+TIGER = "Tiger & Shepher, Women in the Kibbutz (Harcourt Brace Jovanovich, 1975): women concentrated in child care, education and services despite formal equality. Cited by WIKI_KIB (pp. 41, 167); book and sample (34,040 members) confirmed via Kirkus review https://www.kirkusreviews.com/book-reviews/lionel-joseph-shepher-tiger/women-in-the-kibbutz/ ; the assignment finding itself NOT read directly: UNVERIFIED"
+KIB_ROLES = [{"name":"committee","gloss":"the work / education committee that staffs the children's house (the kibbutz general assembly's organ)"},
+             {"name":"metapelet","gloss":"the metapelet (nanny / caregiver) assigned to the children's house; a woman"},
+             {"name":"male_member","gloss":"a male kibbutz member; a parent who visits, never a children's-house carer"},
+             {"name":"child","gloss":"a child of the kibbutz; sleeps in the children's house"}]
+KIB_FLUENTS = fl("is_subject","provides_care","female") + [
+   DV("can_sanction",["c","x"],"(enabled reprimand c x)"),
+   DV("can_exit",["s"],"(enabled sleep_home s)"),
+   {"name":"can_assign","arity":2,"gloss":"c holds the power to put x on the children's-house care rota","params":["c","x"],"derived":"(enabled assign c x)"},
+   F("member",1,"x is an adult member of the kibbutz (eligible for work assignment)"),
+   F("assigned",1,"x is on the children's-house care rota"),
+   F("at_home",1,"the child sleeps in the parents' home rather than the children's house")]
+KIB_ACTIONS = [
+   A("assign",["committee","x"],[E("provides_care",["x","child"],True),E("assigned",["x"],True)]),
+   A("release",["committee","x"],[E("provides_care",["x","child"],False),E("assigned",["x"],False)]),
+   A("neglect",["x","child"],[E("provides_care",["x","child"],False)]),
+   A("visit",["x","child"],[]),
+   A("sleep_home",["child"],[E("at_home",["child"],True)]),
+   A("reprimand",["committee","x"],[])]
+KIB_R2 = R("R2","committee","must_not","(assign committee male_member)","true",None,"tying",True,
+   "IMPLICIT: the nanny 'was always a woman's role' (WIKI_KIB); no kibbutz by-law said so, the rota simply never put a man in the children's house. "+TIGER+". A disability (or_else null): can_assign(committee, male_member) is false by derivation, not by any effect (ADR 0013)", load_bearing=LB)
+KIB_RULES = [
+   R("R1","committee","may","(assign committee x)","(member x)",None,"superadditive",False,WIKI_KIB+" (members are assigned to the children's house by the committee; the rule as written is sex-blind: any member). "+DERIVED+"can_assign(committee, x) = assign enabled (R1) and not barred (R2)"),
+   KIB_R2,
+   R("R3","metapelet","must","(provides_care metapelet child)","(assigned metapelet)","R6","superadditive",False,WIKI_KIB+" (the metapelet runs the children's house). "+STATE+"assign establishes provides_care(x, child); neglect breaks it (sanction R6); release ends the assignment", load_bearing=LB),
+   R("R4","child","must_not","(sleep_home child)","true",None,"rival",False,WIKI_KIB+" (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. "+DERIVED+"can_exit(child) = sleep_home enabled (R7) and not barred (R4)"),
+   R("R5","male_member","may","(visit male_member child)","true",None,"superadditive",False,WIKI_KIB+" (children 'visited their parents for 2-3 hours a day'; the father's relation to the children's house is the visit, not care)"),
+   R("R6","committee","may","(reprimand committee x)","true",None,"rival",True,"implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). "+UNV+". "+DERIVED+"can_sanction(committee, x) = reprimand enabled (R6)"),
+   R("R7","child","may","(sleep_home child)","true",None,"rival",True,"implicit: the physical possibility of sleeping at the parents' home is always there; R4 removes it. What the 1970s-1990s reform changed is R4 (dropped kibbutz by kibbutz, last at Baram in 1997: "+JTA_BARAM+"); the reform did not touch R2 ("+SCMP_BARAM+"). "+DERIVED+"can_exit(child) = sleep_home enabled (R7) and not barred (R4)")]
+KIB_SOURCE = "'Children's lives had three focal points: the children's house, parents' house, and the whole kibbutz.' 'They lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day.' 'The nanny position was always a woman's role. Teacher positions were both for women and men.' (Wikipedia, 'Kibbutz communal child rearing and collective education', read 2026-11-03.) 'The era ended over the weekend, when the 80 children at Kibbutz Baram in the lower Galilee moved into their parents' homes' (JTA, 1997-06-16); the pressure came 'particularly from young mothers' (SCMP, 1997)."
+inst.append({
+ "id":"kibbutz-childrens-house",
+ "name":"Kibbutz children's house (communal sleeping, metapelet care rota)",
+ "roles":KIB_ROLES,"fluents":KIB_FLUENTS,"actions":KIB_ACTIONS,"rules":KIB_RULES,
+ "source_text":KIB_SOURCE,
+ "expected_properties":{"care_assigned_by_sex":"persists","subject_cannot_exit":"reachable","care_and_sanction_same_role":"violated"},
+ "isomorphic_to":[{"id":"coverture-household","level":"guard+strands","sub_signature":["R3~R3 provides_care~provides_care"]}],
+ "not_isomorphic_to":["police-crisis","cps"],
+ "minimal_pair_of":None,
+ "notes":"Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit disability R2 (never a man in the children's house) survives: every compliant trace keeps provides_care in female hands, and can_assign(committee, male_member) is false at every step by derivation. PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); an implicit R7 'may sleep_home' carries can_exit as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform."
+})
+# ---------------------------------------------------------------- kibbutz-childrens-house-no-implicit (minimal pair)
+inst.append({
+ "id":"kibbutz-childrens-house-no-implicit",
+ "name":"Kibbutz children's house without the implicit assignment rule (minimal pair)",
+ "roles":KIB_ROLES,"fluents":KIB_FLUENTS,"actions":KIB_ACTIONS,
+ "rules":[r for r in KIB_RULES if r["id"] != "R2"],
+ "source_text":"Construction: kibbutz-childrens-house with R2 (the implicit 'never a man in the children's house') deleted; nothing historical corresponds to it. The explicit rules are unchanged: R1 lets the committee assign any member.",
+ "expected_properties":{"care_assigned_by_sex":"fails","subject_cannot_exit":"reachable","care_and_sanction_same_role":"violated"},
+ "isomorphic_to":[],
+ "not_isomorphic_to":["kibbutz-childrens-house"],
+ "minimal_pair_of":{"id":"kibbutz-childrens-house","rule":"R2","differs_on":"care_assigned_by_sex"},
+ "notes":"PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex fails (a compliant trace assigns the male_member, R1, and provides_care(male_member, child) with female false breaks the universal). The same rules minus R2 and nothing else; the gate (d) check compares this verdict with the original's."
+})
+
 def L(f,*a): return "(%s %s)" % (f, " ".join(a))
 def _animal_roles(owner):
     return {"owns":[owner,"animal"],"can_sanction":[owner,"animal"],"controls_reproduction":[owner,"animal"],
@@ -497,6 +563,9 @@ _cps_roles = {"is_subject":["child"],"can_sanction":["social_worker","child"],"p
               "in_home_considered":["social_worker","child"],"contacted":["social_worker","parent"],"counsel_appointed":["child"]}
 _animal_init = lambda o: [L("owns",o,"animal"),L("is_subject","animal"),L("provides_care",o,"animal")]
 # (arg_roles, initial, initial_free): exogenous triggers must be initial_free under init=declared, or no call/report ever arrives
+_kib_roles = {"is_subject":["child"],"female":["metapelet"],"can_exit":["child"],"at_home":["child"]}
+_kib_init = [L("female","metapelet"),L("is_subject","child"),L("member","metapelet"),L("member","male_member"),
+             L("assigned","metapelet"),L("provides_care","metapelet","child")]
 EXTRA = {
  "police-crisis":(_crisis_roles("officer"),[],["call_received","in_crisis","danger","resists"]),
  "crisis-team":(_crisis_roles("responder"),[],["call_received","eligible","in_crisis","danger"]),
@@ -506,6 +575,8 @@ EXTRA = {
  "companion-ownership":(_animal_roles("owner"),_animal_init("owner"),["best_interest"]),
  "companion-guardianship":(_animal_roles("owner"),_animal_init("owner"),["best_interest"]),
  "companion-guardian-renamed":(_animal_roles("guardian"),_animal_init("guardian"),["best_interest"]),
+ "kibbutz-childrens-house":(_kib_roles,_kib_init,[]),
+ "kibbutz-childrens-house-no-implicit":(_kib_roles,_kib_init,[]),
  "lease":({"is_subject":["tenant"],"can_exit":["tenant"],"leased":["landlord","tenant"],"habitable":["landlord","tenant"],"rent_paid":["tenant"]},[],[]),
  "public-library":({"is_subject":["patron"],"can_exit":["patron"],"open":["librarian"],"present":["patron"],"served":["librarian","patron"],"suspended":["patron"],"disruptive":["patron"]},[],["disruptive"]),
 }

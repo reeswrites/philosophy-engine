@@ -16,7 +16,11 @@ Extension section's "Extra gate criterion (f)"; tightened after docs/reviews/202
     verdicts differ on exactly the preregistered property `minimal_pair_of.differs_on` (review finding 5a);
     other differences are findings. A `differs_on` the dataset marks `postregistered: true` is printed as
     "post hoc", and the property it `supersedes` has its verdicts printed as a finding (second review, item 7).
-(d) kibbutz-childrens-house: deferred until the institution is in the dataset.
+(d) the historical failure: kibbutz-childrens-house reports `care_assigned_by_sex` as `persists`; an implicit
+    (`implicit: true`) rule is what makes the difference: it is among the rules by which the no-implicit minimal
+    pair (`minimal_pair_of: {id: kibbutz-childrens-house, differs_on: care_assigned_by_sex}`) differs from the
+    original (a `persists` verdict carries no trace, so the pair is what isolates the rule; no pair = FAIL); and
+    that pair does NOT report `persists`. The implicit rule's id is printed.
 (e) property-verdict agreement vs expected >= 60% (same numbers as `phil rules check-all`).
 (f) cosmetic-reform detection: companion-guardian-renamed iso to companion-ownership as a pure rename;
     companion-guardianship not iso, distance exactly 1; and every human/non-human pair's report carries a
@@ -237,10 +241,58 @@ def crit_c(by: dict, reports: dict) -> Criterion:
                      f"{'differs' if diff else 'same'}; {len(findings)} other difference(s)", lines, findings)
 
 
-def crit_d(by: dict) -> Criterion:
+PROP_D = "care_assigned_by_sex"
+
+
+def crit_d(by: dict, reports: dict | None = None) -> Criterion:
+    """PASS iff kibbutz-childrens-house reports PROP_D `persists`, the rule(s) that separate it from its no-implicit
+    minimal pair include one marked `implicit: true` (printed), and the pair does not report `persists`."""
     if KIBBUTZ not in by:
         return Criterion("d", "deferred", f"{KIBBUTZ} not in dataset")
-    return Criterion("d", "deferred", f"{KIBBUTZ} present but the persists + implicit-rule check is not wired yet")
+    if reports is None:  # called without check reports (structure-only use): nothing to judge yet
+        return Criterion("d", "deferred", f"{KIBBUTZ} present; no check reports supplied")
+    rep = reports.get(KIBBUTZ)
+    if rep is None:
+        return Criterion("d", "FAIL", f"{KIBBUTZ}: check did not run")
+    v = rep.verdict(PROP_D)
+    lines, parts = [f"  {KIBBUTZ}: {PROP_D} = {v}"], []
+    ok = v == "persists"
+    parts.append(f"{PROP_D} {v}" + ("" if ok else " (expected persists)"))
+    # the no-implicit variant: a minimal pair of KIBBUTZ preregistered on PROP_D
+    variants = [i for i in by.values() if i.id != KIBBUTZ and (i.minimal_pair() is not None)
+                and i.minimal_pair().id == KIBBUTZ and i.minimal_pair().differs_on == PROP_D]
+    if not variants:
+        return Criterion("d", "FAIL", "; ".join(parts) + f"; no minimal pair of {KIBBUTZ} with differs_on={PROP_D} "
+                         "(the implicit rule cannot be isolated without one)", lines)
+    var = variants[0]
+    r = rules_iso.match(by[KIBBUTZ], var)
+    lines.append(rules_iso.format_pair(r))
+    pair = var.minimal_pair()
+    diff = list(r.unmatched_a)  # rules of KIBBUTZ with no image in the variant
+    if pair.rule and pair.rule not in diff and pair.rule in {x.id for x in by[KIBBUTZ].rules} \
+            and pair.rule not in {x.id for x in var.rules}:
+        diff.append(pair.rule)  # the matcher paired it by skeleton; it is still absent from the variant
+    by_id = {x.id: x for x in by[KIBBUTZ].rules}
+    implicit = [i for i in diff if i in by_id and by_id[i].implicit]
+    explicit = [i for i in diff if i in by_id and not by_id[i].implicit]
+    if implicit:
+        parts.append(f"implicit rule {','.join(implicit)} ({'; '.join(f'{by_id[i].attribute} {by_id[i].deontic} {by_id[i].aim}' for i in implicit)})")
+    else:
+        ok = False
+        parts.append(f"no implicit rule separates {KIBBUTZ} from {var.id} (differing: {diff or '-'})")
+    if explicit:
+        parts.append(f"explicit rules also differ: {','.join(explicit)} (distance {r.rule_distance}, not a clean pair)")
+        ok = False
+    vrep = reports.get(var.id)
+    vv = vrep.verdict(PROP_D) if vrep else None
+    lines.append(f"  {var.id}: {PROP_D} = {vv}")
+    if vv is None or vv == "persists":
+        ok = False
+        parts.append(f"{var.id} {PROP_D} {vv} (must not persist)")
+    else:
+        parts.append(f"{var.id} {PROP_D} {vv}")
+    lines.append(f"  implicit rule flagged: {','.join(implicit) or 'none'}")
+    return Criterion("d", "PASS" if ok else "FAIL", "; ".join(parts), lines)
 
 
 def crit_e(insts: list[InstitutionJSON], reports: dict) -> tuple[Criterion, float | None]:
@@ -308,7 +360,7 @@ def run_gate(insts: list[InstitutionJSON], props: dict[str, Property], k: int = 
             reports[i.id] = None
             print(f"warning: check failed for {i.id}: {e}")
     reports = {k_: v for k_, v in reports.items() if v is not None}
-    crits = [crit_a(insts, reports), crit_b(by), crit_c(by, reports), crit_d(by)]
+    crits = [crit_a(insts, reports), crit_b(by), crit_c(by, reports), crit_d(by, reports)]
     ce, agr = crit_e(insts, reports)
     crits.append(ce)
     crits.append(crit_f(by, insts))

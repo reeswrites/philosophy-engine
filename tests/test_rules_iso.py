@@ -2,7 +2,9 @@
 import copy
 
 from philengine import rules_iso as ri
-from philengine.schemas_rules import InstitutionJSON, default_paths, load_institutions
+from philengine.schemas_rules import InstitutionJSON, load_institutions
+
+from .helpers import require_dataset
 
 
 def tiny(id_="base", **over) -> InstitutionJSON:
@@ -128,7 +130,7 @@ def test_guard_level_abstracts_conditions():
 
 
 def test_real_dataset_expectations():
-    insts = {i.id: i for i in load_institutions(default_paths()[0])}
+    insts = {i.id: i for i in load_institutions(require_dataset()[0])}
     r = ri.match(insts["companion-ownership"], insts["companion-guardian-renamed"])
     assert r.iso and r.pure_rename and r.mapping["role"]["owner"] == "guardian"
     r = ri.match(insts["companion-ownership"], insts["companion-guardianship"])

@@ -26,13 +26,17 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import z3
 
 from . import config
 from . import sexpr as sx
-from .rules_lower import DEFAULT_K, Grounded, LowerError, ground, lower_property, lower_state_formula, trace_of, validate_property
-from .schemas_rules import InstitutionJSON, Property, PropertyResult, RuleCheckReport, RuleStatus
+from .rules_lower import DEFAULT_K, Grounded, LowerError, ground, lower_property, lower_state_formula, resolve_init, trace_of, validate_property
+from .schemas_rules import InstitutionJSON, Property, PropertyResult, QueryTiming, RuleCheckReport, RuleStatus
+
+if TYPE_CHECKING:
+    from .rules_cache import RuleCache
 
 # dataset spelling "unreachable_open" is the plan's "open"
 EXPECTED_ALIASES = {"unreachable_open": "open", "unreachable": "open"}
@@ -58,18 +62,50 @@ class _Res:
     reason: str | None = None
 
 
+# Timing log: every _check appends one record; run_all drains it into RuleCheckReport.timing.
+_LOG: list[dict] = []
+_CTX = {"phase": "", "property": "", "check": "", "mark": time.perf_counter()}
+
+
+def _begin(phase: str, property: str = "", check: str = "") -> None:
+    """Label the z3 queries that follow; build time is measured from here (and from the end of each query)."""
+    _CTX.update(phase=phase, property=property, check=check, mark=time.perf_counter())
+
+
+def _drain() -> list[dict]:
+    out = list(_LOG)
+    _LOG.clear()
+    return out
+
+
 def _check(exprs, timeout_ms: int = config.Z3_TIMEOUT_MS, retry_unknown: bool = True) -> _Res:
+    t_enter = time.perf_counter()
+    acc = {"add": 0.0, "solve": 0.0}
+
     def once(T, tactic):
         s = z3.Then("simplify", "smt").solver() if tactic else z3.Solver()
         s.set("timeout", T)
         s.set("random_seed", config.Z3_SEED)
+        t = time.perf_counter()
         for e in exprs:
             s.add(e)
-        return s, s.check()
+        t2 = time.perf_counter()
+        r = s.check()
+        acc["add"] += t2 - t
+        acc["solve"] += time.perf_counter() - t2
+        return s, r
 
     s, r = once(timeout_ms, False)
+    retries = 0
     if r == z3.unknown and retry_unknown:
+        retries = 1
         s, r = once(timeout_ms * config.Z3_RETRY_FACTOR, True)
+    t_exit = time.perf_counter()
+    _LOG.append({"phase": _CTX["phase"], "property": _CTX["property"], "check": _CTX["check"],
+                 "build_ms": round((t_enter - _CTX["mark"] + acc["add"]) * 1000, 3),
+                 "solve_ms": round(acc["solve"] * 1000, 3),
+                 "result": "sat" if r == z3.sat else "unsat" if r == z3.unsat else "unknown", "retries": retries})
+    _CTX["mark"] = t_exit
     if r == z3.sat:
         return _Res("sat", s.model())
     if r == z3.unsat:
@@ -196,6 +232,10 @@ def vacuity(G: Grounded, ast, **kw) -> tuple[bool | None, bool | None]:
 
 
 # ------------------------------------------------------------------ run_all
+def _has_unknown(log: list[dict]) -> bool:
+    return any(e["result"] == "unknown" for e in log)
+
+
 def run_all(
     inst: InstitutionJSON,
     properties: dict[str, Property],
@@ -206,28 +246,77 @@ def run_all(
     step_mode: str = "one",
     timeout_ms: int = config.Z3_TIMEOUT_MS,
     retry_unknown: bool = True,
+    cache: "RuleCache | None" = None,
 ) -> RuleCheckReport:
     """which: {property name: [check kinds]}. Default: the check named by each expected verdict in
-    inst.expected_properties; a property without an expectation gets all three checks."""
+    inst.expected_properties; a property without an expectation gets all three checks.
+    cache: a rules_cache.RuleCache to read / write results (None = off, the default). A hit reproduces the stored
+    PropertyResult exactly; results in which z3 answered `unknown` are never stored."""
+    from . import rules_cache as rcache
     t0 = time.monotonic()
     ver = z3.get_version_string()
     kw = dict(timeout_ms=timeout_ms, retry_unknown=retry_unknown)
     rep = RuleCheckReport(institution=inst.id, bound_k=k, consistent="unknown", z3_version=ver,
                           init=init or "?", compliance=compliance, step_mode=step_mode)
+    _drain()
+    timing: list[dict] = []
+    ckw = dict(k=k, step_mode=step_mode, compliance=compliance, timeout_ms=timeout_ms, retry_unknown=retry_unknown)
     try:
-        G = ground(inst, k=k, init=init, compliance=compliance, step_mode=step_mode)
-    except (LowerError, sx.ParseError) as e:
-        rep.warnings.append(f"lowering failed: {e}")
+        init_req = resolve_init(inst, init)
+    except LowerError:
+        init_req, cache = init, None  # ground() below reports the error
+    gcell: list = []
+
+    def get_G() -> Grounded:
+        if not gcell:
+            tg = time.perf_counter()
+            gcell.append(ground(inst, k=k, init=init, compliance=compliance, step_mode=step_mode))
+            timing.append({"phase": "ground", "property": "", "check": "", "build_ms": round((time.perf_counter() - tg) * 1000, 3),
+                           "solve_ms": 0.0, "result": "", "retries": 0})
+        return gcell[0]
+
+    def finish() -> RuleCheckReport:
         rep.z3_ms = int((time.monotonic() - t0) * 1000)
+        rep.timing = [QueryTiming(institution=inst.id, k=k, step_mode=step_mode, init=rep.init, z3_version=ver, **e)
+                      for e in timing]
         return rep
-    rep.init = G.init
-    rep.warnings.extend(G.warnings)
-    cons = check_consistent(G, **kw)
-    rep.consistent = cons.result
-    rep.conflicts = check_deontic_conflict(G, **kw)
-    if cons.result == "sat":
-        rep.rule_status = check_inert(G, **kw)
+
+    ikey = rcache.make_key(inst, entry=rcache.INSTITUTION_KIND, init=init_req, **ckw) if cache else None
+    hit = cache.get(ikey) if cache else None
+    if hit is not None:
+        rep.init = hit["init"]
+        rep.warnings.extend(hit["warnings"])
+        rep.consistent = hit["consistent"]
+        rep.conflicts = [tuple(c) for c in hit["conflicts"]]
+        rep.rule_status = [RuleStatus.model_validate(x) for x in hit["rule_status"]]
         rep.inert = [st.rule for st in rep.rule_status if st.kind == "inert"]
+        timing.append({"phase": "cached", "property": "", "check": "institution", "build_ms": 0.0, "solve_ms": 0.0,
+                       "result": rep.consistent, "retries": 0, "cached": True})
+        cons = _Res(rep.consistent, None, "cached")
+    else:
+        try:
+            G = get_G()
+        except (LowerError, sx.ParseError) as e:
+            rep.warnings.append(f"lowering failed: {e}")
+            return finish()
+        rep.init = G.init
+        rep.warnings.extend(G.warnings)
+        _begin("consistent")
+        cons = check_consistent(G, **kw)
+        rep.consistent = cons.result
+        _begin("conflict")
+        rep.conflicts = check_deontic_conflict(G, **kw)
+        if cons.result == "sat":
+            _begin("inert")
+            rep.rule_status = check_inert(G, **kw)
+            rep.inert = [st.rule for st in rep.rule_status if st.kind == "inert"]
+        log = _drain()
+        timing.extend(log)
+        if cache and not _has_unknown(log):
+            cache.put(ikey, rcache.INSTITUTION_KIND, {
+                "init": rep.init, "warnings": list(G.warnings), "consistent": rep.consistent,
+                "conflicts": [list(c) for c in rep.conflicts],
+                "rule_status": [st.model_dump(mode="json") for st in rep.rule_status]})
     if which is None:
         which = {}
         for name, exp in inst.expected_properties.items():
@@ -247,20 +336,39 @@ def run_all(
         ast = sx.parse(p.formal)
         for kind in kinds:
             t1 = time.monotonic()
+            pkey = None
             if cons.result == "unsat":
                 res = PropertyResult(property=name, check=kind, verdict="inconsistent", reason="rules have no compliant trace")
             elif cons.result == "unknown":
                 res = PropertyResult(property=name, check=kind, verdict="open", reason=f"consistency unknown: {cons.reason}")
             else:
+                pkey = rcache.make_key(inst, entry=rcache.PROPERTY_KIND, formal=p.formal, check=kind, init=rep.init,
+                                       **ckw) if cache else None
+                cached = cache.get(pkey) if cache else None
+                if cached is not None:
+                    res = PropertyResult.model_validate(cached)
+                    timing.append({"phase": "cached", "property": name, "check": kind, "build_ms": 0.0, "solve_ms": 0.0,
+                                   "result": res.verdict, "retries": 0, "cached": True})
+                    rep.results.append(res)
+                    continue
                 try:
-                    res = CHECKS[kind](G, ast, **kw)
+                    _begin("check", name, kind)
+                    res = CHECKS[kind](get_G(), ast, **kw)
                     if kind in ("invariant", "persists"):
-                        res.antecedent_reachable, res.subject_exists = vacuity(G, ast, **kw)
+                        _begin("vacuity", name, kind)
+                        res.antecedent_reachable, res.subject_exists = vacuity(get_G(), ast, **kw)
                         res.vacuous = res.antecedent_reachable is False or res.subject_exists is False
                 except LowerError as e:
                     res = PropertyResult(property=name, check=kind, verdict="error", reason=str(e))
+                log = _drain()
+                timing.extend(log)
+                res.property = name
+                res.z3_ms = int((time.monotonic() - t1) * 1000)
+                if pkey and res.verdict != "error" and not _has_unknown(log):
+                    cache.put(pkey, rcache.PROPERTY_KIND, res.model_dump(mode="json"))
+                rep.results.append(res)
+                continue
             res.property = name
             res.z3_ms = int((time.monotonic() - t1) * 1000)
             rep.results.append(res)
-    rep.z3_ms = int((time.monotonic() - t0) * 1000)
-    return rep
+    return finish()

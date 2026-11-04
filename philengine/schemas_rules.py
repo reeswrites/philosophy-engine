@@ -237,6 +237,25 @@ class RuleStatus(BaseModel):
     detail: str = ""
 
 
+class QueryTiming(BaseModel):
+    """One timed z3 query (or one cache hit, `cached` True with zero solve time). `phase`: ground | consistent |
+    conflict | inert | check | vacuity | cached. build_ms = time spent building expressions / loading them into the
+    solver since the previous query; solve_ms = time in solver.check (both attempts when `retries` is 1)."""
+    institution: str
+    phase: str
+    property: str = ""
+    check: str = ""
+    build_ms: float = 0.0
+    solve_ms: float = 0.0
+    result: str = ""  # sat | unsat | unknown, or the cached verdict
+    retries: int = 0
+    k: int = 0
+    step_mode: str = "one"
+    init: str = "empty"
+    z3_version: str | None = None
+    cached: bool = False
+
+
 class RuleCheckReport(BaseModel):
     institution: str
     bound_k: int
@@ -251,6 +270,7 @@ class RuleCheckReport(BaseModel):
     init: str = "empty"  # resolved mode: empty | free | declared
     compliance: str = "strict"
     step_mode: str = "one"  # one action per step, or many
+    timing: list[QueryTiming] = []  # per-query timings (additive; see QueryTiming)
 
     def verdict(self, prop: str) -> PropertyVerdict | None:
         for r in self.results:

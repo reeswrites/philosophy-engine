@@ -1,7 +1,9 @@
 import pytest
 
 from philengine import rules_checks as rc
-from philengine.schemas_rules import InstitutionJSON, Property, default_paths, load_institutions, load_properties
+from philengine.schemas_rules import InstitutionJSON, Property, load_institutions, load_properties
+
+from .helpers import require_dataset
 
 from .test_rules_lower import tiny
 
@@ -81,7 +83,7 @@ def test_expected_verdict_names_select_the_check():
 
 
 def test_coverture_dependent_cannot_exit():
-    ip, pp = default_paths()
+    ip, pp = require_dataset()
     inst = {i.id: i for i in load_institutions(ip)}["coverture-household"]
     props = load_properties(pp)
     expected = rc.normalize_expected(inst.expected_properties["dependent_cannot_exit"])
@@ -95,7 +97,7 @@ def test_coverture_dependent_cannot_exit():
         assert any("is_subject(wife)" in s.fluents and "can_exit(wife)" not in s.fluents for s in r.trace)
 
 
-def test_cli_check_all_runs(capsys):
+def test_cli_check_all_runs(capsys, dataset_env):
     from philengine.cli import main
     rc_ = main(["rules", "check", "--inst", "coverture-household", "--prop", "dependent_cannot_exit"])
     out = capsys.readouterr().out
@@ -232,7 +234,7 @@ def test_cli_check_all_prints_flags_and_inert(capsys, tmp_path):
 
 # ------------------------------------------------------------ dataset falsifiers (second review 2026-11-03, items 1, 2)
 def _dataset_inst(iid: str):
-    ipath, ppath = default_paths()
+    ipath, ppath = require_dataset()
     return next(i for i in load_institutions(ipath) if i.id == iid), load_properties(ppath)
 
 

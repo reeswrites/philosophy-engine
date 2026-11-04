@@ -16,7 +16,9 @@ import pytest
 
 from philengine import rules_checks as rc
 from philengine.rules_reference import Reference
-from philengine.schemas_rules import InstitutionJSON, Property, default_paths, load_institutions, load_properties
+from philengine.schemas_rules import InstitutionJSON, Property, load_institutions, load_properties
+
+from .helpers import NO_DATASET, dataset_paths
 
 slow = pytest.mark.slow
 CHECKS = ("reachable", "invariant", "persists")
@@ -366,7 +368,10 @@ def test_rename_preserves_verdicts_tiny(make):
 
 
 def _dataset():
-    ipath, ppath = default_paths()
+    paths = dataset_paths()
+    if paths is None:  # no dataset: the parametrized dataset tests collect empty and skip; the others skip below
+        return [], {}
+    ipath, ppath = paths
     return load_institutions(ipath), load_properties(ppath)
 
 
@@ -522,6 +527,8 @@ def test_removing_a_may_never_adds_reachable_tiny():
 @slow
 def test_removing_a_may_never_adds_reachable_dataset():
     insts, props = _dataset()
+    if not insts:
+        pytest.skip(NO_DATASET)
     seen = 0
     for inst in insts:
         which = _dataset_which(inst)
@@ -553,6 +560,8 @@ def _dataset_results():
 @slow
 def test_round_trip_counterexample_traces():
     insts, props = _dataset()
+    if not insts:
+        pytest.skip(NO_DATASET)
     problems = []
     seen = 0
     for inst in insts:

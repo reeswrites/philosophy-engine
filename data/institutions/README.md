@@ -2,9 +2,10 @@
 
 Hand-reconstructed institutions for the Phase 0 institutions family (`plans/institutions-phase0.md`).
 
-- `institutions.json`: list of 11 entries (`coverture-household`, `police-crisis`, `cps`, `crisis-team`,
+- `institutions.json`: list of 13 entries (`coverture-household`, `police-crisis`, `cps`, `crisis-team`,
   `paternity-quota`, `transferable-leave`, `companion-ownership`, `companion-guardianship`,
-  `companion-guardian-renamed`, and the two negative controls `lease`, `public-library`). Each has `roles`, `fluents`, `actions` (with effects as fluent literals),
+  `companion-guardian-renamed`, the two negative controls `lease`, `public-library`, and the gate (d) pair
+  `kibbutz-childrens-house`, `kibbutz-childrens-house-no-implicit`). Each has `roles`, `fluents`, `actions` (with effects as fluent literals),
   ADICO `rules`, `source_text`, `expected_properties`, `isomorphic_to`, `not_isomorphic_to`, `minimal_pair_of`, `notes`.
 - `properties.json`: named properties reused across entries. The plan's nine plus one extra,
   `leave_reserved_for_non_birthing_parent`, added so the paternity-quota / transferable-leave pair gets
@@ -165,3 +166,28 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
   `supersedes: "solo_care_by_non_birthing_parent"`; the gate prints "post hoc leave_reserved_for_non_birthing_parent"
   (never "preregistered") and lists the original property's verdicts (reachable vs reachable) as a finding.
   `properties.json` entries carry a `history` field (free text; the engine ignores it).
+
+## Batch 2 (2026-11-03): `kibbutz-childrens-house` and its no-implicit pair (gate d)
+
+- Encoded from `plans/institutions-batch2.md` entry 1. Rules: R1 committee `may assign` any `member` (explicit,
+  sex-blind); **R2 committee `must_not assign male_member`, `implicit: true`, disability, load_bearing** (the nanny
+  "was always a woman's role"); R3 metapelet `must (provides_care metapelet child) when assigned` (must-be,
+  load_bearing, breaker `neglect`, or_else R6); R4 child `must_not sleep_home` (disability: communal sleeping);
+  R5 male_member `may visit`; R6 committee `may reprimand` (implicit, UNVERIFIED); R7 child `may sleep_home`
+  (implicit; carries `can_exit`). Derived: `can_assign := (enabled assign c x)`, `can_sanction := (enabled reprimand
+  c x)`, `can_exit := (enabled sleep_home s)`. `female` has `arg_roles [metapelet]`.
+- Sources opened: Wikipedia (nanny "always a woman's role"; communal sleeping; 2-3 h/day with parents); JTA
+  1997-06-16 (Baram, the last children's house, closed June 1997); SCMP 1997 (first closures ~20 years earlier;
+  pressure "particularly from young mothers"); Kirkus review of Tiger & Shepher 1975 (book and sample confirmed).
+  UNVERIFIED: Tiger & Shepher's assignment finding itself (not read directly); R6 (committee discipline).
+- Deviations from the draft, each stated in the entry's notes: R1 generalized to `(assign committee x) when
+  (member x)` (an action instance no may/must rule names is disabled, so the ablation "drop R2" only bites if R1
+  covers the man); R4 is a disability per the ADR 0013 exit convention (draft had or_else R6); R6's condition is
+  `true` (the or_else link, not a `violated_R3` condition, enables it); `neglect`, not `release`, is R3's breaker.
+- **Preregistered before the first run** (in the generator's notes): `care_assigned_by_sex` persists in the
+  original, fails in `kibbutz-childrens-house-no-implicit` (same rules minus R2; `minimal_pair_of.differs_on:
+  care_assigned_by_sex`); `subject_cannot_exit` reachable; `care_and_sanction_same_role` violated. Result: all six
+  as preregistered (check-all 44/44). Gate (d) (`rules_gate.crit_d`, wired 2026-11-03) PASSes: persists, implicit
+  rule R2 is the one rule separating the pair, the pair reads fails.
+- The 1970s-1990s return to family sleeping is R4's removal, kibbutz by kibbutz; it is recorded in R7's source, not
+  encoded as a third entry: the gate (d) claim is that R2 survives it, and the no-implicit variant is the test.

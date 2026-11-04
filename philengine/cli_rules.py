@@ -1,13 +1,15 @@
 """`phil rules ...`: bounded checks over data/institutions (registered from cli.py).
 
   phil rules check --inst ID [--k 6] [--prop NAME] [--init empty|free|declared] [--compliance strict|sanctioned]
-                   [--step-mode one|many] [--trace]
-  phil rules check-all [--k 6] [--init ...] [--compliance ...] [--step-mode ...]
+                   [--step-mode one|many] [--trace] [--no-cache] [--timing]
+  phil rules check-all [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--no-cache] [--timing]
+  phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
   phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
 Prints a compact table: institution, property, check, expected, got, match, flags, k, init; `flags` is `vacuous`
 when an invariant / persists result has an unreachable antecedent or no subject ever exists (review finding 6).
+Results are cached by content (rules_cache.py); --no-cache bypasses it, --timing prints z3 timings and cache hits.
 Inert must-be rules (nothing can break them within k) are listed after the table. Exit code 1 if any mismatch.
 """
 from __future__ import annotations
@@ -16,7 +18,7 @@ import argparse
 import json
 import sys
 
-from . import rules_checks, rules_gate, rules_iso
+from . import rules_cache, rules_checks, rules_gate, rules_iso
 from .schemas_rules import InstitutionJSON, Property, RuleCheckReport, RulesLoadError, default_paths, load_institutions, load_properties
 
 
@@ -75,6 +77,39 @@ def _print_table(rows: list[tuple], warnings: list[str], reports: list[RuleCheck
               f"'open' means not reached within k, never 'safe'")
 
 
+def _timing_summary(reports: list[RuleCheckReport], cache) -> str:
+    """Total z3 time, per-institution totals and the 5 slowest checks (build + solve ms, vacuity included)."""
+    groups: dict[tuple, list[float]] = {}  # (institution, property, check) or (institution, "[phase]", "") -> [build, solve, queries]
+    per_inst: dict[str, float] = {}
+    for rep in reports:
+        for t in rep.timing:
+            ms = t.build_ms + t.solve_ms
+            per_inst[rep.institution] = per_inst.get(rep.institution, 0.0) + ms
+            key = (rep.institution, t.property, t.check) if t.property else (rep.institution, f"[{t.phase}]", "")
+            g = groups.setdefault(key, [0.0, 0.0, 0, 0])
+            g[0] += t.build_ms
+            g[1] += t.solve_ms
+            g[2] += 0 if t.cached else 1
+            g[3] += t.retries
+    total = sum(per_inst.values())
+    lines = [f"timing: {total:.0f} ms build+solve over {sum(len(r.timing) for r in reports)} record(s), "
+             f"wall {sum(r.z3_ms for r in reports)} ms"]
+    for inst_id, ms in sorted(per_inst.items(), key=lambda kv: -kv[1]):
+        lines.append(f"  {inst_id:<40} {ms:9.1f} ms")
+    lines.append("slowest 5 checks (institution, property, check: build / solve ms, queries, retries):")
+    for (i, pr, ck), (b, sv, n, rt) in sorted(groups.items(), key=lambda kv: -(kv[1][0] + kv[1][1]))[:5]:
+        lines.append(f"  {i} / {pr}{(' / ' + ck) if ck else ''}: {b:.1f} / {sv:.1f}  q={n} retries={rt}")
+    if cache is not None:
+        lines.append(cache.summary())
+    else:
+        lines.append("cache: off (--no-cache)")
+    return "\n".join(lines)
+
+
+def _make_cache(a):
+    return None if getattr(a, "no_cache", False) else rules_cache.RuleCache()
+
+
 def _trace_text(rep: RuleCheckReport) -> str:
     out = []
     for r in rep.results:
@@ -103,12 +138,17 @@ def cmd_check(a) -> int:
         exp = inst.expected_properties.get(a.prop)
         c = rules_checks.check_for_expected(exp) if exp else None
         which = {a.prop: [c] if c else list(rules_checks.CHECKS)}
-    rep = rules_checks.run_all(inst, props, k=a.k, which=which, init=a.init, compliance=a.compliance, step_mode=a.step_mode)
+    cache = _make_cache(a)
+    rep = rules_checks.run_all(inst, props, k=a.k, which=which, init=a.init, compliance=a.compliance, step_mode=a.step_mode,
+                               cache=cache)
     if a.json:
         print(rep.model_dump_json(indent=1))
         return 0
     rows = _rows(inst, rep)
     _print_table(rows, rep.warnings, [rep])
+    if a.timing:
+        print()
+        print(_timing_summary([rep], cache))
     if a.trace:
         print()
         print(_trace_text(rep))
@@ -118,8 +158,10 @@ def cmd_check(a) -> int:
 def cmd_check_all(a) -> int:
     insts, props = _load(a)
     rows, warns, reps = [], [], []
+    cache = _make_cache(a)
     for inst in insts:
-        rep = rules_checks.run_all(inst, props, k=a.k, init=a.init, compliance=a.compliance, step_mode=a.step_mode)
+        rep = rules_checks.run_all(inst, props, k=a.k, init=a.init, compliance=a.compliance, step_mode=a.step_mode,
+                                   cache=cache)
         reps.append(rep)
         rows.extend(_rows(inst, rep))
         warns.extend(f"{inst.id}: {w}" for w in rep.warnings)
@@ -127,7 +169,21 @@ def cmd_check_all(a) -> int:
         print(json.dumps([json.loads(r.model_dump_json()) for r in reps], indent=1))
         return 0
     _print_table(rows, warns, reps)
+    if a.timing:
+        print()
+        print(_timing_summary(reps, cache))
     return 1 if any(r[5] == "NO" for r in rows) else 0
+
+
+def cmd_cache(a) -> int:
+    c = rules_cache.RuleCache()
+    if a.action == "clear":
+        print(f"removed {c.clear()} cache file(s) from {c.root}")
+        return 0
+    st = c.stats()
+    print(f"{st['root']}: {st['entries']} entr{'y' if st['entries'] == 1 else 'ies'}, {st['bytes']} bytes, "
+          f"by kind {st['by_kind']}, schema {st['schema']}, code hash {st['code_hash']}")
+    return 0
 
 
 def cmd_iso(a) -> int:
@@ -211,13 +267,20 @@ def register(sub) -> None:
         sp.add_argument("--properties", default=None, help="path to properties.json")
         sp.add_argument("--json", action="store_true")
 
-    s = rs.add_parser("check"); common(s)
+    def cache_flags(sp):
+        sp.add_argument("--no-cache", action="store_true", help="bypass the result cache (neither read nor write)")
+        sp.add_argument("--timing", action="store_true", help="print z3 timing: total, per institution, 5 slowest checks, cache hits")
+
+    s = rs.add_parser("check"); common(s); cache_flags(s)
     s.add_argument("--inst", required=True)
     s.add_argument("--prop", default=None)
     s.add_argument("--trace", action="store_true", help="print counterexample traces")
     s.set_defaults(fn=cmd_check)
-    s = rs.add_parser("check-all"); common(s)
+    s = rs.add_parser("check-all"); common(s); cache_flags(s)
     s.set_defaults(fn=cmd_check_all)
+    s = rs.add_parser("cache", help="result cache under runs/rules-cache/: stats | clear")
+    s.add_argument("action", choices=["stats", "clear"])
+    s.set_defaults(fn=cmd_cache)
     s = rs.add_parser("iso", help="rule-set isomorphism: bijection over roles, fluents, actions")
     s.add_argument("--pair", nargs=2, metavar=("A", "B"), default=None)
     s.add_argument("--all", action="store_true", help="matrix over every pair + the dataset's expectations")
