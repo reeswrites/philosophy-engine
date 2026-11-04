@@ -286,6 +286,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("families", help="list <DATA_DIR>/*/arguments.json"); s.set_defaults(fn=cmd_families)
     from .cli_rules import register as _register_rules  # institutions family: `phil rules check[-all]`
     _register_rules(sub)
+    from .cli_abm import register as _register_abm  # layer 2: `phil abm run`
+    _register_abm(sub)
     return p
 
 

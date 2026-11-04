@@ -8,6 +8,8 @@ authors = [{name = "Rees Draminski"}]
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.15.0",
+    "mesa>=3",
+    "networkx>=3.7",
     "pydantic>=2.14.1",
     "z3-solver>=5.3.0.0",
 ]
