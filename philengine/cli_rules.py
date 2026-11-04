@@ -3,6 +3,9 @@
   phil rules check --inst ID [--k 6] [--prop NAME] [--init empty|free|declared] [--compliance strict|sanctioned]
                    [--step-mode one|many] [--trace] [--no-cache] [--timing]
   phil rules check-all [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--no-cache] [--timing]
+  phil rules verdicts --out FILE [--k ..] [--init ..] [--compliance ..] [--step-mode ..] [--no-cache]   write a golden-verdict baseline
+  phil rules diff --baseline FILE [--k ..] [--no-cache] [--json OUT] [--scoreboard PATH]   exit 1 if any verdict changed / row removed
+  (check-all and diff also take --scoreboard PATH: append one markdown table row per run, see scoreboard.py)
   phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
   phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--init ...] [--compliance ...] [--step-mode ...]
@@ -18,8 +21,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 
-from . import rules_ablate, rules_cache, rules_checks, rules_gate, rules_iso
+from . import rules_ablate, rules_cache, rules_checks, rules_gate, rules_iso, rules_verdicts, scoreboard
 from .schemas_rules import InstitutionJSON, Property, RuleCheckReport, RulesLoadError, default_paths, load_institutions, load_properties
 
 
@@ -157,6 +161,7 @@ def cmd_check(a) -> int:
 
 
 def cmd_check_all(a) -> int:
+    t0 = time.monotonic()
     insts, props = _load(a)
     rows, warns, reps = [], [], []
     cache = _make_cache(a)
@@ -166,6 +171,8 @@ def cmd_check_all(a) -> int:
         reps.append(rep)
         rows.extend(_rows(inst, rep))
         warns.extend(f"{inst.id}: {w}" for w in rep.warnings)
+    if getattr(a, "scoreboard", None):
+        scoreboard.append_row(a.scoreboard, _scoreboard_row("rules check-all", reps, t0, None))
     if a.json:
         print(json.dumps([json.loads(r.model_dump_json()) for r in reps], indent=1))
         return 0
@@ -174,6 +181,60 @@ def cmd_check_all(a) -> int:
         print()
         print(_timing_summary(reps, cache))
     return 1 if any(r[5] == "NO" for r in rows) else 0
+
+
+def _run_reports(a, insts, props, k, init, compliance, step_mode):
+    cache = _make_cache(a)
+    return [rules_checks.run_all(i, props, k=k, init=init, compliance=compliance, step_mode=step_mode, cache=cache)
+            for i in insts]
+
+
+def _scoreboard_row(command: str, reps, t0: float, changes) -> dict:
+    return {"date": scoreboard.today(), "engine": scoreboard.engine_commit(), "command": command,
+            "rows": sum(len(r.results) for r in reps), "verdict_changes": "-" if changes is None else changes,
+            "z3_unknowns": sum(1 for r in reps for x in r.results if x.z3_unknown),
+            "wall_s": f"{time.monotonic() - t0:.1f}",
+            "inconsistent": ",".join(r.institution for r in reps if r.consistent == "unsat") or "-"}
+
+
+def cmd_verdicts(a) -> int:
+    insts, props = _load(a)
+    reps = _run_reports(a, insts, props, a.k, a.init, a.compliance, a.step_mode)
+    base = rules_verdicts.make_baseline(reps, k=a.k, init=a.init, compliance=a.compliance, step_mode=a.step_mode)
+    rules_verdicts.write_baseline(a.out, base)
+    print(f"wrote {a.out}: {len(base['rows'])} rows, engine_hash {base['engine_hash'][:12]}")
+    return 0
+
+
+def cmd_diff(a) -> int:
+    t0 = time.monotonic()
+    try:
+        base = rules_verdicts.load_baseline(a.baseline)
+    except (OSError, ValueError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    bp = base["params"]
+    k = a.k if a.k is not None else bp["k"]
+    init = a.init if a.init is not None else bp["init"]
+    compliance = a.compliance if a.compliance is not None else bp["compliance"]
+    step_mode = a.step_mode if a.step_mode is not None else bp["step_mode"]
+    insts, props = _load(a)
+    reps = _run_reports(a, insts, props, k, init, compliance, step_mode)
+    d = rules_verdicts.diff_rows(rules_verdicts.baseline_rows(base), rules_verdicts.rows_from_reports(reps))
+    d["params"] = {"k": k, "init": init, "compliance": compliance, "step_mode": step_mode}
+    d["baseline_engine_hash"] = base.get("engine_hash")
+    d["engine_hash"] = rules_cache.code_hash()
+    print(rules_verdicts.format_diff(d))
+    if d["baseline_engine_hash"] != d["engine_hash"]:
+        print("note: engine source hash differs from the baseline's", file=sys.stderr)
+    if d["params"] != bp:
+        print(f"note: parameters differ from the baseline's {bp}", file=sys.stderr)
+    if a.json_out:
+        from pathlib import Path
+        Path(a.json_out).write_text(json.dumps(d, indent=1, sort_keys=True) + "\n")
+    if a.scoreboard:
+        scoreboard.append_row(a.scoreboard, _scoreboard_row("rules diff", reps, t0, len(d["changed"])))
+    return 0 if d["ok"] else 1
 
 
 def cmd_cache(a) -> int:
@@ -355,7 +416,24 @@ def register(sub) -> None:
     s.add_argument("--trace", action="store_true", help="print counterexample traces")
     s.set_defaults(fn=cmd_check)
     s = rs.add_parser("check-all"); common(s); cache_flags(s)
+    s.add_argument("--scoreboard", default=None, metavar="PATH", help="append one markdown table row for this run")
     s.set_defaults(fn=cmd_check_all)
+
+    s = rs.add_parser("verdicts", help="write a golden-verdict baseline (sorted, timing-free JSON)"); common(s); cache_flags(s)
+    s.add_argument("--out", required=True, metavar="FILE")
+    s.set_defaults(fn=cmd_verdicts)
+
+    s = rs.add_parser("diff", help="recompute and diff against a baseline; exit 1 on changed / removed rows")
+    s.add_argument("--baseline", required=True, metavar="FILE")
+    s.add_argument("--k", type=int, default=None, help="override the baseline's k")
+    s.add_argument("--init", choices=["empty", "free", "declared"], default=None)
+    s.add_argument("--compliance", choices=["strict", "sanctioned"], default=None)
+    s.add_argument("--step-mode", choices=["one", "many"], default=None)
+    s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
+    s.add_argument("--json", dest="json_out", default=None, metavar="OUT", help="write the diff as JSON")
+    s.add_argument("--scoreboard", default=None, metavar="PATH")
+    cache_flags(s)
+    s.set_defaults(fn=cmd_diff)
     s = rs.add_parser("cache", help="result cache under runs/rules-cache/: stats | clear")
     s.add_argument("action", choices=["stats", "clear"])
     s.set_defaults(fn=cmd_cache)
