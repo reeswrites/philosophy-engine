@@ -32,3 +32,27 @@ class AbmReport:
 
     def final_adoption(self) -> dict[str, dict[str, float]]:
         return self.adoption[-1] if self.adoption else {}
+
+
+def summarize(reports: list[AbmReport]) -> dict:
+    """Rates over seeds (plan: "Frequency, not entailment"): mean final adoption share per role and action, mean
+    final fluent rate, plus every per-seed report. Statements about an encoding plus a policy, not a population."""
+    n = len(reports)
+    adoption: dict[str, dict[str, float]] = {}
+    fluents: dict[str, float] = {}
+    for r in reports:
+        for role, shares in r.final_adoption().items():
+            acc = adoption.setdefault(role, {})
+            for a, s in shares.items():
+                acc[a] = acc.get(a, 0.0) + s / n
+        for f, v in r.fluent_rates.items():
+            fluents[f] = fluents.get(f, 0.0) + v / n
+    return {
+        "institution": reports[0].institution if reports else None,
+        "seeds": [r.seed for r in reports],
+        "modules": reports[0].modules if reports else [],
+        "steps": reports[0].steps if reports else 0,
+        "adoption_over_seeds": {role: dict(sorted(v.items())) for role, v in sorted(adoption.items())},
+        "fluent_rates_over_seeds": dict(sorted(fluents.items())),
+        "runs": [r.to_dict() for r in reports],
+    }

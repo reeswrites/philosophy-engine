@@ -195,6 +195,7 @@ class Reference:
                 if a.name in named and (not args or args[0] not in named[a.name]):
                     continue
                 self.action_insts.append((a.name, args))
+        self.action_inst_set = set(self.action_insts)  # membership tests in power / compliant_step
         self.rules_on: dict[tuple, list[RuleInst]] = {}
         for ri in self.rule_insts:
             self.rules_on.setdefault((ri.action, ri.args), []).append(ri)
@@ -304,7 +305,7 @@ class Reference:
         disability bars. Computed from the rule instances directly, not via `enabled` (whose unregulated floor is
         for firing, not for power: ADR 0013 amendment 2026-11-03)."""
         act = (action, tuple(args))
-        if act not in set(self.action_insts):
+        if act not in self.action_inst_set:
             return False
         if not any(self.cond_holds(ri, state) for ri in self.rules_on.get(act, []) if ri.deontic in ("may", "must")):
             return False
@@ -343,7 +344,7 @@ class Reference:
         if self.step_mode == "one" and len(fired) > 1:
             bad.append(f"{len(fired)} actions in one step")
         for a in fired:
-            if a not in set(self.action_insts):
+            if a not in self.action_inst_set:
                 bad.append(f"{a} is not an action instance")
             elif not self.enabled(a, state):
                 bad.append(f"{a} not enabled")
