@@ -88,6 +88,12 @@ def parse_aim(text: str) -> sx.App:
     return a
 
 
+def regulated_actions(inst: InstitutionJSON, kinds: dict[str, str] | None = None) -> set[str]:
+    """Actions some may/must rule names; every other action is unregulated (always enabled, never (enabled ...))."""
+    return {parse_aim(r.aim).pred for r in inst.rules
+            if r.deontic in ("may", "must") and (kinds[r.id] if kinds else aim_kind(r, inst)) == "action"}
+
+
 def aim_kind(r: Rule, inst: InstitutionJSON) -> str:
     """"action" or "state" (ADR 0009): declared or inferred from the aim's head. Raises LowerError when the head
     is neither a declared action nor a declared fluent, both, or contradicts an explicit aim_kind."""
@@ -839,7 +845,7 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
     G.cond_at = cond_at
     # derived fluents: define every tuple at every step now, so the definitions are part of G.system() before
     # any property is lowered (derived_order has already rejected cycles)
-    G.regulated = {parse_aim(r.aim).pred for r in inst.rules if r.deontic in ("may", "must") and kinds[r.id] == "action"}
+    G.regulated = regulated_actions(inst, kinds)
     barred = {parse_aim(r.aim).pred for r in inst.rules if r.deontic == "must_not" and kinds[r.id] == "action"}
     for name in derived_order(inst):
         for a in sorted(_enabled_actions(G.derived[name])):

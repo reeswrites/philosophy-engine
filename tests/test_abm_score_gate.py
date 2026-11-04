@@ -205,7 +205,7 @@ def _regender_pair():
     orig = solo(rules=rules + [{"id": "R3", "attribute": "worker", "deontic": "must_not", "aim": "(quit worker)",
                                 "conditions": "true", "strand": "rival", "or_else": "R1"}], inst_id=g.KIBBUTZ)
     pair = solo(rules=rules, inst_id=g.KIBBUTZ_PAIR)
-    prop = Property(name=g.PROP_C, formal="(paid worker t)")
+    prop = Property(name=g.PROP_C, kind="structure", formal="(paid worker t)")
     return orig, pair, prop
 
 
@@ -329,7 +329,7 @@ def test_gate_a_runs_the_iff_as_a_sweep_and_ablates_pledges(monkeypatch):
     entry, and passes iff some grid point meets every (entry, configuration) expectation. Verdict logic checked
     on faked runs (as (c) is), the real body on a small toy grid."""
     fb = _pledge_entry()
-    prop = Property(name=g.A_PROP, formal="(going family t)")
+    prop = Property(name=g.A_PROP, kind="structure", formal="(going family t)")
     configs = [("material",), ("coordination",), ("material", "coordination")]
 
     _po = lambda inst_id: {"initial_practice": "go"}  # the base practice (review finding 2: step-0 guard)

@@ -8,10 +8,10 @@ from .helpers import require_dataset
 from .test_rules_lower import tiny
 
 PROPS = {
-    "worker_paid": Property(name="worker_paid", formal="(exists ((w agent)) (paid w t))"),
-    "paid_if_employed": Property(name="paid_if_employed", formal="(forall ((w agent)) (=> (employed w t) (paid w t)))"),
-    "someone_employed": Property(name="someone_employed", formal="(exists ((w agent)) (employed w t))"),
-    "boss_employed": Property(name="boss_employed", formal="(employed boss t)"),
+    "worker_paid": Property(name="worker_paid", kind="structure", formal="(exists ((w agent)) (paid w t))"),
+    "paid_if_employed": Property(name="paid_if_employed", kind="structure", formal="(forall ((w agent)) (=> (employed w t) (paid w t)))"),
+    "someone_employed": Property(name="someone_employed", kind="structure", formal="(exists ((w agent)) (employed w t))"),
+    "boss_employed": Property(name="boss_employed", kind="structure", formal="(employed boss t)"),
 }
 
 
@@ -122,7 +122,7 @@ def test_init_declared_defaults_and_initial_in_checks():
     # defaults can_claim_for=false on a fluent no action sets: never free, so no_claim holds; initial employed(worker)
     inst = tiny(fluents=[{"name": "employed", "arity": 1}, {"name": "paid", "arity": 1}, {"name": "can_claim_for", "arity": 2}],
                 defaults={"can_claim_for": "false"}, initial=["employed(worker)"])
-    props = {"claim": Property(name="claim", formal="(exists ((x agent) (y agent)) (can_claim_for x y t))"),
+    props = {"claim": Property(name="claim", kind="structure", formal="(exists ((x agent) (y agent)) (can_claim_for x y t))"),
              **PROPS}
     rep = rc.run_all(inst, props, k=3, which={"claim": ["reachable"], "someone_employed": ["invariant"]})
     assert rep.init == "declared"
@@ -142,7 +142,7 @@ def test_cli_table_shows_k_and_init(capsys, tmp_path):
     from philengine.cli import main
     inst = tiny(initial=["employed(worker)"], expected_properties={"someone_employed": "holds_to_k"}).model_dump()
     (tmp_path / "i.json").write_text(json.dumps([inst]))
-    (tmp_path / "p.json").write_text(json.dumps([{"name": "someone_employed", "formal": PROPS["someone_employed"].formal}]))
+    (tmp_path / "p.json").write_text(json.dumps([{"name": "someone_employed", "kind": "structure", "formal": PROPS["someone_employed"].formal}]))
     rc_ = main(["rules", "check-all", "--k", "3", "--institutions", str(tmp_path / "i.json"), "--properties", str(tmp_path / "p.json")])
     out = capsys.readouterr().out
     assert rc_ == 0
@@ -163,7 +163,7 @@ from .test_rules_lower import derived_police  # noqa: E402
 
 def test_inert_must_be_is_reported_and_breakable_one_is_not():
     inst = derived_police()
-    props = {"cs": Property(name="cs", formal="(can_sanction officer subject t)")}
+    props = {"cs": Property(name="cs", kind="structure", formal="(can_sanction officer subject t)")}
     rep = rc.run_all(inst, props, k=4, which={"cs": ["reachable"]})
     assert rep.inert == []  # neglect breaks provides_care while responding
     d = inst.model_dump()
@@ -186,9 +186,9 @@ def test_inert_must_be_is_reported_and_breakable_one_is_not():
 def test_vacuity_flags_on_invariant_and_persists():
     inst = derived_police()
     props = {
-        "css": Property(name="css", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))"),
-        "never": Property(name="never", formal="(forall ((s agent)) (=> (and (in_custody s t) (not (is_subject s t))) (can_exit s t)))"),
-        "subj": Property(name="subj", formal="(forall ((s agent)) (=> (is_subject s t) (not (can_exit s t))))"),
+        "css": Property(name="css", kind="structure", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))"),
+        "never": Property(name="never", kind="structure", formal="(forall ((s agent)) (=> (and (in_custody s t) (not (is_subject s t))) (can_exit s t)))"),
+        "subj": Property(name="subj", kind="structure", formal="(forall ((s agent)) (=> (is_subject s t) (not (can_exit s t))))"),
     }
     rep = rc.run_all(inst, props, k=4, which={"css": ["invariant"], "never": ["invariant"], "subj": ["persists"]})
     by = {r.property: r for r in rep.results}
@@ -225,7 +225,7 @@ def test_cli_check_all_prints_flags_and_inert(capsys, tmp_path):
     inst["expected_properties"] = {"never": "holds_to_k"}
     ip = tmp_path / "i.json"; pp = tmp_path / "p.json"
     ip.write_text(json.dumps([inst]))
-    pp.write_text(json.dumps([{"name": "never", "formal": "(forall ((s agent)) (=> (and (in_custody s t) (not (is_subject s t))) (can_exit s t)))"}]))
+    pp.write_text(json.dumps([{"name": "never", "kind": "structure", "formal": "(forall ((s agent)) (=> (and (in_custody s t) (not (is_subject s t))) (can_exit s t)))"}]))
     main(["rules", "check-all", "--k", "3", "--institutions", str(ip), "--properties", str(pp)])
     out = capsys.readouterr().out
     assert "flags" in out and "vacuous,antecedent-unreachable" in out
@@ -250,7 +250,7 @@ def test_deleting_police_sanction_rules_removes_the_bundled_power():
     holds to violated, and the current shape (no one but the carer sanctions) from a non-vacuous holds_to_k to a
     vacuous one (its antecedent, some sanction power, is unreachable)."""
     inst, props = _dataset_inst("police-crisis")
-    old = Property(name="old_shape", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))")
+    old = Property(name="old_shape", kind="structure", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))")
     cur = props["care_and_sanction_same_role"]
     ps = {"old_shape": old, cur.name: cur}
     which = {n: ["invariant"] for n in ps}

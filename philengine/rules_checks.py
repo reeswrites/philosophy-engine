@@ -146,7 +146,7 @@ def check_reachable(G: Grounded, ast, **kw) -> PropertyResult:
     r = _check([G.system(), z3.Or(*[P(t) for t in range(G.k + 1)])], **kw)
     if r.result == "sat":
         return PropertyResult(property="", check="reachable", verdict="reachable", trace=trace_of(r.model, G, P))
-    return PropertyResult(property="", check="reachable", verdict="open",
+    return PropertyResult(property="", check="reachable", verdict="open", z3_unknown=r.result == "unknown",
                           reason=r.reason or f"no compliant trace reaches it within k={G.k} (not 'safe': unbounded behaviour unknown)")
 
 
@@ -157,7 +157,7 @@ def check_invariant(G: Grounded, ast, **kw) -> PropertyResult:
         return PropertyResult(property="", check="invariant", verdict="violated", trace=trace_of(r.model, G, P))
     if r.result == "unsat":
         return PropertyResult(property="", check="invariant", verdict="holds_to_k")
-    return PropertyResult(property="", check="invariant", verdict="open", reason=r.reason)
+    return PropertyResult(property="", check="invariant", verdict="open", z3_unknown=True, reason=r.reason)
 
 
 def check_persists(G: Grounded, ast, **kw) -> PropertyResult:
@@ -168,7 +168,7 @@ def check_persists(G: Grounded, ast, **kw) -> PropertyResult:
         return PropertyResult(property="", check="persists", verdict="fails", trace=trace_of(r.model, G, P))
     if r.result == "unsat":
         return PropertyResult(property="", check="persists", verdict="persists")
-    return PropertyResult(property="", check="persists", verdict="open", reason=r.reason)
+    return PropertyResult(property="", check="persists", verdict="open", z3_unknown=True, reason=r.reason)
 
 
 CHECKS = {"reachable": check_reachable, "invariant": check_invariant, "persists": check_persists}
@@ -340,7 +340,7 @@ def run_all(
             if cons.result == "unsat":
                 res = PropertyResult(property=name, check=kind, verdict="inconsistent", reason="rules have no compliant trace")
             elif cons.result == "unknown":
-                res = PropertyResult(property=name, check=kind, verdict="open", reason=f"consistency unknown: {cons.reason}")
+                res = PropertyResult(property=name, check=kind, verdict="open", z3_unknown=True, reason=f"consistency unknown: {cons.reason}")
             else:
                 pkey = rcache.make_key(inst, entry=rcache.PROPERTY_KIND, formal=p.formal, check=kind, init=rep.init,
                                        **ckw) if cache else None

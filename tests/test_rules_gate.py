@@ -106,9 +106,9 @@ def _pair(differs_on="css", drop_rule="R4"):
     d["minimal_pair_of"] = {"id": "paternity-quota", "rule": drop_rule, "differs_on": differs_on}
     b = InstitutionJSON.model_validate(d)
     props = {
-        "css": Property(name="css", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))"),
-        "custody": Property(name="custody", formal="(in_custody subject t)"),
-        "force": Property(name="force", formal="(can_sanction officer subject t)"),
+        "css": Property(name="css", kind="structure", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))"),
+        "custody": Property(name="custody", kind="structure", formal="(in_custody subject t)"),
+        "force": Property(name="force", kind="structure", formal="(can_sanction officer subject t)"),
     }
     for i in (a, b):
         i.expected_properties = {"css": "holds_to_k", "custody": "reachable", "force": "reachable"}
@@ -159,7 +159,7 @@ def test_crit_a_fails_on_inert_load_bearing_rule():
     d["actions"] = [a for a in d["actions"] if a["name"] != "neglect"]
     d["rules"] = [r for r in d["rules"] if r["id"] != "R8"]
     stuck = InstitutionJSON.model_validate(d)
-    props = {"cs": Property(name="cs", formal="(can_sanction officer subject t)")}
+    props = {"cs": Property(name="cs", kind="structure", formal="(can_sanction officer subject t)")}
     rep = rc.run_all(stuck, props, k=3, which={"cs": ["reachable"]})
     c = rg.crit_a([stuck], {stuck.id: rep})
     assert c.status == "FAIL" and "load-bearing rule(s) inert: t-derived:R2" in c.detail

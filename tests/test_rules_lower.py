@@ -434,7 +434,7 @@ def test_derived_fluent_is_defined_by_enabledness_not_effects():
 def test_derived_fluent_appears_in_traces_and_warns_on_unregulated_actions():
     from philengine import rules_checks as rc
     inst = derived_police()
-    props = {"cs": Property(name="cs", formal="(can_sanction officer subject t)")}
+    props = {"cs": Property(name="cs", kind="structure", formal="(can_sanction officer subject t)")}
     rep = rc.run_all(inst, props, k=3, which={"cs": ["reachable"]})
     assert rep.results[0].verdict == "reachable"
     assert any("can_sanction(officer, subject)" in s.fluents for s in rep.results[0].trace)

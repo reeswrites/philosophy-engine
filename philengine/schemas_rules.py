@@ -200,8 +200,12 @@ class InstitutionJSON(BaseModel):
         return self.initial is not None or bool(self.defaults) or bool(self.initial_free)
 
 
+PropertyKind = Literal["freedom", "goods", "structure", "failure_mode"]  # priority.md decision 1
+
+
 class Property(BaseModel):
     name: str
+    kind: PropertyKind  # required: freedom / goods count toward ablation load; structure / failure_mode are listed
     gloss: str = ""
     formal: str  # state formula, `t` free; fluent applications carry t last
     scope: str | None = None
@@ -221,6 +225,7 @@ class PropertyResult(BaseModel):
     trace: list[TraceStep] | None = None
     reason: str | None = None  # z3 reason_unknown, lowering error, ...
     z3_ms: int = 0
+    z3_unknown: bool = False  # verdict "open" because z3 gave no answer (timeout / unknown), not because the bounded search found nothing
     # vacuity (invariant / persists only): is the antecedent (the formula's implication premise, else the formula)
     # true at some step of some compliant trace, and does any `is_*` fluent ever hold? None = not applicable
     antecedent_reachable: bool | None = None

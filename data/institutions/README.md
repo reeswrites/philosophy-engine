@@ -371,3 +371,14 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
 - **DRIFT 3 (iso, recorded not tuned):** preregistered distance about 3 and matched 4 held at guard+strands and exact but
   not at guard, where the observed distance is 2 and matched 5. Not-iso verdicts unaffected. Other-institution
   comparisons were not rerun beyond the gate (PASS); no change claimed.
+
+## Property kinds (2026-11-04, plans/priority.md slice 1)
+
+Every property in `properties.json` now carries a `kind` key (decision 1 of "Decisions waiting on the author"). The engine ignores it; the ablation reads it to decide what is counted. 24 properties.
+
+- `freedom` (counted in load_freedom): dependent_cannot_exit, subject_cannot_exit, subject_cannot_exit_persists, no_standing, no_standing_persists, financial_dependence, financial_dependence_unpropertied, cannot_contract, worker_uninsured, binding_practised, marriage_requires_binding, care_assigned_by_sex, reproduction_controlled_by_owner, offspring_owned, and the new `female_parent_care_persists` (15 in all).
+- `goods` (counted in load_goods): none yet; slice 2 writes them.
+- `structure` (diagnostic, listed not counted): care_and_sanction_same_role, solo_care_by_non_birthing_parent, leave_reserved_for_non_birthing_parent, new_convention_adopted, birth_labor_rival, care_decoupled_from_birth.
+- `failure_mode` (listed not counted): double_burden, creditor_shield, backlash.
+
+New property `female_parent_care_persists` (kind `freedom`, check `persists`): formula and gloss from plans/ectogenesis.md "Revision 2" section 5, so that ectogenesis R5 has a freedom property to carry. It is not in any entry's `expected_properties` (ablation reads it regardless), so `check-all` does not run it and the count stays 123/123.

@@ -5,6 +5,7 @@
   phil rules check-all [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--no-cache] [--timing]
   phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
+  phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--init ...] [--compliance ...] [--step-mode ...]
   phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
 Prints a compact table: institution, property, check, expected, got, match, flags, k, init; `flags` is `vacuous`
@@ -18,7 +19,7 @@ import argparse
 import json
 import sys
 
-from . import rules_cache, rules_checks, rules_gate, rules_iso
+from . import rules_ablate, rules_cache, rules_checks, rules_gate, rules_iso
 from .schemas_rules import InstitutionJSON, Property, RuleCheckReport, RulesLoadError, default_paths, load_institutions, load_properties
 
 
@@ -249,6 +250,77 @@ def cmd_gate(a) -> int:
     return 0 if rep.passed else 1
 
 
+def cmd_ablate(a) -> int:
+    insts, props = _load(a)
+    try:
+        ks = tuple(int(x) for x in a.k.split(","))
+    except ValueError:
+        print(f"--k {a.k!r}: expected comma-separated integers, e.g. 6,8", file=sys.stderr)
+        return 2
+    all_insts = insts
+    if a.entry:
+        insts = [i for i in insts if i.id in a.entry]
+        if not insts:
+            print(f"no entry matches {a.entry}", file=sys.stderr)
+            return 2
+    full = {}
+    results = {}
+    kinds = rules_ablate.check_kinds(all_insts)
+    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "load_goods", "note", "orphaned_or_else", "k-disagree", "flips")
+
+    def row(m):
+        first = m.by_k[ks[0]]
+        lf = "/".join(str(m.by_k[k].load_freedom) for k in ks)
+        ud = "/".join(f"{m.by_k[k].load_freedom_up}+{m.by_k[k].load_freedom_down}" for k in ks)
+        lg = "/".join(str(m.by_k[k].load_goods) for k in ks)
+        if first.inconsistent_after:
+            summ = "inconsistent after deletion (no compliant trace)"
+        else:
+            summ = ", ".join(f"{n}:{b}>{c}[{first.flip_directions.get(n, '')}]" if first.flip_directions.get(n) else f"{n}:{b}>{c}"
+                             for n, b, c in first.flips) or "-"
+        note = ("deregulated (action becomes unregulated: always enabled, derived power zeroed)" if first.deregulated
+                else "permission removed" if first.permission_removed else "-")
+        return (m.rule_id, first.deontic, first.strand, lf, ud, lg, note,
+                ",".join(first.orphaned_or_else) or "-", ",".join(m.k_disagreement) or "-", summ)
+
+    def table(rows):
+        widths = [max(len(str(x[i])) for x in [hdr, *rows]) for i in range(len(hdr))]
+        fmt = "  ".join("{:<%d}" % w for w in widths)
+        print(fmt.format(*hdr))
+        print(fmt.format(*["-" * w for w in widths]))
+        for r in rows:
+            print(fmt.format(*[str(x) for x in r]))
+
+    for inst in insts:
+        res = rules_ablate.ablate_multi_k(inst, props, ks, kinds, init=a.init, compliance=a.compliance, step_mode=a.step_mode)
+        results[inst.id] = res
+        r0 = res[0].by_k[ks[0]] if res else None
+        full[inst.id] = {"applicable": r0.applicable if r0 else 0,
+                         "not_applicable": r0.not_applicable if r0 else [],
+                         "check_kinds": r0.check_kinds if r0 else {},
+                         "rules": [m.to_dict() for m in res]}
+        res.sort(key=lambda m: (-m.by_k[ks[0]].load_freedom, m.rule_id))
+        napp = f"{r0.applicable} properties applicable, {len(r0.not_applicable)} not applicable" if r0 else "no rules"
+        print(f"== {inst.id}  ({napp}; k={','.join(map(str, ks))}; loads shown per k; flips at k={ks[0]}; open means not found within k)")
+        if r0:
+            print("   check kinds: " + ", ".join(f"{n}={c}" for n, c in sorted(r0.check_kinds.items())))
+        table([row(m) for m in res if not m.by_k[ks[0]].deregulated])
+        dereg = [row(m) for m in res if m.by_k[ks[0]].deregulated]
+        if dereg:
+            print("-- deregulated, not ranked (the deleted rule was the action's last may/must; loads shown, excluded from ranking)")
+            table(dereg)
+        print()
+    if a.summary:
+        from pathlib import Path
+        Path(a.summary).write_text(json.dumps(rules_ablate.summarize(results, ks), indent=1))
+        print(f"wrote {a.summary}")
+    if a.json:
+        from pathlib import Path
+        Path(a.json).write_text(json.dumps({"ks": list(ks), "entries": full}, indent=1))
+        print(f"wrote {a.json}")
+    return 0
+
+
 def register(sub) -> None:
     """Attach `rules` to the top-level `phil` subparsers."""
     p = sub.add_parser("rules", help="institutions family: bounded z3 checks over ADICO rules")
@@ -290,6 +362,18 @@ def register(sub) -> None:
     s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_iso)
+    s = rs.add_parser("ablate", help="delete each rule, report which property verdicts flip (load_freedom / load_goods)")
+    for flag in ("--institutions", "--properties"):
+        s.add_argument(flag, default=None)
+    s.add_argument("--init", choices=["empty", "free", "declared"], default=None)
+    s.add_argument("--compliance", choices=["strict", "sanctioned"], default="strict")
+    s.add_argument("--step-mode", choices=["one", "many"], default="one")
+    s.set_defaults(fn=cmd_ablate)
+    s.add_argument("--k", default="6,8", help="comma-separated bounds (default 6,8)")
+    s.add_argument("--entry", action="append", default=None, help="restrict to this institution id (repeatable)")
+    s.add_argument("--json", default=None, metavar="PATH", help="write the full structure to PATH")
+    s.add_argument("--summary", default=None, metavar="PATH",
+                   help="write the per-entry ranking summary (top ranked rules, ties, inconsistent/uncounted counts) to PATH")
     s = rs.add_parser("gate", help="Phase 0 gate (a)-(f); exit 0 = PASS"); common(s)
     s.add_argument("--verbose", action="store_true", help="print the per-pair iso reports behind each criterion")
     s.set_defaults(fn=cmd_gate)

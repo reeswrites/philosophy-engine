@@ -25,7 +25,7 @@ CHECKS = ("reachable", "invariant", "persists")
 
 
 def P(name, formal):
-    return Property(name=name, formal=formal)
+    return Property(name=name, kind="structure", formal=formal)
 
 
 # ---------------------------------------------------------------- tiny institutions

@@ -9,8 +9,8 @@ from philengine.schemas_rules import Property
 from .test_rules_lower import tiny
 
 PROPS = {
-    "worker_paid": Property(name="worker_paid", formal="(exists ((w agent)) (paid w t))"),
-    "paid_if_employed": Property(name="paid_if_employed", formal="(forall ((w agent)) (=> (employed w t) (paid w t)))"),
+    "worker_paid": Property(name="worker_paid", kind="structure", formal="(exists ((w agent)) (paid w t))"),
+    "paid_if_employed": Property(name="paid_if_employed", kind="structure", formal="(forall ((w agent)) (=> (employed w t) (paid w t)))"),
 }
 WHICH = {"worker_paid": ["reachable"], "paid_if_employed": ["invariant", "persists"]}
 
@@ -144,7 +144,7 @@ def test_changed_run_options_miss(tmp_path, over):
 def test_changed_property_text_or_institution_misses(tmp_path):
     run(tiny(), RuleCache(tmp_path))
     c = RuleCache(tmp_path)
-    rc.run_all(tiny(), {**PROPS, "worker_paid": Property(name="worker_paid", formal="(exists ((w agent)) (employed w t))")},
+    rc.run_all(tiny(), {**PROPS, "worker_paid": Property(name="worker_paid", kind="structure", formal="(exists ((w agent)) (employed w t))")},
                k=3, which=WHICH, cache=c)
     assert c.hits == 1 + 2  # institution + the two untouched property checks
     c = RuleCache(tmp_path)
