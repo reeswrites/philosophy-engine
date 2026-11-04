@@ -327,6 +327,19 @@ def test_spawn_workers_match_serial(monkeypatch):
     assert [a.to_dict() for a in s1] == [a.to_dict() for a in s2] and len(s1) == 5  # R1, R1~prohibit, R2, R3, R3~prohibit
     m1 = ra.ablate_multi_k(inst, props, (6, 8))
     assert [m.to_dict() for m in m1] == [m.to_dict() for m in m2]
+    # and with a default-capacity action plus a non-true-condition may, so the spawn path covers every branch of _ablate_one
+    d = inst.model_dump()
+    for a in d["actions"]:
+        if a["name"] == "exit":
+            a["default_capacity"] = True
+    for r in d["rules"]:
+        if r["id"] == "R3":
+            r["conditions"] = "(bound p)"
+    cap = InstitutionJSON.model_validate(d)
+    c1 = ra.ablate(cap, props, 6, workers=1)
+    with parallel.pool(2):
+        c2 = ra.ablate(cap, props, 6, workers=None)
+    assert [a.to_dict() for a in c1] == [a.to_dict() for a in c2]
 
 
 def test_default_capacity_sole_may_is_not_deregulated():
@@ -338,6 +351,24 @@ def test_default_capacity_sole_may_is_not_deregulated():
     cap = InstitutionJSON.model_validate(d)
     assert {a.rule_id: a.deregulated for a in ra.ablate(cap, props, k=4) if a.variant == "deleted"}["R3"] is False
     assert {a.rule_id: a.deregulated for a in ra.ablate(inst, props, k=4) if a.variant == "deleted"}["R3"] is True  # power action
+
+
+def test_default_capacity_prohibit_variant_is_not_offcondition_free():
+    """Revision 4b: free off-condition is a default-capacity action's baseline, so its prohibit variant ranks."""
+    inst, props = keeper_free()
+    d = inst.model_dump()
+    for a in d["actions"]:
+        if a["name"] == "exit":
+            a["default_capacity"] = True
+    for r in d["rules"]:
+        if r["id"] == "R3":
+            r["conditions"] = "(bound p)"  # non-true condition on the sole regulator: the leaky shape for a power action
+    cap = InstitutionJSON.model_validate(d)
+    pw = InstitutionJSON.model_validate({**d, "actions": inst.model_dump()["actions"]})
+    rows_cap = {a.rule_id: a for a in ra.ablate(cap, props, k=4)}
+    rows_pw = {a.rule_id: a for a in ra.ablate(pw, props, k=4)}
+    assert rows_cap["R3~prohibit"].offcondition_free is False
+    assert rows_pw["R3~prohibit"].offcondition_free is True
 
 
 def test_cli_ablate_scoreboard_rows(tmp_path, monkeypatch):

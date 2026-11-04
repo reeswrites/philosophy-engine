@@ -230,6 +230,11 @@ def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
     return run_map(_ablate_one, jobs, workers)
 
 
+
+def _default_capacity(inst: InstitutionJSON, action: str) -> bool:
+    decl = next((a for a in inst.actions if a.name == action), None)
+    return bool(decl and decl.default_capacity)
+
 def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, kinds: dict[str, str] | None,
                 rule_id: str, variant: str, run_kw: dict, unfreedom: frozenset | None = None) -> RuleAblation:
     # `unfreedom` travels with the job: the polarity table is a hand input, and a spawned worker re-imports this module
@@ -250,16 +255,17 @@ def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, 
             head = parse_aim(rule.aim).pred
             ab.sole_rule = not any(parse_aim(r.aim).pred == head for r in inst2.rules)
             if rule.deontic == "may":  # only a deleted permission "deregulates"; cutting a must/must_not is a cut
-                decl = next((a for a in inst.actions if a.name == head), None)
-                default_cap = bool(decl and decl.default_capacity)
                 # a default-capacity action is never regulated by permission (fires freely unless a disability bars it): ranks normally
-                ab.deregulated = head not in regulated_actions(inst2) and not default_cap
+                ab.deregulated = head not in regulated_actions(inst2) and not _default_capacity(inst, head)
         ab.permission_removed = rule.deontic == "may" and not ab.deregulated
     else:
         inst2, ab.orphaned_or_else = prohibited(inst, rule.id)
         ab.permission_removed = True
+        head = parse_aim(rule.aim).pred
+        # off-condition the action is free: a leak for a power action (the prohibit widened it), the baseline for a
+        # default-capacity action (revision 4b: the variant is then a clean "add a disability" row and ranks)
         if (aim_kind(rule, inst) == "action" and rule.conditions.strip() not in TRUE_WORDS
-                and parse_aim(rule.aim).pred not in regulated_actions(inst2)):
+                and head not in regulated_actions(inst2) and not _default_capacity(inst, head)):
             ab.offcondition_free = True
     _fill(ab, inst2, properties, k, which, base, bv, unfreedom=unfreedom, **run_kw)
     return ab
