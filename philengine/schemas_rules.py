@@ -81,16 +81,6 @@ class ActionDecl(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _liberty_alias(cls, data):
-        # alias for the 2026-11-04 dataset; remove after the dataset is regenerated
-        if isinstance(data, dict) and "liberty" in data:
-            data = dict(data)
-            old = data.pop("liberty")
-            data.setdefault("default_capacity", old)
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
     def _typed_args(cls, data):
         """Accept `args: [["h", "husband"], "w", {"name": "c", "role": "child"}]`: split into args + arg_roles."""
         if not isinstance(data, dict) or not isinstance(data.get("args"), list):

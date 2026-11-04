@@ -338,3 +338,25 @@ def test_default_capacity_sole_may_is_not_deregulated():
     cap = InstitutionJSON.model_validate(d)
     assert {a.rule_id: a.deregulated for a in ra.ablate(cap, props, k=4) if a.variant == "deleted"}["R3"] is False
     assert {a.rule_id: a.deregulated for a in ra.ablate(inst, props, k=4) if a.variant == "deleted"}["R3"] is True  # power action
+
+
+def test_cli_ablate_scoreboard_rows(tmp_path, monkeypatch):
+    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
+    inst, props = keeper_free()
+    (tmp_path / "i.json").write_text(json.dumps([inst.model_dump(mode="json")]))
+    (tmp_path / "p.json").write_text(json.dumps([p.model_dump(mode="json") for p in props.values()]))
+    board, summ = tmp_path / "board.md", tmp_path / "s.json"
+    from philengine.cli import build_parser
+
+    def run(*extra):
+        a = build_parser().parse_args(["rules", "ablate", "--k", "3,4", "--institutions", str(tmp_path / "i.json"),
+                                       "--properties", str(tmp_path / "p.json"), "--scoreboard", str(board), *extra])
+        assert a.fn(a) == 0
+
+    run("--summary", str(summ))
+    run("--prev", str(summ))
+    lines = board.read_text().splitlines()
+    assert sum(l.startswith("| date ") for l in lines) == 1 and len(lines) == 4
+    first, second = ([c.strip() for c in l.strip("|").split("|")] for l in lines[2:])
+    assert first[2] == "rules ablate" and first[3] == "1" and first[-1] == "-"
+    assert second[-1] == "0"

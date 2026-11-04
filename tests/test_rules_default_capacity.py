@@ -153,9 +153,3 @@ def test_sanctioned_must_not_leaves_the_default_capacity_in_place():
     assert vs["barred"] == "reachable" and vd["barred"] == "open"
     ref = Reference(sanctioned, k=3)
     assert ref.verdict(BARRED, "reachable") == vs["barred"]
-
-
-def test_legacy_liberty_key_is_accepted_as_alias():
-    from philengine.schemas_rules import ActionDecl
-    assert ActionDecl.model_validate({"name": "c", "args": ["p"], "liberty": True}).default_capacity is True
-    assert ActionDecl.model_validate({"name": "c", "args": ["p"]}).default_capacity is False

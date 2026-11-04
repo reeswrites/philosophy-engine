@@ -8,7 +8,7 @@
   (check-all and diff also take --scoreboard PATH: append one markdown table row per run, see scoreboard.py)
   phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
-  phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--init ...] [--compliance ...] [--step-mode ...]
+  phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
   phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
 Prints a compact table: institution, property, check, expected, got, match, flags, k, init; `flags` is `vacuous`
@@ -387,6 +387,12 @@ def cmd_ablate(a) -> int:
         from pathlib import Path
         Path(a.json).write_text(json.dumps({"ks": list(ks), "entries": full}, indent=1))
         print(f"wrote {a.json}")
+    if a.scoreboard:
+        prev = json.loads(__import__("pathlib").Path(a.prev).read_text()) if a.prev else None
+        stats = rules_ablate.scoreboard_stats(results, ks, prev)
+        scoreboard.append_row(a.scoreboard, {"date": scoreboard.today(), "engine": scoreboard.engine_commit(),
+                                             "command": "rules ablate", **stats}, kind="ablate")
+        print(f"appended {a.scoreboard}")
     return 0
 
 
@@ -461,6 +467,8 @@ def register(sub) -> None:
     s.add_argument("--workers", type=int, default=parallel.workers_default(), metavar="N", help="processes (spawn on macOS); default: cpu-based")
     s.add_argument("--summary", default=None, metavar="PATH",
                    help="write the per-entry ranking summary (top ranked rules, ties, inconsistent/uncounted counts) to PATH")
+    s.add_argument("--scoreboard", default=None, metavar="PATH", help="append one row (entries, rows, uncounted, ...) to this markdown scoreboard")
+    s.add_argument("--prev", default=None, metavar="PATH", help="a previous --summary JSON; fills top_rule_changes in the scoreboard row")
     s = rs.add_parser("gate", help="Phase 0 gate (a)-(f); exit 0 = PASS"); common(s)
     s.add_argument("--verbose", action="store_true", help="print the per-pair iso reports behind each criterion")
     s.set_defaults(fn=cmd_gate)

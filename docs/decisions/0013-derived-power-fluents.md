@@ -41,8 +41,8 @@ grants (detain, attach, reassign) and wrong for default capacities an institutio
 R7 `must_not contract`): cutting a sole prohibition could never move a derived power, because with nothing granting it
 the power was already constant false. Experiment 2026-11-05: flipping nameless actions to enabled across the board moved
 14 preregistered verdicts (coverture read liberal), so the split cannot be a global default; it is declared per action by
-the encoder, preregistered. `ActionDecl.default_capacity: bool = False` (the old key `liberty` is still accepted as an
-input alias for the 2026-11-04 dataset, to be removed once it is regenerated). For a default-capacity action instance,
+the encoder, preregistered. `ActionDecl.default_capacity: bool = False` (the old key `liberty` was accepted as an
+input alias; the alias was removed 2026-11-04 after the dataset sync). For a default-capacity action instance,
 `(enabled a args)` at t is true iff no disability (a `must_not` with `or_else` null) on that instance has its condition
 true at t, whether or not a `may`/`must` names it (a `may`/`must` on it is redundant for enablement; a `must` still
 matters as an obligation). A power action (the default) keeps the 2026-11-03 semantics. A default capacity is what a

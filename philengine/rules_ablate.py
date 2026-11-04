@@ -251,7 +251,7 @@ def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, 
             ab.sole_rule = not any(parse_aim(r.aim).pred == head for r in inst2.rules)
             if rule.deontic == "may":  # only a deleted permission "deregulates"; cutting a must/must_not is a cut
                 decl = next((a for a in inst.actions if a.name == head), None)
-                default_cap = bool(decl and (getattr(decl, "default_capacity", False) or getattr(decl, "liberty", False)))
+                default_cap = bool(decl and decl.default_capacity)
                 # a default-capacity action is never regulated by permission (fires freely unless a disability bars it): ranks normally
                 ab.deregulated = head not in regulated_actions(inst2) and not default_cap
         ab.permission_removed = rule.deontic == "may" and not ab.deregulated
@@ -375,3 +375,17 @@ def summarize(entries: dict[str, list[MultiKAblation]], ks: tuple[int, ...]) -> 
     return {"ks": list(ks), "entries": out,
             "totals": {"entries": len(out), "inconsistent_after": sum(e["inconsistent_after"] for e in out.values()),
                        "uncounted": sum(e["uncounted"] for e in out.values())}}
+
+
+def scoreboard_stats(results: dict[str, list[MultiKAblation]], ks, prev_summary: dict | None = None) -> dict:
+    """Row for `scoreboard.append_row(..., kind="ablate")`. rows = rule rows per k (sum of len(rules) over entries);
+    top_rule_changes = entries whose top_rules differ from prev_summary (a previous `summarize` dict), else "-"."""
+    summ = summarize(results, ks)
+    changes = "-"
+    if prev_summary is not None:
+        prev = prev_summary.get("entries", {})
+        changes = sum(1 for eid, e in summ["entries"].items() if e["top_rules"] != prev.get(eid, {}).get("top_rules"))
+    return {"entries": summ["totals"]["entries"], "rows": sum(len(r) for r in results.values()),
+            "uncounted": summ["totals"]["uncounted"], "inconsistent_after": summ["totals"]["inconsistent_after"],
+            "k_disagreements": sum(1 for r in results.values() for m in r if m.k_disagreement),
+            "top_rule_changes": changes}
