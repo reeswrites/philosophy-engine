@@ -243,7 +243,7 @@ def _no_sanction(inst):
 def test_breach_when_payoff_beats_expected_sanction():
     inst, pay = shop_with_rest()
     cheap = InstitutionModel(inst, seed=0, agents_per_role=4, payoffs=pay, params=dict(sanction_weight=1.0, copy_rate=0.0))
-    cheap.step(); cheap.step()  # step 2: paid(worker) holds, boss is obliged to pay; rest nets 10 - 1 > 1
+    cheap.step(); cheap.step()  # step 2: paid(worker) holds, boss is obliged to pay; rest nets 10 - 1*3 > 1
     assert cheap.obligations_for("boss") == [("pay", ("boss", "worker"))]
     assert all(a.chosen == ("rest", ("boss",)) and a.breached == ["R3"] for a in cheap.by_role["boss"])
     assert cheap.breaches[-1]["boss"] == 1.0 and cheap.sanctioned[-1]["boss"] == 1.0
@@ -259,22 +259,26 @@ def test_breach_when_payoff_beats_expected_sanction():
                               {"id": "R6", "attribute": "boss", "deontic": "must", "aim": "(pay boss worker)",
                                "conditions": "(paid worker)", "strand": "rival", "or_else": "R1"}])
     double = InstitutionModel(twice, seed=0, agents_per_role=4, payoffs=pay, params=dict(sanction_weight=1.0, copy_rate=0.0))
-    double.step(); double.step()  # rest nets 10 - 2 > 1
+    double.step(); double.step()  # rest nets 10 - 2*3 > 1 (two rules, three sanction steps each)
     assert all(a.chosen == ("rest", ("boss",)) and sorted(a.breached) == ["R3", "R6"] for a in double.by_role["boss"])
     assert all(a.sanction_now == 2.0 and a.last_payoff == 10.0 - 2.0 for a in double.by_role["boss"])
 
 
 def test_graduated_sanction_and_sanction_steps():
+    """Updated 2026-11-04 (slice-2 review item a): the expected sanction is the per-step charge times
+    sanction_steps, the same total the agent then pays over the window; before, expectation was priced for one
+    step while the charge ran for sanction_steps steps."""
     inst, pay = shop_with_rest()
     m = InstitutionModel(inst, seed=0, agents_per_role=2, payoffs=pay,
                          params=dict(sanction_weight=1.0, sanction_escalation=2.0, sanction_steps=2, copy_rate=0.0))
     boss = m.by_role["boss"][0]
     m.step()
-    assert boss.expected_sanction("R3") == 1.0 and boss.expected_sanction("R1") == 0.0  # R1 is a may: no sanction
-    m.step()  # first breach
+    assert boss.sanction_charge("R3") == 1.0 and boss.expected_sanction("R3") == 2.0  # 1.0 per step * 2 steps
+    assert boss.expected_sanction("R1") == 0.0  # R1 is a may: no sanction
+    m.step()  # first breach: rest nets 10 - 2 > 1
     assert boss.breach_count == 1 and boss.sanction_now == 1.0 and boss.sanctioned
-    assert boss.expected_sanction("R3") == 2.0  # graduated
-    m.step()  # second breach: rest nets 10 - 2 > 1
+    assert boss.sanction_charge("R3") == 2.0 and boss.expected_sanction("R3") == 4.0  # graduated
+    m.step()  # second breach: rest nets 10 - 4 > 1
     assert boss.breach_count == 2 and boss.sanction_now == 2.0 and boss.last_payoff == 8.0
     assert boss.sanctioned_until == m.t - 1 + 2
 

@@ -1,29 +1,44 @@
 """One adaptive agent per (role, index): holds its role, adoption state (`practice`), pledge, surplus, threshold,
 trust, breach and sanction state.
 
-Choice at a step (plan: "Step"; decisions A3-A5 in computational-liberation/docs/decisions-pending.md), in this
-priority order (ASSUMED):
-  1. lawful set: the obligations (must instances whose condition holds) if any, else the available actions no
-     sanctionable must_not forbids now. A `must` is a choice, not a constraint (A4): any available action whose
-     net payoff (payoff minus expected sanction for the rules it breaches) beats the best lawful net payoff joins
-     the candidate set. A rule with `or_else: null` carries no sanction, so breaching it is free; a must_not with
-     `or_else: null` is a disability and `Reference.power` already removed it (ADR 0013).
-  2. material: below the surplus `floor` the candidates collapse to the current practice plus the obligations.
+Choice at a step (plan: "Step"; decisions A3-A5 in computational-liberation/docs/decisions-pending.md; A8 state
+obligations in ADR 0015, amendment 2026-11-04), in this priority order (ASSUMED):
+  1. lawful set: the available actions that breach nothing in force now: no sanctionable must_not forbids them, every
+     action-aimed must on this role is met, and every state-aimed must (ADR 0009 must-be, A8) is kept. Choosing
+     nothing is lawful too iff it breaches nothing (no action must is in force and every must-be fluent already
+     holds): it is the zero-payoff baseline, never a candidate by itself. A `must` is a choice, not a constraint
+     (A4): any available action whose net payoff (payoff minus expected sanction for the rules it breaches) beats
+     the best lawful net payoff joins the candidate set. A rule with `or_else: null` carries no sanction, so
+     breaching it is free; a must_not with `or_else: null` is a disability and `Reference.power` already removed
+     it (ADR 0013). With no lawful option at all (conflicting musts, or a must-be nothing available can establish)
+     every available action is a candidate and the model records the diagnostic once per run (`report.warnings`).
+  2. material: below the surplus `floor` the candidates collapse to the current practice plus the obligations
+     (action musts, and the lawful actions when a state obligation is in force).
   3. with probability `copy_rate`, imitate the neighbour whose last action earned most (Axelrod-style), if it earned
      more than this agent did;
   4. else material payoff-following: switch to the candidate whose net payoff strictly beats the current practice's;
   5. else take the candidate whose same-role neighbour share (practice or pledge, A3) meets this `threshold`;
   6. else, with no usable practice, material bootstrap: the best net-paying candidate (ties by the model rng);
-  7. else keep the practice; with obligations and no practice, a random obligation.
+  7. else keep the practice; with obligations in force and no usable practice, a random lawful candidate.
 Choosing a `*_pledge` action sets `pledge` to the base instance and leaves practice unchanged (A3 stand-in).
 Updates are synchronous: every choice reads the practices and pledges snapshotted at the start of the step. Every
 random draw goes through `model.random`, seeded once per run.
 
-Sanctions (A4): breaching a rule with `or_else` makes the agent sanctioned for `sanction_steps`; while sanctioned
-the realised payoff (and surplus) is reduced by `sanction_weight * sanction_escalation ** (prior breaches)`, the
-same quantity the agent expects before breaching (graduated: repeat breaches raise it).
+State obligations (A8): `must-be P when C` on role r, with C true now, obliges each agent of role r to choose an
+action whose effects leave P true in the successor state (`model.keeps`: the reference's `successor` applied to the
+current shared state plus this agent's own action alone). Breaching one is charged exactly like an action-rule
+breach and feeds trust (A5) through the fluent's declared argument roles.
+
+Sanctions (A4; one quantity for expectation and realisation, slice-2 review item): breaching a rule with `or_else`
+makes the agent sanctioned for `sanction_steps` steps; at each of those steps the realised payoff (and surplus) is
+reduced by the per-step charge `sanction_weight * sanction_escalation ** (prior breaches)`. The sanction the agent
+EXPECTS before breaching is the total of that charge over the window, per-step charge * sanction_steps
+(`expected_sanction`), so expected == realised when the agent does not breach again inside the window; a further
+breach inside the window replaces the running sanction with the new (graduated, higher) one rather than stacking
+(ASSUMED).
 Trust (A5): my trust in neighbour n moves when n keeps (+delta) or breaches (-beta*delta) an obligation bearing on
-me: the obligation instance's action has my role among its non-actor arguments.
+me: my role is among the aim's DECLARED argument roles other than the actor's (`model.bears_on`, from the action's or
+fluent's `arg_roles` as the reference types them, never from instance values).
 """
 from __future__ import annotations
 
@@ -51,11 +66,12 @@ class InstitutionAgent(mesa.Agent):
         self.chosen: ActionInst | None = None
         self.last_action: ActionInst | None = None
         self.last_payoff = 0.0
-        self.obligation_outcomes: list[tuple[ActionInst, bool]] = []  # (obligation, kept) at the last step
+        # (obligation, kept) at the last step; an obligation is an action instance (must-do) or a fluent atom (must-be)
+        self.obligation_outcomes: list[tuple[tuple, bool]] = []
         self.breached: list[str] = []  # rule ids breached at the last step
         self.breach_count = 0  # sanctionable breaches so far (graduated sanction exponent)
         self.sanctioned_until = -1  # step index; sanctioned while model.t < this
-        self.sanction_now = 0.0  # weight applied while sanctioned
+        self.sanction_now = 0.0  # per-step charge applied while sanctioned
         self.threshold = model.random.random()
         self.surplus = float(model.params["initial_surplus"])
         self.neighbours: list["InstitutionAgent"] = []
@@ -67,11 +83,16 @@ class InstitutionAgent(mesa.Agent):
         self.pledge_prev = self.pledge
 
     # ------------------------------------------------------------ sanctions
-    def expected_sanction(self, rule_id: str) -> float:
+    def sanction_charge(self, rule_id: str) -> float:
+        """Per-step charge while sanctioned for breaching `rule_id` now (0 if the rule carries no sanction)."""
         p = self.model.params
         if not self.model.sanctionable(rule_id):
             return 0.0
         return p["sanction_weight"] * p["sanction_escalation"] ** self.breach_count
+
+    def expected_sanction(self, rule_id: str) -> float:
+        """Total the agent expects to pay for breaching `rule_id` now: the per-step charge over `sanction_steps`."""
+        return self.sanction_charge(rule_id) * int(self.model.params["sanction_steps"])
 
     @property
     def sanctioned(self) -> bool:
@@ -82,23 +103,26 @@ class InstitutionAgent(mesa.Agent):
         m = self.model
         p = m.params
         available = m.available_for(self.role)
-        obl = m.obligation_rules(self.role)  # {act: [must rule ids]}
+        obl = m.obligation_rules(self.role)  # {act: [must rule ids]} (action-aimed)
+        sobl = m.state_obligation_rules(self.role)  # {fluent atom: [must-be rule ids]} (state-aimed, A8)
         forb = m.forbidding_rules(self.role)  # {act: [sanctionable must_not rule ids]}
 
         def breaches(a: ActionInst | None) -> list[str]:
             out = list(forb.get(a, [])) if a is not None else []
             out += [r for o, rs in obl.items() if o != a for r in rs]
+            out += [r for rs in m.state_breaches(self.role, a).values() for r in rs]
             return out
 
         net = {a: m.payoff(a) - sum(self.expected_sanction(r) for r in breaches(a)) for a in available}
-        lawful = [a for a in available if a in obl] if obl else [a for a in available if a not in forb]
-        if lawful:
-            best_lawful = max(net[a] for a in lawful)
+        lawful = [a for a in available if not breaches(a)]
+        none_lawful = not breaches(None)
+        if lawful or none_lawful:
+            best_lawful = max([net[a] for a in lawful] + ([0.0] if none_lawful else []))
             candidates = lawful + [a for a in available if a not in lawful and net[a] > best_lawful]
         else:
-            candidates = list(available)
+            candidates = list(available)  # nothing lawful: diagnosed by the model (unavoidable / conflicting)
         if "material" in m.modules and self.surplus < p["floor"]:
-            candidates = [a for a in candidates if a == self.practice or a in obl]
+            candidates = [a for a in candidates if a == self.practice or a in obl or (sobl and a in lawful)]
         chosen: ActionInst | None = None
         if candidates:
             if m.random.random() < p["copy_rate"]:
@@ -123,14 +147,15 @@ class InstitutionAgent(mesa.Agent):
             if chosen is None:
                 if self.practice in candidates:
                     chosen = self.practice
-                elif obl:
-                    chosen = m.random.choice([a for a in candidates if a in obl] or candidates)
+                elif obl or sobl:
+                    chosen = m.random.choice([a for a in candidates if a in lawful] or candidates)
         self.chosen = chosen
-        self.obligation_outcomes = [(o, o == chosen) for o in obl]
+        broken_atoms = m.state_breaches(self.role, chosen)
+        self.obligation_outcomes = [(o, o == chosen) for o in obl] + [(atom, atom not in broken_atoms) for atom in sobl]
         self.breached = breaches(chosen)
         sanctionable = [r for r in self.breached if m.sanctionable(r)]
         if sanctionable:
-            self.sanction_now = sum(self.expected_sanction(r) for r in sanctionable)
+            self.sanction_now = sum(self.sanction_charge(r) for r in sanctionable)
             self.breach_count += 1
             self.sanctioned_until = m.t + int(p["sanction_steps"])
         if chosen is not None:
@@ -163,8 +188,8 @@ class InstitutionAgent(mesa.Agent):
             self.surplus = max(0.0, self.surplus + m.income_for(self.role) - p["floor_cost"] - penalty)
         for n in self.neighbours:
             for o, kept in n.obligation_outcomes:
-                if self.role not in o[1][1:]:
-                    continue  # does not bear on me (A5)
+                if not m.bears_on(o, self.role, n.role):
+                    continue  # does not bear on me (A5): declared argument roles, not instance values
                 t = self.trust.get(n.unique_id, p["initial_trust"])
                 t += p["trust_delta"] if kept else -p["trust_beta"] * p["trust_delta"]
                 self.trust[n.unique_id] = min(1.0, max(0.0, t))

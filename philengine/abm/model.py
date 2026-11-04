@@ -10,6 +10,28 @@ of the rules goes through `rules_reference.Reference`:
                         rule ids); breaching one is a choice weighed against the expected sanction (A4).
   obligations_for(role) must rule instances on (a, (role, ...)) whose condition holds now (`obligation_rules`
                         gives the rule ids); likewise a choice (A4).
+  state_obligations_for(role)  (A8, ADR 0015 amendment 2026-11-04; ADR 0009 must-be) fluent atoms P of `must-be P
+                        when C` rule instances whose attribute is the role and whose C holds now
+                        (`state_obligation_rules` gives the rule ids). `state_breaches(role, a)` lists the atoms
+                        (and rule ids) that choosing `a` (or None) breaches: P is false in
+                        `Reference.successor(state, {a})`. So if P already holds, any action not clearing it
+                        keeps it; if P is false, only an action setting it true keeps it. The reading is LOCAL:
+                        the current shared state plus this agent's own action; other agents' same-step actions
+                        are not seen (state is role-level and shared, ADR 0015 A2 deferred). Strict enabledness
+                        (ADR 0013) stands: an obliged agent keeps P only through actions available to it; when P
+                        is false and no available action sets it, the breach is unavoidable and reported once
+                        per run in `warnings` (encoder diagnostic). A `must_not` state rule (must-not-be) is read
+                        symmetrically, breached iff P is true in the successor (ASSUMED).
+  bears_on(o, me, actor)  A5: an obligation (action instance or fluent atom) bears on role `me` iff `me` is among
+                        the aim's DECLARED argument roles other than the actor's: the action's `arg_roles` for
+                        positions after the actor, the fluent's `arg_roles` for a must-be, each as the reference
+                        types them (declared `arg_roles`, else a literal role name, else the rule's `var_roles`,
+                        else the prefix heuristic; ASSUMED fallback), never the instance's values.
+  no lawful action      (slice-2 review item d) when musts in force on a role leave no lawful option (two musts on
+                        different actions, a must on a forbidden action, a must-be no action can keep together
+                        with another must), the readings record it and `warnings` reports it once per run naming
+                        the rule ids as an inconsistent encoding; the agents then choose among every available
+                        action (never a crash).
   sanctionable(rule)    the rule has `or_else` (a sanction exists); `or_else: null` on a must = free to breach.
   is_pledge / pledge_base  an action named `X_pledge` with X declared is a pledge for X (A3 stand-in).
   successor             `Reference.successor` on the union of distinct instances agents chose this step.
@@ -54,9 +76,9 @@ DEFAULT_PARAMS: dict[str, float] = {
     "initial_trust": 0.5,
     "trust_delta": 0.1,
     "trust_beta": 2.0,
-    "sanction_weight": 1.0,  # A4: expected and realised sanction for breaching a rule with or_else
-    "sanction_steps": 3,  # A4: steps an agent stays sanctioned after a breach
-    "sanction_escalation": 1.5,  # A4: graduated sanction multiplier per prior breach
+    "sanction_weight": 1.0,  # A4: per-step charge while sanctioned for breaching a rule with or_else
+    "sanction_steps": 3,  # A4: steps an agent stays sanctioned after a breach; expected sanction = weight * steps
+    "sanction_escalation": 1.5,  # A4: graduated multiplier on the per-step charge per prior breach
 }
 
 
@@ -96,7 +118,22 @@ class InstitutionModel(mesa.Model):
         self.ref = Reference(inst, k=1)
         self.t = 0
         self._sanctionable = {r.id: r.or_else is not None for r in inst.rules}
+        self._attribute = {r.id: r.attribute for r in inst.rules}
         self._action_names = {a.name for a in inst.actions}
+        self._bears: dict[str, frozenset[str]] = {}  # rule id -> declared argument roles other than the actor's
+        self._must_rules_by_head_attr: dict[tuple[str, str], list[str]] = {}  # (aim head, attribute) -> must ids
+        for r in inst.rules:
+            self._bears[r.id] = self._declared_bearing_roles(r)
+            if r.deontic in ("must", "must_not"):
+                head = self.ref._aim(r.aim).pred
+                self._must_rules_by_head_attr.setdefault((head, r.attribute), []).append(r.id)
+        # state rules by attribute role (A8): the reference instantiates them without the attribute in the args
+        self._state_rules_by_role: dict[str, list] = {r: [] for r in self.ref.agents}
+        for ri in self.ref.state_rules:
+            if ri.deontic in ("must", "must_not"):
+                self._state_rules_by_role.setdefault(self._attribute[ri.rule_id], []).append(ri)
+        self.unavoidable: dict[str, tuple[str, int, int]] = {}  # rule id -> (role, first step, steps)
+        self.no_lawful: dict[tuple[str, tuple[str, ...]], tuple[int, int]] = {}  # (role, rule ids) -> (first, n)
         fluent_names = {f.name for f in inst.fluents}
         self.income_fluents = {k: v for k, v in self.payoffs.items() if k in fluent_names}
         fixed, free = self.ref.initial_split()
@@ -126,6 +163,42 @@ class InstitutionModel(mesa.Model):
     def sanctionable(self, rule_id: str) -> bool:
         return self._sanctionable.get(rule_id, False)
 
+    def _declared_bearing_roles(self, rule) -> frozenset[str]:
+        """A5: the aim's declared argument roles other than the actor's (the rule's attribute), typed as the
+        reference types declarations (arg_roles, literal role name, var_roles, prefix); never instance values."""
+        aim = self.ref._aim(rule.aim)
+        names = [x.name for x in aim.args]
+        roles: list[str | None] = []
+        if aim.pred in self.ref.actions:
+            atypes = self.ref._action_types(self.ref.actions[aim.pred])
+            params = self.ref.actions[aim.pred].args
+            for i, n in enumerate(names[1:], start=1):
+                if n in self.ref.roles:
+                    roles.append(n)
+                elif n in rule.var_roles:
+                    roles.append(rule.var_roles[n])
+                else:
+                    roles.append(atypes.get(params[i]) if i < len(params) else None)
+        elif aim.pred in self.ref.fluents:
+            fdecl = self.ref.fluents[aim.pred]
+            for i, n in enumerate(names):
+                if fdecl.arg_roles is not None and i < len(fdecl.arg_roles):
+                    roles.append(fdecl.arg_roles[i])
+                elif n in self.ref.roles:
+                    roles.append(n)
+                elif n in rule.var_roles:
+                    roles.append(rule.var_roles[n])
+                else:
+                    roles.append(self.ref._var_role(n))
+        return frozenset(r for r in roles if r is not None and r != rule.attribute)
+
+    def bears_on(self, obligation: tuple, me: str, actor: str) -> bool:
+        """Does an obligation (action instance or fluent atom) held by an agent of role `actor` bear on role `me`?
+        Static: resolved through every must rule with that attribute on that aim head, from declared argument
+        roles (A5), independent of which rule is in force now."""
+        rids = self._must_rules_by_head_attr.get((obligation[0], actor), ())
+        return any(me in self._bears.get(r, frozenset()) for r in rids)
+
     def is_pledge(self, a: ActionInst) -> bool:
         n = a[0]
         return n.endswith(PLEDGE_SUFFIX) and n[: -len(PLEDGE_SUFFIX)] in self._action_names
@@ -144,9 +217,12 @@ class InstitutionModel(mesa.Model):
         return sum(v for f, v in self.income_fluents.items()
                    for atom in self.state if atom[0] == f and role in atom[1])
 
-    def _readings(self, role: str) -> tuple[list[ActionInst], dict[ActionInst, list[str]], dict[ActionInst, list[str]]]:
-        """(available, {forbidden act: must_not rule ids}, {obligation act: must rule ids}) for a role in the
-        current state; cached per state."""
+    def _readings(self, role: str) -> tuple[list[ActionInst], dict[ActionInst, list[str]], dict[ActionInst, list[str]],
+                                            dict[tuple, list[str]], dict[tuple, list[str]]]:
+        """(available, {forbidden act: must_not rule ids}, {obligation act: must rule ids},
+        {must-be atom: rule ids}, {must-not-be atom: rule ids}) for a role in the current state; cached per state.
+        Also records, once per (role, state) and so once per step, the two encoder diagnostics: a state obligation
+        no available action can keep (unavoidable breach) and musts that leave no lawful option (conflict)."""
         if role in self._cache:
             return self._cache[role]
         available: list[ActionInst] = []
@@ -163,8 +239,89 @@ class InstitutionModel(mesa.Model):
                     forbidden.setdefault(act, []).append(ri.rule_id)
                 if ri.deontic == "must" and self.ref.cond_holds(ri, self.state):
                     musts.setdefault(act, []).append(ri.rule_id)
-        self._cache[role] = (available, forbidden, musts)
-        return available, forbidden, musts
+        must_be: dict[tuple, list[str]] = {}
+        must_not_be: dict[tuple, list[str]] = {}
+        for ri in self._state_rules_by_role.get(role, []):
+            if not self.ref.cond_holds(ri, self.state):
+                continue
+            if ri.deontic == "must":
+                must_be.setdefault((ri.action, ri.args), []).append(ri.rule_id)
+            elif self.sanctionable(ri.rule_id):
+                must_not_be.setdefault((ri.action, ri.args), []).append(ri.rule_id)
+        self._cache[role] = (available, forbidden, musts, must_be, must_not_be)
+        self._diagnose(role, available, forbidden, musts, must_be, must_not_be)
+        return self._cache[role]
+
+    def _diagnose(self, role, available, forbidden, musts, must_be, must_not_be) -> None:
+        if not (musts or must_be or must_not_be):
+            return
+        options: list[ActionInst | None] = [None, *available]
+        # keep-set of every obligation in force: the options that keep it
+        keep: dict[str, set] = {}
+        for act, rids in musts.items():
+            for r in rids:
+                keep.setdefault(r, set()).add(act)
+        state_rule_ids = [r for rids in (*must_be.values(), *must_not_be.values()) for r in rids]
+        for o in options:
+            broken = {r for rs in self.state_breaches(role, o).values() for r in rs}
+            for r in state_rule_ids:
+                keep.setdefault(r, set())
+                if r not in broken:
+                    keep[r].add(o)
+        unavoidable = False
+        for r in (r for rids in must_be.values() for r in rids):
+            if not keep[r]:
+                unavoidable = True
+                rl, first, n = self.unavoidable.get(r, (role, self.t, 0))
+                self.unavoidable[r] = (rl, first, n + 1)
+        if unavoidable:
+            return  # not a conflict between rules: one rule alone cannot be kept
+        lawful = [o for o in options if all(o in s for s in keep.values()) and o not in forbidden]
+        if not lawful:
+            ids = tuple(sorted(set(keep) | {r for o in options if o in forbidden for r in forbidden[o]}))
+            first, n = self.no_lawful.get((role, ids), (self.t, 0))
+            self.no_lawful[(role, ids)] = (first, n + 1)
+
+    def diagnostics(self) -> list[str]:
+        """Once-per-run encoder warnings (A8 unavoidable breaches, item-d conflicting musts), from the counters."""
+        out = []
+        for r, (role, first, n) in sorted(self.unavoidable.items()):
+            out.append(f"unavoidable breach: {r} (must-be, role {role}) could not be kept by any available action on "
+                       f"{n} step(s), first at step {first}: no available action establishes the fluent")
+        for (role, ids), (first, n) in sorted(self.no_lawful.items()):
+            out.append(f"inconsistent encoding: rules {', '.join(ids)} leave role {role} no lawful action on {n} "
+                       f"step(s), first at step {first}")
+        return out
+
+    def state_obligations_for(self, role: str) -> list[tuple]:
+        return list(self._readings(role)[3])
+
+    def state_obligation_rules(self, role: str) -> dict[tuple, list[str]]:
+        return self._readings(role)[3]
+
+    def state_breaches(self, role: str, a: ActionInst | None) -> dict[tuple, list[str]]:
+        """{fluent atom: rule ids} of the state obligations on `role` that choosing `a` (None = nothing) breaches:
+        must-be atoms false, must-not-be atoms true, in the reference successor of the current state under `a`
+        alone (local reading, see the module docstring)."""
+        key = ("_sb", role, a)
+        if key in self._cache:
+            return self._cache[key]
+        must_be, must_not_be = self._readings(role)[3], self._readings(role)[4]
+        out: dict[tuple, list[str]] = {}
+        if must_be or must_not_be:
+            succ = self.ref.successor(self.state, frozenset([a]) if a is not None else frozenset())
+            for atom, rids in must_be.items():
+                if atom not in succ:
+                    out[atom] = list(rids)
+            for atom, rids in must_not_be.items():
+                if atom in succ:
+                    out.setdefault(atom, []).extend(rids)
+        self._cache[key] = out
+        return out
+
+    def keeps(self, role: str, a: ActionInst | None) -> bool:
+        """Does choosing `a` keep every state obligation on `role` now?"""
+        return not self.state_breaches(role, a)
 
     def available_for(self, role: str) -> list[ActionInst]:
         return self._readings(role)[0]
@@ -224,7 +381,7 @@ class InstitutionModel(mesa.Model):
                          params=dict(self.params, payoffs=dict(self.payoffs)), steps=len(self.adoption),
                          agents_per_role=self.agents_per_role, roles=list(self.roles), adoption=list(self.adoption),
                          fluent_rates=self.fluent_rates(), breaches=list(self.breaches),
-                         sanctioned=list(self.sanctioned), warnings=list(self.warnings))
+                         sanctioned=list(self.sanctioned), warnings=list(self.warnings) + self.diagnostics())
 
 
 def run_abm(inst: InstitutionJSON, seed: int = 0, steps: int = DEFAULT_STEPS,

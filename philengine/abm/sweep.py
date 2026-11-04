@@ -35,8 +35,14 @@ def parse_param(text: str) -> tuple[str, list[float]]:
 def sweep(inst: InstitutionJSON, axes: dict[str, list[float]], seeds: int, steps: int = DEFAULT_STEPS,
           agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, modules=("material",),
           payoffs: dict[str, float] | None = None) -> dict:
+    declared = sorted(a.name for a in inst.actions)
     for name in axes:
-        if not (name in DEFAULT_PARAMS or name.startswith("payoff.")):
+        if name.startswith("payoff."):
+            action = name[len("payoff."):]
+            if action not in declared:
+                raise ValueError(f"sweep axis {name!r}: {action!r} is not an action of {inst.id}; declared actions: "
+                                 f"{declared}")
+        elif name not in DEFAULT_PARAMS:
             raise ValueError(f"unknown parameter {name!r}; have {sorted(DEFAULT_PARAMS)} or payoff.<action>")
     if seeds < 1:
         raise ValueError("seeds must be >= 1")

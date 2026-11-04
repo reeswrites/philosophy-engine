@@ -33,11 +33,23 @@ reading, awaiting author decision):
                     the expected sanction of every rule the choice breaches) beats the best lawful net payoff. A
                     sanction exists iff the rule has `or_else`; a must with `or_else: null` is free to breach, and
                     a must_not with `or_else: null` is a disability `Reference.power` already removed, so
-                    `forbidden_for` lists only sanctionable must_nots. Expected = realised sanction =
+                    `forbidden_for` lists only sanctionable must_nots. The per-step charge while sanctioned is
                     sanction_weight * sanction_escalation ** (prior sanctionable breaches) (graduated), applied
-                    to the realised payoff and the surplus for sanction_steps steps from the breach. ASSUMED
-                    within A4: no "belief that the sanction lands" factor (monitoring is a later slice); breaching
-                    several rules at once sums their expected sanctions but counts as one breach.
+                    to the realised payoff and the surplus for sanction_steps steps from the breach; the sanction
+                    the agent EXPECTS before breaching is that charge times sanction_steps, so expectation and
+                    realisation are one quantity (slice-2 review item a). ASSUMED within A4: no "belief that the
+                    sanction lands" factor (monitoring is a later slice); breaching several rules at once sums
+                    their expected sanctions but counts as one breach; a breach inside a running sanction window
+                    replaces the window rather than stacking.
+  state obligations DECIDED (A8, ADR 0015 amendment 2026-11-04, ASSUMED accepted): a `must-be P when C` rule
+                    (ADR 0009) whose C holds obliges each agent in the rule's attribute role to choose an action
+                    whose effects leave P true in the successor; choosing nothing keeps P iff P already holds.
+                    Read locally (shared state plus this agent's own action, through `Reference.successor`;
+                    A2 deferred). Breach is charged as an action-rule breach and feeds trust under A5 through
+                    the fluent's declared `arg_roles`. Strict enabledness stands: a must-be no available action
+                    can keep is an unavoidable breach, reported once per run in `warnings`. Must-not-be is read
+                    symmetrically (ASSUMED). Musts that leave a role no lawful option are reported once per run
+                    as an inconsistent encoding naming the rule ids (slice-2 review item d).
   choice order      ASSUMED (agent.py): lawful/breach candidate set > material floor collapse > success imitation
                     (copy_rate, only if the neighbour earned more) > material switch to a strictly better net-paying
                     candidate > same-role threshold (practice or pledge share) > material bootstrap argmax (no
