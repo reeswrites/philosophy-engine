@@ -23,6 +23,14 @@ Centola `committed_minority` holding `committed_action`), `initial_practice`, th
 `sweep.necessary_modules`, and the gate unblocked: every module subset without `imagination` runs, (a) and (b)
 run when the entries exist (a as a payoff x sanction sweep read off adoption shares; b as the committed_minority
 sweep read off the committed action's share). `imagination` is still a stub.
+PERFORMANCE (2026-11-04, no result changed; `tests/test_abm_parallel.py` pins same-seed report hashes taken
+before the work): every seed loop (`run_abm_many`, `sweep`, `necessary_modules`, `score`, the gate letters) goes
+through `parallel.run_map`, a forked process pool (`--workers N` on every CLI command, default the CPU count;
+`--workers 1` is the serial loop; serial wherever fork is unavailable), outputs in seed order so they are
+byte-identical to serial; the per-(role, state) readings an agent's choice needs (`breach_rules`, `lawful_for`,
+`keeps_some_state_obligation`) are memoised on the model like the readings themselves, the per-agent parts
+(breach count, threshold, assurance, committed instance) stay in the agent; sweep, score and gate JSON carry a
+`timing` record (seconds, runs, runs per second, workers; per grid point, letter, institution).
 
 Design choices, each marked DECIDED (author decision cited) or ASSUMED (the plan's proposed default or the simplest
 reading, awaiting author decision):

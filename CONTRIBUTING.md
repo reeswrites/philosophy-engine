@@ -3,10 +3,17 @@
 ## Tests
 ```
 uv sync
-uv run pytest -q -m "not llm"      # offline; live tests need ANTHROPIC_API_KEY and `-m llm`
+uv run pytest -q -m "not llm" -n auto   # fast: offline suite spread over the CPUs (pytest-xdist, dev group)
+uv run pytest -q -m "not llm"           # serial: same suite, one process (the reference when a parallel run is odd)
 uv run phil rules check-all
-uv run phil rules gate             # informational for now
+uv run phil rules gate                  # informational for now
 ```
+Live tests need ANTHROPIC_API_KEY and `-m llm`. Every run prints its 15 slowest tests (`--durations=15` in
+pyproject). Tests must not share temp paths or module globals: use `tmp_path` and `monkeypatch`, so the serial and
+the `-n auto` runs both pass.
+
+Layer-2 ABM commands (`phil abm run/sweep/score/gate`) take `--workers N` (default: the CPU count): seeds run over
+N forked processes and the results are identical to `--workers 1`; only the reported `timing` moves.
 
 ## Adding an institution
 1. Edit the generator in `data/institutions/` (`_gen_institutions.py`, `_gen_properties.py`); never hand-edit the generated JSON.

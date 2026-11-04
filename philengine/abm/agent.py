@@ -152,24 +152,21 @@ class InstitutionAgent(mesa.Agent):
         available = m.available_for(self.role)
         obl = m.obligation_rules(self.role)  # {act: [must rule ids]} (action-aimed)
         sobl = m.state_obligation_rules(self.role)  # {fluent atom: [must-be rule ids]} (state-aimed, A8)
-        forb = m.forbidding_rules(self.role)  # {act: [sanctionable must_not rule ids]}
         unavoidable = m.unavoidable_rules(self.role)  # must-be ids no option keeps now: not a choice (finding 3)
 
+        role = self.role
+
         def breaches(a: ActionInst | None) -> list[str]:
-            """Rule ids choosing `a` breaches BY CHOICE (an unavoidable must-be is breached whatever `a` is)."""
-            out = list(forb.get(a, [])) if a is not None else []
-            out += [r for o, rs in obl.items() if o != a for r in rs]
-            out += [r for rs in m.state_breaches(self.role, a).values() for r in rs if r not in unavoidable]
-            return out
+            """Rule ids choosing `a` breaches BY CHOICE (an unavoidable must-be is breached whatever `a` is); the
+            same for every agent of the role this step, so read from the model's per-state cache."""
+            return m.breach_rules(role, a)
 
         def keeps_some_state_obligation(a: ActionInst) -> bool:
-            broken = m.state_breaches(self.role, a)
-            return any(atom not in broken for atom in sobl)
+            return m.keeps_some_state_obligation(role, a)
 
         self._shares = self.neighbour_shares()
         net = {a: self.gross_payoff(a) - sum(self.expected_sanction(r, a) for r in breaches(a)) for a in available}
-        lawful = [a for a in available if not breaches(a)]
-        none_lawful = not breaches(None)
+        lawful, none_lawful = m.lawful_for(role)
         if lawful or none_lawful:
             best_lawful = max([net[a] for a in lawful] + ([0.0] if none_lawful else []))
             candidates = lawful + [a for a in available if a not in lawful and net[a] > best_lawful]
@@ -226,7 +223,7 @@ class InstitutionAgent(mesa.Agent):
         broken_atoms = m.state_breaches(self.role, chosen)
         self.obligation_outcomes = [(o, o == chosen) for o in obl] + [
             (atom, atom not in broken_atoms) for atom, rids in sobl.items() if not set(rids) <= unavoidable]
-        self.breached = breaches(chosen)
+        self.breached = list(breaches(chosen))
         self.unavoidable = sorted(unavoidable)
         sanctionable = [r for r in self.breached if m.sanction_in_force(r, chosen)]
         if sanctionable:

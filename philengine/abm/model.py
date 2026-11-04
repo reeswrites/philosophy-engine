@@ -73,6 +73,10 @@ convention exists for a minority to tip). `load_payoffs` passes them through, fr
 `self.payoffs` (which stays numeric) into `self.coordinated`, `self.committed_action`, `self.initial_practice`.
 `params["committed_action"]` / `params["initial_practice"]` (strings, not sweep axes) override the block.
 
+Seeds are independent (one rng per seed): `run_abm_many` runs a list of seeds through `parallel.run_map`
+(forked worker processes when `workers > 1`; `workers=1` is the serial loop exactly) and returns the reports in
+seed order, byte-identical to the serial loop.
+
 Mechanism modules: `material` (slice 1); `coordination` (slice 4: assurance-gated payoffs on `coordinated`
 actions, the Mackie pledge flip, a Centola `committed_minority`; see agent.py); `imagination` raises
 NotImplementedError (stub).
@@ -89,6 +93,7 @@ from ..rules_reference import Reference
 from ..schemas_rules import InstitutionJSON
 from .agent import PLEDGE_SUFFIX, ActionInst, InstitutionAgent, action_label
 from .graph import DEFAULT_K, DEFAULT_P, small_world
+from .parallel import run_map
 from .report import AbmReport
 
 MODULES = ("material", "coordination", "imagination")
@@ -227,6 +232,9 @@ class InstitutionModel(mesa.Model):
         self.unavoidable_steps: list[dict[str, float]] = []  # [step][role] -> share under an unavoidable must-be
         self.sanctioned: list[dict[str, float]] = []  # [step][role] -> share sanctioned
         self._cache: dict[str, tuple] = {}
+        # static memos (payoffs and rule declarations never change within a run; the per-state cache is `_cache`)
+        self._payoff_memo: dict[ActionInst | None, float] = {}
+        self._bears_memo: dict[tuple[str, str, str], bool] = {}
 
     # ------------------------------------------------------------ initial practice and committed minority (slice 4)
     def resolve_instances(self, what: str, spec) -> list[ActionInst]:
@@ -308,9 +316,13 @@ class InstitutionModel(mesa.Model):
     def bears_on(self, obligation: tuple, me: str, actor: str) -> bool:
         """Does an obligation (action instance or fluent atom) held by an agent of role `actor` bear on role `me`?
         Static: resolved through every must rule with that attribute on that aim head, from declared argument
-        roles (A5), independent of which rule is in force now."""
-        rids = self._must_rules_by_head_attr.get((obligation[0], actor), ())
-        return any(me in self._bears.get(r, frozenset()) for r in rids)
+        roles (A5), independent of which rule is in force now (so memoised per (head, me, actor))."""
+        key = (obligation[0], me, actor)
+        out = self._bears_memo.get(key)
+        if out is None:
+            rids = self._must_rules_by_head_attr.get((obligation[0], actor), ())
+            out = self._bears_memo[key] = any(me in self._bears.get(r, frozenset()) for r in rids)
+        return out
 
     def sanction_in_force(self, rule_id: str, a: ActionInst | None) -> bool:
         """Would the sanction of `rule_id` land on an agent breaching it by choosing `a` now? See the docstring."""
@@ -335,13 +347,16 @@ class InstitutionModel(mesa.Model):
         return (a[0][: -len(PLEDGE_SUFFIX)], a[1])
 
     def payoff(self, a: ActionInst | None) -> float:
-        """Instance key (`action_label(a)`) > action-name key > `default_payoff` (A1 extension, ASSUMED)."""
+        """Instance key (`action_label(a)`) > action-name key > `default_payoff` (A1 extension, ASSUMED); memoised
+        per instance (`payoffs` and `params` are fixed for the run)."""
         if a is None:
             return 0.0
-        lab = action_label(a)
-        if lab in self.payoffs:
-            return self.payoffs[lab]
-        return self.payoffs.get(a[0], self.params["default_payoff"])
+        out = self._payoff_memo.get(a)
+        if out is None:
+            lab = action_label(a)
+            out = self.payoffs[lab] if lab in self.payoffs else self.payoffs.get(a[0], self.params["default_payoff"])
+            self._payoff_memo[a] = out
+        return out
 
     def income_for(self, role: str) -> float:
         if not self.income_fluents:
@@ -462,6 +477,42 @@ class InstitutionModel(mesa.Model):
         """Does choosing `a` keep every state obligation on `role` now?"""
         return not self.state_breaches(role, a)
 
+    def breach_rules(self, role: str, a: ActionInst | None) -> list[str]:
+        """Rule ids an agent of `role` breaches BY CHOICE by choosing `a` (None = nothing) now: the sanctionable
+        must_nots on `a`, the action musts in force on other actions, the state obligations `a` fails to keep
+        (an unavoidable must-be is breached whatever `a` is, so it is left out). The same for every agent of the
+        role in a step (the readings are per role and state), so cached per state like the readings; the per-agent
+        parts of the choice (breach count, threshold, assurance, committed instance) stay in the agent."""
+        key = ("_br", role, a)
+        if key in self._cache:
+            return self._cache[key]
+        _, forbidden, musts, _, _ = self._readings(role)
+        unavoidable = self.unavoidable_rules(role)
+        out = list(forbidden.get(a, [])) if a is not None else []
+        out += [r for o, rs in musts.items() if o != a for r in rs]
+        out += [r for rs in self.state_breaches(role, a).values() for r in rs if r not in unavoidable]
+        self._cache[key] = out
+        return out
+
+    def lawful_for(self, role: str) -> tuple[list[ActionInst], bool]:
+        """(available actions that breach nothing now, whether choosing nothing breaches nothing); per state."""
+        key = ("_lawful", role)
+        if key in self._cache:
+            return self._cache[key]
+        out = ([a for a in self.available_for(role) if not self.breach_rules(role, a)], not self.breach_rules(role, None))
+        self._cache[key] = out
+        return out
+
+    def keeps_some_state_obligation(self, role: str, a: ActionInst) -> bool:
+        """Does `a` keep at least one must-be atom in force on `role` (the material floor's keep-set)? Per state."""
+        key = ("_ks", role, a)
+        if key in self._cache:
+            return self._cache[key]
+        broken = self.state_breaches(role, a)
+        out = any(atom not in broken for atom in self._readings(role)[3])
+        self._cache[key] = out
+        return out
+
     def available_for(self, role: str) -> list[ActionInst]:
         return self._readings(role)[0]
 
@@ -538,3 +589,14 @@ def run_abm(inst: InstitutionJSON, seed: int = 0, steps: int = DEFAULT_STEPS,
     for _ in range(steps):
         m.step()
     return m.report()
+
+
+def _run_abm_dict(inst: InstitutionJSON, seed: int, kw: dict) -> dict:
+    """Worker for `run_abm_many`: one seeded run, returned as the report's dict (picklable)."""
+    return run_abm(inst, seed=seed, **kw).to_dict()
+
+
+def run_abm_many(inst: InstitutionJSON, seeds, workers: int | None = None, **kw) -> list[AbmReport]:
+    """`[run_abm(inst, seed=s, **kw) for s in seeds]`, in seed order, over `workers` processes (see parallel.py)."""
+    dicts = run_map(_run_abm_dict, [(inst, s, kw) for s in seeds], workers)
+    return [AbmReport(**d) for d in dicts]

@@ -71,6 +71,11 @@ since slice 4 that is {material}, {coordination}, {material, coordination}; the 
 (a stub) are listed as not run with the reason, and the empty set because the bootstrap rule (an agent with no
 practice takes the best-paying candidate) belongs to the adaptive modules, so under {} no agent ever starts a
 practice and every run is static.
+
+Workers: every letter's seed loop goes through `parallel.run_map` (`workers` forked processes; 1 = serial; the
+CLI passes `--workers`, default `os.cpu_count()`); the verdicts and numbers are identical whatever the count. Each
+criterion carries `timing` (seconds, runs, runs per second, workers; per grid point in (a) and (c), per institution
+in (d)) and the report a total; the text summary prints one timing line per letter and the total.
 """
 from __future__ import annotations
 
@@ -83,6 +88,7 @@ from ..schemas_rules import InstitutionJSON, Property
 from .agent import PLEDGE_SUFFIX, action_label
 from .model import (DEFAULT_AGENTS_PER_ROLE, DEFAULT_PARAMS, DEFAULT_STEPS, MODULES, InstitutionModel, _check_modules,
                     load_payoffs, split_payoffs)
+from .parallel import Stopwatch, run_map, timing
 from .score import PROBE_STEPS, disagreement, ranks, score, spearman
 
 PASS, FAIL, BLOCKED = "PASS", "FAIL", "BLOCKED"
@@ -161,10 +167,11 @@ class Criterion:
     blocked_reason: str | None = None
     numbers: dict = field(default_factory=dict)
     lines: list[str] = field(default_factory=list)
+    timing: dict = field(default_factory=dict)  # wall-clock record of the letter's runs (parallel.timing)
 
     def to_dict(self) -> dict:
         return {"key": self.key, "status": self.status, "detail": self.detail, "blocked_reason": self.blocked_reason,
-                "numbers": self.numbers, "lines": self.lines}
+                "numbers": self.numbers, "lines": self.lines, "timing": self.timing}
 
 
 @dataclass
@@ -174,6 +181,7 @@ class GateReport:
     configs_run: list[list[str]]
     configs_not_run: dict[str, str]
     settings: dict = field(default_factory=dict)
+    timing: dict = field(default_factory=dict)  # {seconds, workers, per_letter: {key: seconds}}
 
     @property
     def verdict(self) -> str:
@@ -194,7 +202,7 @@ class GateReport:
     def to_dict(self) -> dict:
         return {"verdict": self.verdict, "passed": self.passed, "exit_code": self.exit_code, "seeds": self.seeds,
                 "configs_run": self.configs_run, "configs_not_run": self.configs_not_run, "settings": self.settings,
-                "assumptions": ASSUMPTIONS, "criteria": [c.to_dict() for c in self.criteria]}
+                "assumptions": ASSUMPTIONS, "criteria": [c.to_dict() for c in self.criteria], "timing": self.timing}
 
 
 # ------------------------------------------------------------------ configurations
@@ -302,7 +310,8 @@ def a_run(inst: InstitutionJSON, prop_ast, seed: int, steps: int, agents_per_rol
 
 def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: dict[str, str],
            agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, payoffs_of=None, sanction_grid=None, payoff_grid=None,
-           steps: int = A_STEPS) -> Criterion:
+           steps: int = A_STEPS, workers: int | None = None) -> Criterion:
+    clock, per_point, n_runs = Stopwatch(), {}, 0
     sanction_grid = list(A_SANCTION_GRID if sanction_grid is None else sanction_grid)
     payoff_grid = list(A_PAYOFF_GRID if payoff_grid is None else payoff_grid)
     if FOOTBINDING not in by:
@@ -352,12 +361,14 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
     for w in sanction_grid:
         numbers["grid"][str(w)] = {}
         for pv in payoff_grid:
+            t0 = clock.seconds
             cell: dict = {"sanction_weight": w, "payoff": pv, "cells": {}, "match": True}
             for inst_id, e, pay0, has in entries:
                 pay = dict(pay0, **{name: pv})
                 for cfg in configs:
-                    runs = [a_run(e, ast, s_, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, role, name)
-                            for s_ in range(seeds)]
+                    runs = run_map(a_run, [(e, ast, s_, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, role, name)
+                                           for s_ in range(seeds)], workers)
+                    n_runs += seeds
                     late = [windows(r["share"])[1] for r in runs]
                     collapsed = [l >= A_SHARE_HIGH for l in late]
                     rate = sum(collapsed) / seeds
@@ -374,6 +385,7 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
                         "property_late_mean": prop_late,
                         "per_seed": [{"seed": s_, "late_share": l, "collapsed": c} for s_, l, c in zip(range(seeds), late, collapsed)]}
             numbers["grid"][str(w)][str(pv)] = cell
+            per_point[f"sanction_weight={w}, payoff={pv}"] = round(clock.seconds - t0, 3)
             if cell["match"]:
                 numbers["matching_points"].append({"sanction_weight": w, "payoff": pv})
             summ = "; ".join(f"{k}: {v['collapse_rate']:.0%}{'' if v['ok'] else ' NOT ok'}" for k, v in cell["cells"].items())
@@ -388,20 +400,31 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
     if seeds < seeds_asked:
         lines.append(f"  budget: (a) ran {seeds} of the {seeds_asked} seeds per cell (A_SEEDS_MAX={A_SEEDS_MAX})")
     ok = bool(numbers["matching_points"])
+    tm = timing(clock.seconds, n_runs, workers, per_point=per_point)
     if not numbers["ever_collapsed"]:
         detail = (f"vacuous: {name} is never adopted (late share >= {A_SHARE_HIGH}) by any seed at any grid point under any "
                   f"configuration or entry; nothing collapses")
-        return Criterion("a", FAIL, detail, numbers=numbers, lines=lines)
+        return Criterion("a", FAIL, detail, numbers=numbers, lines=lines, timing=tm)
     detail = (f"iff pattern (collapse under coordination with pledges, persistence otherwise) holds at grid points "
               f"{numbers['matching_points'] or 'NONE'} of {len(sanction_grid) * len(payoff_grid)} (sanction_weight x "
               f"payoff of {name}); min {SEED_RATE_MIN:.0%} of {seeds} seeds per cell; {len(configs)} configuration(s)")
-    return Criterion("a", PASS if ok else FAIL, detail, numbers=numbers, lines=lines)
+    return Criterion("a", PASS if ok else FAIL, detail, numbers=numbers, lines=lines, timing=tm)
 
 
 # ------------------------------------------------------------------ (b) committed minority
+def b_run(inst: InstitutionJSON, seed: int, steps: int, agents_per_role: int, modules, payoffs: dict | None,
+          params: dict, role: str, name: str) -> tuple[float, float]:
+    """One (b) run: (the role's last-step share of action `name`, the role's committed share)."""
+    m = InstitutionModel(inst, seed=seed, agents_per_role=agents_per_role, modules=modules, payoffs=payoffs, params=params)
+    for _ in range(steps):
+        m.step()
+    return name_share(m.adoption[-1], role, name), m.committed_shares().get(role, 0.0)
+
+
 def crit_b(by: dict, props: dict[str, Property], seeds: int, configs, not_run: dict[str, str],
            agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, steps: int = DEFAULT_STEPS, payoffs_of=None,
-           sweep_points=None) -> Criterion:
+           sweep_points=None, workers: int | None = None) -> Criterion:
+    clock, per_point, n_runs = Stopwatch(), {}, 0
     sweep_points = list(B_SWEEP if sweep_points is None else sweep_points)
     if NAMING not in by:
         return Criterion("b", BLOCKED, f"no {NAMING!r} institution in the dataset",
@@ -438,18 +461,17 @@ def crit_b(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
         key = _cfg_key(cfg)
         adoption, committed_share, per_seed = [], [], {}
         for v in sweep_points:
-            finals = []
-            cs = None
-            for s_ in range(seeds):
-                try:
-                    m = InstitutionModel(inst, seed=s_, agents_per_role=agents_per_role, modules=cfg, payoffs=pay,
-                                         params={B_PARAM: v})
-                except (ValueError, NotImplementedError) as e:
-                    return Criterion("b", BLOCKED, str(e), blocked_reason=str(e), numbers=numbers)
-                for _ in range(steps):
-                    m.step()
-                finals.append(name_share(m.adoption[-1], role, name))
-                cs = m.committed_shares().get(role, 0.0)
+            t0 = clock.seconds
+            try:
+                runs = run_map(b_run, [(inst, s_, steps, agents_per_role, cfg, pay, {B_PARAM: v}, role, name)
+                                       for s_ in range(seeds)], workers)
+            except (ValueError, NotImplementedError) as e:
+                return Criterion("b", BLOCKED, str(e), blocked_reason=str(e), numbers=numbers,
+                                 timing=timing(clock.seconds, n_runs, workers, per_point=per_point))
+            n_runs += seeds
+            per_point[f"{key}, {B_PARAM}={v}"] = round(clock.seconds - t0, 3)
+            finals = [f for f, _ in runs]
+            cs = runs[-1][1]
             adoption.append(sum(finals) / seeds)
             committed_share.append(cs)
             per_seed[str(v)] = finals
@@ -471,7 +493,8 @@ def crit_b(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
                  "resolution sets sharpness only; thresholds are U(0, threshold_max), swept); Centola's band is "
                  "recorded in the dataset, not asserted by the model")
     return Criterion("b", PASS if ok else FAIL, f"max adjacent jump {numbers['max_jump']} at {numbers['jump_at']} "
-                     f"(min > {B_JUMP}; {seeds} seeds per point, {steps} steps)", numbers=numbers, lines=lines)
+                     f"(min > {B_JUMP}; {seeds} seeds per point, {steps} steps)", numbers=numbers, lines=lines,
+                     timing=timing(clock.seconds, n_runs, workers, per_point=per_point))
 
 
 # ------------------------------------------------------------------ (c) kibbutz regendering
@@ -525,7 +548,8 @@ def _c_table(entry: dict, inst_id: str, role: str, label: str, seeds: int) -> li
 
 def crit_c(by: dict, props: dict[str, Property], seeds: int, configs, steps: int = DEFAULT_STEPS,
            agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, payoffs_of=None, forbidden: str = C_FORBIDDEN,
-           role: str = C_FORBIDDEN_ROLE, sanction_grid=None, payoff_grid=None) -> Criterion:
+           role: str = C_FORBIDDEN_ROLE, sanction_grid=None, payoff_grid=None, workers: int | None = None) -> Criterion:
+    clock, per_point, n_runs = Stopwatch(), {}, 0
     sanction_grid = list(C_SANCTION_GRID if sanction_grid is None else sanction_grid)
     payoff_grid = list(C_PAYOFF_GRID if payoff_grid is None else payoff_grid)
     missing = [i for i in (KIBBUTZ, KIBBUTZ_PAIR) if i not in by]
@@ -569,8 +593,11 @@ def crit_c(by: dict, props: dict[str, Property], seeds: int, configs, steps: int
                 e["grid"][str(w)] = {}
                 for p in payoff_grid:
                     pay = dict(base_pay, **{forbidden: p})
-                    runs = [c_run(inst, ast, s, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, role, forbidden)
-                            for s in range(seeds)]
+                    t0 = clock.seconds
+                    runs = run_map(c_run, [(inst, ast, s, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, role, forbidden)
+                                           for s in range(seeds)], workers)
+                    n_runs += seeds
+                    per_point[f"{key}, {inst_id}, sanction_weight={w}, payoff={p}"] = round(clock.seconds - t0, 3)
                     late_share = [windows(r["share"])[1] for r in runs]
                     pw = [windows(r["prop"]) for r in runs]
                     excl = [ls <= C_SHARE_LOW for ls in late_share]
@@ -635,19 +662,22 @@ def crit_c(by: dict, props: dict[str, Property], seeds: int, configs, steps: int
         lines.append(f"  note: under shared role-level state one adopting agent breaks {PROP_C} for all and `release` "
                      f"is never available, so the property stays false after the committee returns to lawful "
                      f"assignment; the share is the reading, the property is reported per grid point in JSON")
+    tm = timing(clock.seconds, n_runs, workers, per_point=per_point)
     if blocked:
-        return Criterion("c", BLOCKED, blocked, blocked_reason=blocked, numbers=numbers, lines=lines)
+        return Criterion("c", BLOCKED, blocked, blocked_reason=blocked, numbers=numbers, lines=lines, timing=tm)
     summary = "; ".join(f"{k}: {KIBBUTZ} band {v[KIBBUTZ]['band'] or 'NONE'}, adopted below band "
                         f"{v[KIBBUTZ]['adopted_below_band']}, {KIBBUTZ_PAIR} adopted everywhere it out-pays: "
                         f"{'yes' if v[KIBBUTZ_PAIR]['ok'] else 'no'}"
                         for k, v in numbers["by_config"].items())
     return Criterion("c", PASS if ok else FAIL, f"{summary} (min {SEED_RATE_MIN:.0%} of {seeds} seeds per grid point; "
-                     f"{len(configs)} configuration(s) run)", numbers=numbers, lines=lines)
+                     f"{len(configs)} configuration(s) run)", numbers=numbers, lines=lines, timing=tm)
 
 
 # ------------------------------------------------------------------ (d) seed stability
 def crit_d(insts: list[InstitutionJSON], seeds: int, configs, steps: int = DEFAULT_STEPS,
-           probe_steps: int = PROBE_STEPS, agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, payoffs_of=None) -> Criterion:
+           probe_steps: int = PROBE_STEPS, agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, payoffs_of=None,
+           workers: int | None = None) -> Criterion:
+    clock, per_inst, n_runs = Stopwatch(), {}, 0
     if not configs:
         return Criterion("d", BLOCKED, "no module configuration can run", blocked_reason="no runnable module configuration")
     if seeds < 2:
@@ -661,13 +691,17 @@ def crit_d(insts: list[InstitutionJSON], seeds: int, configs, steps: int = DEFAU
         errors: dict[str, str] = {}
         summaries: list[dict] = []
         for inst in insts:
+            t0 = clock.seconds
             try:
                 pay = payoffs_of(inst.id) if payoffs_of else None
                 sm = score(inst, seeds, steps=steps, probe_steps=probe_steps, agents_per_role=agents_per_role,
-                           modules=cfg, payoffs=pay)
+                           modules=cfg, payoffs=pay, workers=workers)
             except Exception as e:  # listed as an error, never skipped silently
                 errors[inst.id] = f"{type(e).__name__}: {e}"
                 continue
+            finally:
+                per_inst[f"{key}, {inst.id}"] = round(clock.seconds - t0, 3)
+                n_runs += seeds
             summaries.append(sm)
             totals[inst.id] = [ps["total"]["value"] for ps in sm["per_seed"]]
         ids = sorted(totals)
@@ -714,26 +748,38 @@ def crit_d(insts: list[InstitutionJSON], seeds: int, configs, steps: int = DEFAU
     rhos = {k: v["rho"] for k, v in numbers["by_config"].items()}
     n_err = sum(len(v["errors"]) for v in numbers["by_config"].values())
     detail = f"Spearman {rhos} (min {D_RHO_MIN}) over {len(insts)} institutions, {n_err} error(s)"
+    tm = timing(clock.seconds, n_runs, workers, per_institution=per_inst)
     if seeds < D_MIN_SEEDS:
         return Criterion("d", BLOCKED, f"{detail}; computed on {seeds} seeds, the plan requires >= {D_MIN_SEEDS}",
-                         blocked_reason=f"fewer than {D_MIN_SEEDS} seeds ({seeds})", numbers=numbers, lines=lines)
-    return Criterion("d", PASS if ok else FAIL, detail, numbers=numbers, lines=lines)
+                         blocked_reason=f"fewer than {D_MIN_SEEDS} seeds ({seeds})", numbers=numbers, lines=lines, timing=tm)
+    return Criterion("d", PASS if ok else FAIL, detail, numbers=numbers, lines=lines, timing=tm)
 
 
 # ------------------------------------------------------------------ the gate
 def run_gate(insts: list[InstitutionJSON], props: dict[str, Property], seeds: int, steps: int = DEFAULT_STEPS,
              probe_steps: int = PROBE_STEPS, agents_per_role: int = DEFAULT_AGENTS_PER_ROLE,
-             institutions_path=None) -> GateReport:
+             institutions_path=None, workers: int | None = None) -> GateReport:
     by = {i.id: i for i in insts}
     configs, not_run = available_configs()
     payoffs_of = (lambda i: load_payoffs(institutions_path, i)) if institutions_path else None
-    crits = [crit_a(by, props, seeds, configs, not_run, agents_per_role, payoffs_of),
-             crit_b(by, props, seeds, configs, not_run, agents_per_role, steps, payoffs_of),
-             crit_c(by, props, seeds, configs, steps, agents_per_role, payoffs_of),
-             crit_d(insts, seeds, configs, steps, probe_steps, agents_per_role, payoffs_of)]
+    clock = Stopwatch()
+    crits = [crit_a(by, props, seeds, configs, not_run, agents_per_role, payoffs_of, workers=workers),
+             crit_b(by, props, seeds, configs, not_run, agents_per_role, steps, payoffs_of, workers=workers),
+             crit_c(by, props, seeds, configs, steps, agents_per_role, payoffs_of, workers=workers),
+             crit_d(insts, seeds, configs, steps, probe_steps, agents_per_role, payoffs_of, workers=workers)]
+    total = timing(clock.seconds, sum(c.timing.get("runs", 0) for c in crits), workers,
+                   per_letter={c.key: c.timing.get("seconds") for c in crits})
     return GateReport(crits, seeds, [list(c) for c in configs], not_run,
                       {"steps": steps, "probe_steps": probe_steps, "agents_per_role": agents_per_role,
-                       "institutions": len(insts)})
+                       "institutions": len(insts)}, total)
+
+
+def _timing_line(key: str, tm: dict) -> str:
+    if not tm:
+        return f"  {key}: no runs"
+    rps = tm.get("runs_per_second")
+    return (f"  {key}: {tm.get('seconds', 0.0):.1f} s, {tm.get('runs', 0)} run(s)"
+            f"{'' if rps is None else f', {rps:.1f} runs/s'}, {tm.get('workers', 1)} worker(s)")
 
 
 def format_gate(rep: GateReport, verbose: bool = False) -> str:
@@ -758,6 +804,9 @@ def format_gate(rep: GateReport, verbose: bool = False) -> str:
     out.append("assumed thresholds: " + ", ".join(f"{k}={v}" for k, v in ASSUMPTIONS.items()
                                                   if k not in ("C_DEFINITIONS", "EXIT_CODES")))
     out.append(f"  (c) definitions: {ASSUMPTIONS['C_DEFINITIONS']}")
+    out.append("timing (wall clock):")
+    out.extend(_timing_line(c.key, c.timing) for c in rep.criteria)
+    out.append(_timing_line("total", rep.timing))
     for c in rep.criteria:
         if c.lines:  # a BLOCKED letter's computed lines are printed too (finding 7); --verbose adds per-item lines
             out.append("")

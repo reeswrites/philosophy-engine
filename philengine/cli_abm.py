@@ -8,6 +8,8 @@
                  [--institutions path]
   phil abm gate --seeds N [--steps 50] [--probe-steps 10] [--agents-per-role 20] [--institutions path]
                 [--properties path] [--json] [--verbose]
+  every command takes --workers N: seeds run over N forked processes (default os.cpu_count(); 1 = serial; the
+  results are identical whatever N, only the reported `timing` moves; serial where fork is unavailable)
 --seed N prints the AbmReport JSON of one run; --seeds N runs seeds 0..N-1 and prints the per-seed reports plus
 rates over seeds (mean final adoption share per role and action, mean final fluent rate, breach and sanction
 rates). `sweep` runs the Cartesian grid of --param axes (a DEFAULT_PARAMS name or payoff.<action>) over seeds
@@ -24,8 +26,8 @@ from __future__ import annotations
 import json
 import sys
 
-from .abm import load_payoffs, run_abm
-from .abm.model import DEFAULT_AGENTS_PER_ROLE, DEFAULT_STEPS, MODULES
+from .abm import load_payoffs, parallel
+from .abm.model import DEFAULT_AGENTS_PER_ROLE, DEFAULT_STEPS, MODULES, run_abm_many
 from .abm.report import summarize
 from .abm import gate as abm_gate
 from .abm.score import PROBE_STEPS, score
@@ -55,14 +57,17 @@ def cmd_run(a) -> int:
     if not seeds:
         print("--seeds must be >= 1", file=sys.stderr)
         return 2
+    clock = parallel.Stopwatch()
     try:
-        reps = [run_abm(by_id[a.institution], seed=s, steps=a.steps, agents_per_role=a.agents_per_role,
-                        modules=modules, payoffs=payoffs, params=_base_params(a)) for s in seeds]
+        with parallel.pool(a.workers):
+            reps = run_abm_many(by_id[a.institution], seeds, a.workers, steps=a.steps, agents_per_role=a.agents_per_role,
+                                modules=modules, payoffs=payoffs, params=_base_params(a))
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 2
     if a.seeds is not None:
-        print(json.dumps(summarize(reps), indent=1, sort_keys=True))
+        print(json.dumps(dict(summarize(reps), timing=parallel.timing(clock.seconds, len(seeds), a.workers)),
+                         indent=1, sort_keys=True))
     else:
         print(reps[0].to_json())
     return 0
@@ -83,8 +88,10 @@ def cmd_sweep(a) -> int:
     modules = [m.strip() for m in a.modules.split(",") if m.strip()]
     try:
         axes = dict(parse_param(t) for t in a.param)
-        out = sweep(by_id[a.institution], axes, seeds=a.seeds, steps=a.steps, agents_per_role=a.agents_per_role,
-                    modules=modules, payoffs=load_payoffs(path, a.institution), base_params=_base_params(a))
+        with parallel.pool(a.workers):
+            out = sweep(by_id[a.institution], axes, seeds=a.seeds, steps=a.steps, agents_per_role=a.agents_per_role,
+                        modules=modules, payoffs=load_payoffs(path, a.institution), base_params=_base_params(a),
+                        workers=a.workers)
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -107,9 +114,10 @@ def cmd_score(a) -> int:
         return 3
     modules = [m.strip() for m in a.modules.split(",") if m.strip()]
     try:
-        out = score(by_id[a.institution], a.seeds, steps=a.steps, probe_steps=a.probe_steps,
-                    agents_per_role=a.agents_per_role, modules=modules, payoffs=load_payoffs(path, a.institution),
-                    params=_base_params(a))
+        with parallel.pool(a.workers):
+            out = score(by_id[a.institution], a.seeds, steps=a.steps, probe_steps=a.probe_steps,
+                        agents_per_role=a.agents_per_role, modules=modules, payoffs=load_payoffs(path, a.institution),
+                        params=_base_params(a), workers=a.workers)
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 3
@@ -129,8 +137,9 @@ def cmd_gate(a) -> int:
     if a.seeds < 1:
         print("--seeds must be >= 1", file=sys.stderr)
         return 3
-    rep = abm_gate.run_gate(insts, props, seeds=a.seeds, steps=a.steps, probe_steps=a.probe_steps,
-                            agents_per_role=a.agents_per_role, institutions_path=path)
+    with parallel.pool(a.workers):
+        rep = abm_gate.run_gate(insts, props, seeds=a.seeds, steps=a.steps, probe_steps=a.probe_steps,
+                                agents_per_role=a.agents_per_role, institutions_path=path, workers=a.workers)
     if a.json:
         print(json.dumps(rep.to_dict(), indent=1, sort_keys=True))
     else:
@@ -152,6 +161,7 @@ def register(sub) -> None:
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
     s.add_argument("--committed-action", default=None, help="action (or instance label) a committed_minority holds")
+    _workers(s)
     s.set_defaults(fn=cmd_run)
     s = rs.add_parser("sweep", help="parameter grid over seeds; every number is a rate over seeds")
     s.add_argument("--institution", "--inst", required=True, dest="institution")
@@ -163,6 +173,7 @@ def register(sub) -> None:
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
     s.add_argument("--committed-action", default=None, help="action (or instance label) a committed_minority holds")
+    _workers(s)
     s.set_defaults(fn=cmd_sweep)
     s = rs.add_parser("score", help="veil-of-ignorance freedom and flourishing vectors, means over seeds")
     s.add_argument("--institution", "--inst", required=True, dest="institution")
@@ -173,6 +184,7 @@ def register(sub) -> None:
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
     s.add_argument("--committed-action", default=None, help="action (or instance label) a committed_minority holds")
+    _workers(s)
     s.set_defaults(fn=cmd_score)
     s = rs.add_parser("gate", help="layer-2 gate (a)-(d); exit 0 PASS, 1 FAIL, 2 BLOCKED, 3 load error")
     s.add_argument("--seeds", type=int, required=True, help="seeds 0..N-1 for every check ((d) needs >= 100)")
@@ -183,4 +195,10 @@ def register(sub) -> None:
     s.add_argument("--properties", default=None, help="path to properties.json")
     s.add_argument("--json", action="store_true")
     s.add_argument("--verbose", action="store_true", help="print per-seed and per-institution lines")
+    _workers(s)
     s.set_defaults(fn=cmd_gate)
+
+
+def _workers(s) -> None:
+    s.add_argument("--workers", type=int, default=parallel.workers_default(), metavar="N",
+                   help="processes for the seed loop (default: cpu count; 1 = serial; identical results either way)")

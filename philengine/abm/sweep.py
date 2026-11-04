@@ -13,6 +13,10 @@ run (the stubs are left out and named; `{}` is included, it is static but it is 
 per subset, the rate of seeds where `predicate(model)` holds on the finished model, plus the MINIMAL subsets
 whose rate meets `rate_min` (no proper subset meets it). The predicate reads the finished `InstitutionModel`
 (its `report()`, `state`, `ref`), so a gate letter can evaluate a dataset property through the reference.
+
+`workers` (both): seeds run over that many forked processes (parallel.py; 1 = the serial loop, the default for
+library callers; the CLI passes `--workers`, default `os.cpu_count()`); results are identical whatever the count.
+The sweep's `timing` (seconds, runs, runs per second, workers, and per grid point) is the only field that varies.
 """
 from __future__ import annotations
 
@@ -22,8 +26,10 @@ from typing import Callable
 from ..rules_reference import Reference
 from ..schemas_rules import InstitutionJSON
 from .agent import action_label
+from . import parallel
 from .model import (DEFAULT_AGENTS_PER_ROLE, DEFAULT_PARAMS, DEFAULT_STEPS, MODULES, STUB_MODULES, InstitutionModel,
-                    run_abm)
+                    run_abm_many)
+from .parallel import Stopwatch, run_map, timing
 from .report import summarize
 
 RATE_MIN = 0.80  # plan: "occurs in >= 80% of seeds"
@@ -50,7 +56,7 @@ def parse_param(text: str) -> tuple[str, list[float]]:
 
 def sweep(inst: InstitutionJSON, axes: dict[str, list[float]], seeds: int, steps: int = DEFAULT_STEPS,
           agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, modules=("material",),
-          payoffs: dict | None = None, base_params: dict | None = None) -> dict:
+          payoffs: dict | None = None, base_params: dict | None = None, workers: int | None = None) -> dict:
     declared = sorted(a.name for a in inst.actions)
     instances = sorted(action_label(i) for i in Reference(inst, k=1).action_insts)
     for name in axes:
@@ -65,19 +71,24 @@ def sweep(inst: InstitutionJSON, axes: dict[str, list[float]], seeds: int, steps
         raise ValueError("seeds must be >= 1")
     names = list(axes)
     grid = []
+    clock = Stopwatch()
+    per_point: dict[str, float] = {}
     for values in itertools.product(*[axes[n] for n in names]):
         point = dict(zip(names, values))
         params = dict(base_params or {}, **{k: v for k, v in point.items() if not k.startswith("payoff.")})
         pay = dict(payoffs or {}, **{k[len("payoff."):]: v for k, v in point.items() if k.startswith("payoff.")})
-        reps = [run_abm(inst, seed=s, steps=steps, agents_per_role=agents_per_role, modules=modules, payoffs=pay,
-                        params=params) for s in range(seeds)]
+        t0 = clock.seconds
+        reps = run_abm_many(inst, range(seeds), workers, steps=steps, agents_per_role=agents_per_role, modules=modules,
+                            payoffs=pay, params=params)
+        per_point[", ".join(f"{k}={v}" for k, v in point.items())] = round(clock.seconds - t0, 3)
         summary = summarize(reps)
         rows = [{"params": point, "seed": r.seed, "final_adoption": r.final_adoption(), "fluent_rates": r.fluent_rates,
                  "breach_rate": r.breach_rate(), "unavoidable_rate": r.unavoidable_rate(),
                  "sanctioned_rate": r.sanctioned_rate()} for r in reps]
         grid.append({"params": point, "rates": {k: v for k, v in summary.items() if k != "runs"}, "rows": rows})
     return {"institution": inst.id, "seeds": seeds, "steps": steps, "agents_per_role": agents_per_role,
-            "modules": list(modules), "axes": {n: axes[n] for n in names}, "grid": grid}
+            "modules": list(modules), "axes": {n: axes[n] for n in names}, "grid": grid,
+            "timing": timing(clock.seconds, seeds * len(grid), workers, per_point=per_point)}
 
 
 def module_subsets(modules=MODULES) -> tuple[list[tuple[str, ...]], dict[str, str]]:
@@ -91,7 +102,7 @@ def module_subsets(modules=MODULES) -> tuple[list[tuple[str, ...]], dict[str, st
 def necessary_modules(inst: InstitutionJSON, predicate: Callable[[InstitutionModel], bool], seeds: int,
                       steps: int = DEFAULT_STEPS, agents_per_role: int = DEFAULT_AGENTS_PER_ROLE,
                       payoffs: dict | None = None, params: dict | None = None, rate_min: float = RATE_MIN,
-                      modules=MODULES, graph_k=None, graph_p=None) -> dict:
+                      modules=MODULES, graph_k=None, graph_p=None, workers: int | None = None) -> dict:
     """Which module subsets produce an outcome. Runs seeds 0..seeds-1 under every subset of the runnable modules
     and returns {"rates": {config key: rate of seeds where predicate(model) held}, "sufficient": [subsets meeting
     rate_min], "necessary": [the MINIMAL sufficient subsets: no proper subset meets rate_min], "not_run": {stub:
@@ -106,19 +117,33 @@ def necessary_modules(inst: InstitutionJSON, predicate: Callable[[InstitutionMod
     if graph_p is not None:
         kw["graph_p"] = graph_p
     rates: dict[tuple[str, ...], float] = {}
-    for cfg in subsets:
-        hits = 0
-        for s in range(seeds):
-            m = InstitutionModel(inst, seed=s, agents_per_role=agents_per_role, modules=cfg, payoffs=payoffs,
-                                 params=params, **kw)
-            for _ in range(steps):
-                m.step()
-            hits += int(bool(predicate(m)))
-        rates[cfg] = hits / seeds
+    clock = Stopwatch()
+    per_config: dict[str, float] = {}
+    # the predicate may be a lambda (not picklable): a fresh forked pool inherits it through `parallel._INHERITED`
+    parallel._INHERITED["necessary_modules.predicate"] = predicate
+    try:
+        for cfg in subsets:
+            t0 = clock.seconds
+            hits = run_map(_nm_run, [(inst, s, agents_per_role, cfg, payoffs, params, kw, steps) for s in range(seeds)],
+                           workers, fresh=True)
+            rates[cfg] = sum(hits) / seeds
+            per_config["+".join(cfg) if cfg else "{}"] = round(clock.seconds - t0, 3)
+    finally:
+        parallel._INHERITED.pop("necessary_modules.predicate", None)
     sufficient = [cfg for cfg in subsets if rates[cfg] >= rate_min]
     necessary = [cfg for cfg in sufficient
                  if not any(set(o) < set(cfg) for o in sufficient)]
     key = lambda cfg: "+".join(cfg) if cfg else "{}"
     return {"institution": inst.id, "seeds": seeds, "steps": steps, "rate_min": rate_min,
             "rates": {key(c): rates[c] for c in subsets}, "sufficient": [list(c) for c in sufficient],
-            "necessary": [list(c) for c in necessary], "not_run": not_run}
+            "necessary": [list(c) for c in necessary], "not_run": not_run,
+            "timing": timing(clock.seconds, seeds * len(subsets), workers, per_config=per_config)}
+
+
+def _nm_run(inst, seed, agents_per_role, cfg, payoffs, params, kw, steps) -> int:
+    """Worker for `necessary_modules`: one seeded run under `cfg`, 1 iff the predicate holds on the finished model."""
+    predicate = parallel._INHERITED["necessary_modules.predicate"]
+    m = InstitutionModel(inst, seed=seed, agents_per_role=agents_per_role, modules=cfg, payoffs=payoffs, params=params, **kw)
+    for _ in range(steps):
+        m.step()
+    return int(bool(predicate(m)))

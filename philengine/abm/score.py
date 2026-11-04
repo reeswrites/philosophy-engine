@@ -52,6 +52,7 @@ from .. import sexpr as sx
 from ..schemas_rules import InstitutionJSON
 from .agent import ActionInst, InstitutionAgent
 from .model import DEFAULT_AGENTS_PER_ROLE, DEFAULT_STEPS, InstitutionModel
+from .parallel import Stopwatch, run_map, timing
 from .report import AbmReport
 
 PROBE_STEPS = 10
@@ -261,16 +262,24 @@ def summarize_scores(scores: list[ProbeScore]) -> dict:
             "per_seed": [s.to_dict() for s in scores]}
 
 
+def _probe_score(inst, seed, kw) -> ProbeScore:
+    """Worker for `score`: the probe score of one seed (a picklable dataclass)."""
+    return score_run(inst, seed=seed, **kw)[1]
+
+
 def score(inst: InstitutionJSON, seeds: int, steps: int = DEFAULT_STEPS, probe_steps: int = PROBE_STEPS,
           agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, modules=("material",),
-          payoffs: dict[str, float] | None = None, params: dict | None = None) -> dict:
-    """Score an institution over seeds 0..seeds-1 (A7: rates over seeds, per-seed values kept)."""
+          payoffs: dict[str, float] | None = None, params: dict | None = None, workers: int | None = None) -> dict:
+    """Score an institution over seeds 0..seeds-1 (A7: rates over seeds, per-seed values kept). Seeds run over
+    `workers` forked processes (parallel.py; 1 = serial, identical results); `timing` is the only field that varies."""
     if seeds < 1:
         raise ValueError("seeds must be >= 1")
-    scores = [score_run(inst, seed=s, steps=steps, probe_steps=probe_steps, agents_per_role=agents_per_role,
-                        modules=modules, payoffs=payoffs, params=params)[1] for s in range(seeds)]
+    clock = Stopwatch()
+    kw = dict(steps=steps, probe_steps=probe_steps, agents_per_role=agents_per_role, modules=modules, payoffs=payoffs,
+              params=params)
+    scores = run_map(_probe_score, [(inst, s, kw) for s in range(seeds)], workers)
     out = summarize_scores(scores)
-    out.update(steps=steps, modules=list(modules))
+    out.update(steps=steps, modules=list(modules), timing=timing(clock.seconds, seeds, workers))
     return out
 
 

@@ -27,4 +27,10 @@ packages = ["philengine"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
 ]
+
+[tool.pytest.ini_options]
+# the 15 slowest tests are printed after every run; `-n auto` (pytest-xdist, dev group) spreads the suite over the
+# CPUs, see CONTRIBUTING.md
+addopts = "--durations=15"
