@@ -253,14 +253,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -268,7 +270,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    }
   ],
   "rules": [
@@ -316,7 +318,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
    },
    {
     "id": "R5",
@@ -338,7 +340,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -350,28 +352,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
    }
   ],
   "source_text": "'By marriage, the husband and wife are one person in law: that is, the very being or legal existence of the woman is suspended during the marriage, or at least is incorporated and consolidated into that of the husband: under whose wing, protection, and cover, she performs every thing; and is therefore called ... a feme-covert.' He cannot grant anything to her or covenant with her, she cannot sue in her own name, and 'the husband is bound to provide his wife with necessaries by law'. Blackstone, Commentaries on the Laws of England, Book I, ch. 15 (Oxford: Clarendon, 1765). Passage checked at https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/",
@@ -684,7 +664,8 @@
       ],
       "value": false
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "petition_review",
@@ -698,7 +679,8 @@
     "args": [
      "s"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "carry_weapon",
@@ -760,7 +742,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (custody for up to 72 hours). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(s) = leave enabled (R9), which this disability makes false in custody"
+    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (custody for up to 72 hours). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(s) = leave enabled (a default capacity), which this disability makes false in custody"
    },
    {
     "id": "R5",
@@ -805,17 +787,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "Cal. WIC 5275 certification review / habeas; subject keeps standing. UNVERIFIED (general knowledge; no source opened)"
-   },
-   {
-    "id": "R9",
-    "attribute": "subject",
-    "deontic": "may",
-    "aim": "(leave s)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the encounter is voluntary unless the section's custody applies; the physical possibility of leaving is always there and R4 removes it in custody (Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(s) = leave enabled (R9) and not barred (R4)"
    },
    {
     "id": "R10",
@@ -1200,7 +1171,8 @@
     "args": [
      "c"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contact_mother",
@@ -1406,20 +1378,6 @@
     "implicit": false,
     "source": "Cal. WIC 317: counsel appointed for the child in dependency proceedings. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] investigate establishes counsel_appointed(c) (a dependency case is opened with counsel for the child); appoint_counsel restores it, relieve_counsel breaks it. [ADR 0013: was must-be has_standing(c); has_standing is now derived from R11, so the obligation is on the fluent counsel_appointed that R11 reads]",
     "load_bearing": true,
-    "var_roles": {
-     "c": "child"
-    }
-   },
-   {
-    "id": "R9",
-    "attribute": "child",
-    "deontic": "may",
-    "aim": "(leave c)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: outside temporary custody the child is not held by the agency (scope=interaction: exit from the hold, not from the family); the physical possibility of leaving is always there and R10 removes it in custody. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(c) = leave enabled (R9) and not barred (R10)",
     "var_roles": {
      "c": "child"
     }
@@ -1742,7 +1700,8 @@
       ],
       "value": false
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "request_police",
@@ -1787,7 +1746,8 @@
     "args": [
      "s"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "carry_weapon",
@@ -2989,7 +2949,8 @@
       ],
       "value": true
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "sue",
@@ -3163,17 +3124,6 @@
     "strand": "tying",
     "implicit": true,
     "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false"
-   },
-   {
-    "id": "R12",
-    "attribute": "animal",
-    "deontic": "may",
-    "aim": "(leave a)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: nothing but the confinement norm R6 keeps the animal; the physical possibility of leaving is always there. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled (R12) and not barred (R6)"
    }
   ],
   "source_text": "'Every person who willfully abandons any animal is guilty of a misdemeanor.' Cal. Penal Code s. 597s(a), read at https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. Companion animals are personal property: the owner may sell, give away or have the animal euthanized, must feed it, and the animal cannot bring or be the subject of a claim in its own name (property status and anti-cruelty duties cited from general knowledge, UNVERIFIED).",
@@ -3518,7 +3468,8 @@
       ],
       "value": true
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "sue",
@@ -3692,17 +3643,6 @@
     "strand": "tying",
     "implicit": true,
     "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false"
-   },
-   {
-    "id": "R12",
-    "attribute": "animal",
-    "deontic": "may",
-    "aim": "(leave a)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: nothing but the confinement norm R6 keeps the animal; the physical possibility of leaving is always there. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled (R12) and not barred (R6)"
    }
   ],
   "source_text": "'(5) if an animal is owned, for the ownership or joint ownership of the animal, taking into consideration the well-being of the animal.' Alaska Stat. s. 25.24.160(a)(5), enacted SLA 2016 ch. 60 s. 19, effective 2017-01-17, read at https://www.animallaw.info/statute/ak-divorce-%C2%A7-2524160-judgment. Alaska was the first state to direct a court to weigh the animal's own well-being when assigning it; the entry generalises that one rule beyond divorce, which Alaska does not.",
@@ -4051,7 +3991,8 @@
       ],
       "value": true
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "sue",
@@ -4225,17 +4166,6 @@
     "strand": "tying",
     "implicit": true,
     "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false"
-   },
-   {
-    "id": "R12",
-    "attribute": "animal",
-    "deontic": "may",
-    "aim": "(leave a)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: nothing but the confinement norm R6 keeps the animal; the physical possibility of leaving is always there. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled (R12) and not barred (R6)"
    }
   ],
   "source_text": "'Wherever the word \"owner\" shall appear in this chapter it shall also mean and may be interchanged with the word \"guardian\"', R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72 s. 3), read at https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm. Boulder, Colorado made the same owner->guardian wording change in its animal ordinances in July 2000; the assistant city attorney who rewrote the passages said 'I've always viewed [the wording change] as symbolic' (Westword, read at https://www.westword.com/?p=40702255; the ordinance text itself was not opened).",
@@ -4760,7 +4690,8 @@
       ],
       "value": false
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "borrow",
@@ -5162,7 +5093,8 @@
       ],
       "value": true
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "reprimand",
@@ -5218,7 +5150,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Wikipedia, 'Kibbutz communal child rearing and collective education' (read 2026-11-03): 'The nanny position was always a woman's role. Teacher positions were both for women and men.'; children 'lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day'; https://en.wikipedia.org/wiki/Kibbutz_communal_child_rearing_and_collective_education (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(child) = sleep_home enabled (R7) and not barred (R4)"
+    "source": "Wikipedia, 'Kibbutz communal child rearing and collective education' (read 2026-11-03): 'The nanny position was always a woman's role. Teacher positions were both for women and men.'; children 'lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day'; https://en.wikipedia.org/wiki/Kibbutz_communal_child_rearing_and_collective_education (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(child) = sleep_home enabled (a default capacity) and not barred (R4)"
    },
    {
     "id": "R5",
@@ -5241,17 +5173,6 @@
     "strand": "rival",
     "implicit": true,
     "source": "implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). Guard (assigned x) tried 2026-11-04 and reverted (see the entry notes): with it can_sanction(committee, child) is unreachable and care_and_sanction_same_role flips to holds_to_k (vacuous). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(committee, x) = reprimand enabled (R6)"
-   },
-   {
-    "id": "R7",
-    "attribute": "child",
-    "deontic": "may",
-    "aim": "(sleep_home child)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of sleeping at the parents' home is always there; R4 removes it. What the 1970s-1990s reform changed is R4 (dropped kibbutz by kibbutz, last at Baram in 1997: JTA, 'Last kibbutz children's house closes', 1997-06-16: 'The era ended over the weekend, when the 80 children at Kibbutz Baram in the lower Galilee moved into their parents' homes'; Baram 'was the last holdout'; 'After a stormy debate, the decision to do away with the children's houses was made more than a year ago'; https://www.jta.org/archive/last-kibbutz-childrens-house-closes-2); the reform did not touch R2 (South China Morning Post, 'Kibbutz children go home to parents' (1997): a few of Israel's 230 kibbutzim ended children's houses roughly twenty years earlier and the reform then gained momentum; at Baram the 'pressure, particularly from young mothers' built over two years; https://amp.scmp.com/article/170090/kibbutz-children-go-home-parents). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(child) = sleep_home enabled (R7) and not barred (R4)"
    },
    {
     "id": "R8",
@@ -5285,7 +5206,7 @@
    "cps"
   ],
   "minimal_pair_of": null,
-  "notes": "Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit sanctioned norm R2 (never a man in the children's house; a documented practice, or_else R6) survives: every strictly compliant trace keeps provides_care in female hands. RE-ENCODED after the third review (2026-11-03): R2 was a disability (or_else null); the sources support a practice, not a committee disability, so it is now must_not + or_else R6. 'implicit' is a human tag the engine reports back; the ablation bites because R1 was written sex-blind (disclosed). PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); an implicit R7 'may sleep_home' carries can_exit as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform. PREREGISTERED 2026-11-04 (before any run; ADR 0015 A6: R8 'metapelet may neglect when assigned', implicit, in KIB_RULES so it flows into the no-implicit pair too): expected effect on this entry's three properties is NONE. care_assigned_by_sex persists (neglect can only clear provides_care, never put it in male hands; at layer 1 the unregulated neglect already fired freely under the trace floor, and making it regulated narrows its firing to the assigned metapelet, which removes no trace that bears on the property); subject_cannot_exit reachable (R4/R7 untouched); care_and_sanction_same_role violated (the committee's reprimand power and the metapelet's care are untouched; the violating trace needs assign, not neglect). Minimal pair kibbutz-childrens-house-no-implicit: unchanged (fails / reachable / violated), distance to this entry stays 1 with R2 the one separating rule (R8 is in both). isomorphic_to coverture-household at guard+strands: it already reads NO today (matched 0, distance 9: a pre-existing disagreement with the claim as written, found while baselining, not caused by this change) and is expected to stay NO with matched 0 and distance 9, because coverture has no may-rule tagged superadditive for R8 to match and distance = max(8, 9) - 0 is unchanged; not_isomorphic_to police-crisis / cps stay yes. Gate (d): PASS unchanged (persists vs fails, R2 the one separating rule). check-all: 106/106, no inert rule (R8 is a may). Layer 2 (information only): neglect becomes an available action for the assigned metapelet; the baseline ABM run (2026-11-04, before R8) shows the metapelet with no available action at all. PREREGISTERED 2026-11-04 (before any run; R6 guard, accepted decision of 2026-11-04): R6 'may reprimand' gains the condition (assigned x) (ASSUMED: the committee disciplines only a member on the rota; previously 'true', under which the layer-2 ABM had the committee reprimand random members about half the time). Expected effect on the three expected_properties: NONE. care_assigned_by_sex persists (reprimand has no effects; nothing new puts care in male hands); subject_cannot_exit reachable (R4/R7 untouched); care_and_sanction_same_role violated (can_sanction(committee, x) = (enabled reprimand committee x) now holds only while assigned(x); assigned(metapelet) is in the initial state, so can_sanction(committee, metapelet) is still true in compliant traces while the metapelet provides care, and the property's (= z x) fails exactly as before). The or_else links R2->R6 and R3->R6 are unaffected: under compliance=sanctioned a breach enables the or_else action whatever its condition, and check-all runs strict, where or_else is not read. Minimal pair kibbutz-childrens-house-no-implicit: unchanged (fails / reachable / violated), distance 1 with R2 the separating rule (R6 is in both via KIB_RULES). check-all: 106/106 agreement, no inert rule (R6 is a may); the 'R6: untyped variable(s) [x]' warning stays. Gate: PASS; (d) unchanged (persists vs fails, R2 the one separating rule); (a) 0 inert; (b), (c), (e), (f) untouched (kibbutz is outside the cluster). isomorphic_to coverture-household at guard+strands: stays NO, matched 0, distance 9 (R6's skeleton becomes (may, (role, var), guarded, no or_else, rival); coverture R5 chastise is (may, (var, var), guarded, no or_else, rival): the aim patterns differ, so no new pair); not_isomorphic_to police-crisis / cps stay yes (distances 10 / 11 move by at most 1). Layer 2 (information only; baseline run 2026-11-04 before the guard, 10 seeds x 30 steps, committee adoption split: assign(committee,metapelet) 0.32, reprimand(committee,metapelet) 0.275, reprimand(committee,child) 0.225, reprimand(committee,male_member) 0.18): expected after the guard, reprimand(committee,child) and reprimand(committee,male_member) disappear (never assigned; the committee's R2 breach rate is 0.0 in the baseline) and the committee splits between assign(committee,metapelet) and reprimand(committee,metapelet) (plus 'none' if the material module prefers it); metapelet, male_member and child unchanged. If any verdict flips the guard is reverted, not the expectation. R6 guard tried 2026-11-04 and reverted: care_and_sanction_same_role flipped from violated to holds_to_k (flags vacuous, antecedent-unreachable) in this entry AND in kibbutz-childrens-house-no-implicit (check-all 104/106; gate still PASS). The preregistration above was wrong about which binding carries the verdict: the property quantifies sanction power over the SUBJECT ((is_subject y) and (can_sanction z y) and (provides_care x y) => (= z x)), so the violating trace needs can_sanction(committee, child) = (enabled reprimand committee child), which R6 'true' grants and (assigned child) never does (the child is not a member, so R1 cannot put it on the rota: the antecedent becomes unreachable and the invariant holds vacuously). The guard would have to be '(or (assigned x) (is_subject x))' or the property's reading changed; neither was accepted, so R6 is back to 'true' and the ABM keeps reprimanding random members (committee split with the guard, 10 seeds x 30 steps: assign(committee,metapelet) 0.685, reprimand(committee,metapelet) 0.315, as preregistered for layer 2; without it: 0.32 / 0.275 / child 0.225 / male_member 0.18). Layer-2 reading of R8 at step 0 (2026-11-04): assigned(metapelet) is in the entry's `initial` (_kib_init, alongside provides_care(metapelet, child)), so Reference.initial_split puts it in the fixed set and the ABM's step-0 state carries it; neglect(metapelet, child) is therefore a power at step 0 (verified with Reference.power on the ABM's initial state: available_for('metapelet') = [neglect]); the slice-3 observation that it was not predates R8 reaching institutions.json, and the metapelet's 'none' adoption is a choice (neglect breaches R3, sanctioned by R6), not an absence of power; no rule change. DISAGREEMENT 2026-11-04: iso with coverture-household at guard+strands reads NO (matched 0, distance 9) under the current matcher; claim not edited; cause unexamined (candidate: the matcher needs the same strand tag on R3 and coverture R3 and a shared guard shape). Encoder observation, not a cause finding: rules_iso.rule_skeleton keys the aim by literal-role vs variable positions, and this entry's R3 aim names roles (provides_care metapelet child) while coverture R3 uses bound variables (provides_care w h).",
+  "notes": "Gate (d): the historical failure. The explicit rules are sex-blind (R1 may assign any member) and the reform of the 1970s-1990s removed the exit bar on the child (R4), yet care_assigned_by_sex PERSISTS because the implicit sanctioned norm R2 (never a man in the children's house; a documented practice, or_else R6) survives: every strictly compliant trace keeps provides_care in female hands. RE-ENCODED after the third review (2026-11-03): R2 was a disability (or_else null); the sources support a practice, not a committee disability, so it is now must_not + or_else R6. 'implicit' is a human tag the engine reports back; the ablation bites because R1 was written sex-blind (disclosed). PREREGISTERED (2026-11-03, before any run): care_assigned_by_sex persists here; fails in kibbutz-childrens-house-no-implicit, which is this entry minus R2 (differs_on care_assigned_by_sex); subject_cannot_exit reachable (R4 bars sleep_home); care_and_sanction_same_role violated (the committee sanctions, the metapelet cares). Deviations from plans/institutions-batch2.md: R1 is '(assign committee x) when (member x)' rather than '(assign committee metapelet)', because an action instance no may/must rule names is disabled, so the draft's ablation (drop R2 -> assign male_member) only bites if R1 covers the man; R4 is a disability (or_else null) per the ADR 0013 exit convention, so R6 is R3's or_else only and its condition is 'true' (the or_else link enables it on breach); sleep_home is a default capacity (flagged on the action since revision 4, 2026-11-04; the former implicit R7 'may sleep_home when true' is deleted) so can_exit is carried by the capacity unless R4 bars it, as in every other entry; the draft's release action is kept but the breaker of R3 is neglect (release clears the condition with the state, so it breaks nothing). Pitfalls: (1) female needs arg_roles [metapelet] or the solver invents a female male_member; (2) an encoder that writes R1 as 'may assign metapelet' hides R2 inside R1 and the no-implicit variant collapses into the original; (3) 'persists' is about what the rules permit, not uptake. Rival reading (notes only): regendering of care came from mothers' demands (SCMP), not from the committee; the entry does not encode who drove the reform. PREREGISTERED 2026-11-04 (before any run; ADR 0015 A6: R8 'metapelet may neglect when assigned', implicit, in KIB_RULES so it flows into the no-implicit pair too): expected effect on this entry's three properties is NONE. care_assigned_by_sex persists (neglect can only clear provides_care, never put it in male hands; at layer 1 the unregulated neglect already fired freely under the trace floor, and making it regulated narrows its firing to the assigned metapelet, which removes no trace that bears on the property); subject_cannot_exit reachable (R4 untouched; sleep_home stays a default capacity); care_and_sanction_same_role violated (the committee's reprimand power and the metapelet's care are untouched; the violating trace needs assign, not neglect). Minimal pair kibbutz-childrens-house-no-implicit: unchanged (fails / reachable / violated), distance to this entry stays 1 with R2 the one separating rule (R8 is in both). isomorphic_to coverture-household at guard+strands: it already reads NO today (matched 0, distance 9: a pre-existing disagreement with the claim as written, found while baselining, not caused by this change) and is expected to stay NO with matched 0 and distance 9, because coverture has no may-rule tagged superadditive for R8 to match and distance = max(8, 9) - 0 is unchanged; not_isomorphic_to police-crisis / cps stay yes. Gate (d): PASS unchanged (persists vs fails, R2 the one separating rule). check-all: 106/106, no inert rule (R8 is a may). Layer 2 (information only): neglect becomes an available action for the assigned metapelet; the baseline ABM run (2026-11-04, before R8) shows the metapelet with no available action at all. PREREGISTERED 2026-11-04 (before any run; R6 guard, accepted decision of 2026-11-04): R6 'may reprimand' gains the condition (assigned x) (ASSUMED: the committee disciplines only a member on the rota; previously 'true', under which the layer-2 ABM had the committee reprimand random members about half the time). Expected effect on the three expected_properties: NONE. care_assigned_by_sex persists (reprimand has no effects; nothing new puts care in male hands); subject_cannot_exit reachable (R4 untouched; sleep_home stays a default capacity); care_and_sanction_same_role violated (can_sanction(committee, x) = (enabled reprimand committee x) now holds only while assigned(x); assigned(metapelet) is in the initial state, so can_sanction(committee, metapelet) is still true in compliant traces while the metapelet provides care, and the property's (= z x) fails exactly as before). The or_else links R2->R6 and R3->R6 are unaffected: under compliance=sanctioned a breach enables the or_else action whatever its condition, and check-all runs strict, where or_else is not read. Minimal pair kibbutz-childrens-house-no-implicit: unchanged (fails / reachable / violated), distance 1 with R2 the separating rule (R6 is in both via KIB_RULES). check-all: 106/106 agreement, no inert rule (R6 is a may); the 'R6: untyped variable(s) [x]' warning stays. Gate: PASS; (d) unchanged (persists vs fails, R2 the one separating rule); (a) 0 inert; (b), (c), (e), (f) untouched (kibbutz is outside the cluster). isomorphic_to coverture-household at guard+strands: stays NO, matched 0, distance 9 (R6's skeleton becomes (may, (role, var), guarded, no or_else, rival); coverture R5 chastise is (may, (var, var), guarded, no or_else, rival): the aim patterns differ, so no new pair); not_isomorphic_to police-crisis / cps stay yes (distances 10 / 11 move by at most 1). Layer 2 (information only; baseline run 2026-11-04 before the guard, 10 seeds x 30 steps, committee adoption split: assign(committee,metapelet) 0.32, reprimand(committee,metapelet) 0.275, reprimand(committee,child) 0.225, reprimand(committee,male_member) 0.18): expected after the guard, reprimand(committee,child) and reprimand(committee,male_member) disappear (never assigned; the committee's R2 breach rate is 0.0 in the baseline) and the committee splits between assign(committee,metapelet) and reprimand(committee,metapelet) (plus 'none' if the material module prefers it); metapelet, male_member and child unchanged. If any verdict flips the guard is reverted, not the expectation. R6 guard tried 2026-11-04 and reverted: care_and_sanction_same_role flipped from violated to holds_to_k (flags vacuous, antecedent-unreachable) in this entry AND in kibbutz-childrens-house-no-implicit (check-all 104/106; gate still PASS). The preregistration above was wrong about which binding carries the verdict: the property quantifies sanction power over the SUBJECT ((is_subject y) and (can_sanction z y) and (provides_care x y) => (= z x)), so the violating trace needs can_sanction(committee, child) = (enabled reprimand committee child), which R6 'true' grants and (assigned child) never does (the child is not a member, so R1 cannot put it on the rota: the antecedent becomes unreachable and the invariant holds vacuously). The guard would have to be '(or (assigned x) (is_subject x))' or the property's reading changed; neither was accepted, so R6 is back to 'true' and the ABM keeps reprimanding random members (committee split with the guard, 10 seeds x 30 steps: assign(committee,metapelet) 0.685, reprimand(committee,metapelet) 0.315, as preregistered for layer 2; without it: 0.32 / 0.275 / child 0.225 / male_member 0.18). Layer-2 reading of R8 at step 0 (2026-11-04): assigned(metapelet) is in the entry's `initial` (_kib_init, alongside provides_care(metapelet, child)), so Reference.initial_split puts it in the fixed set and the ABM's step-0 state carries it; neglect(metapelet, child) is therefore a power at step 0 (verified with Reference.power on the ABM's initial state: available_for('metapelet') = [neglect]); the slice-3 observation that it was not predates R8 reaching institutions.json, and the metapelet's 'none' adoption is a choice (neglect breaches R3, sanctioned by R6), not an absence of power; no rule change. DISAGREEMENT 2026-11-04: iso with coverture-household at guard+strands reads NO (matched 0, distance 9) under the current matcher; claim not edited; cause unexamined (candidate: the matcher needs the same strand tag on R3 and coverture R3 and a shared guard shape). Encoder observation, not a cause finding: rules_iso.rule_skeleton keys the aim by literal-role vs variable positions, and this entry's R3 aim names roles (provides_care metapelet child) while coverture R3 uses bound variables (provides_care w h).",
   "initial": [
    "(female metapelet)",
    "(is_subject child)",
@@ -5476,7 +5397,8 @@
       ],
       "value": true
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "reprimand",
@@ -5520,7 +5442,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Wikipedia, 'Kibbutz communal child rearing and collective education' (read 2026-11-03): 'The nanny position was always a woman's role. Teacher positions were both for women and men.'; children 'lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day'; https://en.wikipedia.org/wiki/Kibbutz_communal_child_rearing_and_collective_education (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(child) = sleep_home enabled (R7) and not barred (R4)"
+    "source": "Wikipedia, 'Kibbutz communal child rearing and collective education' (read 2026-11-03): 'The nanny position was always a woman's role. Teacher positions were both for women and men.'; children 'lived in the children's house, where they had communal sleeping arrangements' and 'visited their parents for 2-3 hours a day'; https://en.wikipedia.org/wiki/Kibbutz_communal_child_rearing_and_collective_education (communal sleeping: the children lived and slept in the children's house). A disability (or_else null), as every subject-side exit bar since ADR 0013; the draft's or_else R6 is dropped for the same reason as coverture R6. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(child) = sleep_home enabled (a default capacity) and not barred (R4)"
    },
    {
     "id": "R5",
@@ -5543,17 +5465,6 @@
     "strand": "rival",
     "implicit": true,
     "source": "implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). Guard (assigned x) tried 2026-11-04 and reverted (see the entry notes): with it can_sanction(committee, child) is unreachable and care_and_sanction_same_role flips to holds_to_k (vacuous). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(committee, x) = reprimand enabled (R6)"
-   },
-   {
-    "id": "R7",
-    "attribute": "child",
-    "deontic": "may",
-    "aim": "(sleep_home child)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of sleeping at the parents' home is always there; R4 removes it. What the 1970s-1990s reform changed is R4 (dropped kibbutz by kibbutz, last at Baram in 1997: JTA, 'Last kibbutz children's house closes', 1997-06-16: 'The era ended over the weekend, when the 80 children at Kibbutz Baram in the lower Galilee moved into their parents' homes'; Baram 'was the last holdout'; 'After a stormy debate, the decision to do away with the children's houses was made more than a year ago'; https://www.jta.org/archive/last-kibbutz-childrens-house-closes-2); the reform did not touch R2 (South China Morning Post, 'Kibbutz children go home to parents' (1997): a few of Israel's 230 kibbutzim ended children's houses roughly twenty years earlier and the reform then gained momentum; at Baram the 'pressure, particularly from young mothers' built over two years; https://amp.scmp.com/article/170090/kibbutz-children-go-home-parents). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(child) = sleep_home enabled (R7) and not barred (R4)"
    },
    {
     "id": "R8",
@@ -5784,7 +5695,8 @@
       ],
       "value": false
      }
-    ]
+    ],
+    "default_capacity": true
    },
    {
     "name": "complain",
@@ -5850,18 +5762,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Reconstruction from the third review's 6-rule sketch (no statute opened): 14 CFR 91.11 / 121.580 (interference with crew; crew may restrain) and flight-attendant duties are named by the reviewer from general knowledge. UNVERIFIED (general knowledge; no source opened) (a passenger cannot leave in flight). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(p) = leave enabled (R5), which this disability makes false aboard"
-   },
-   {
-    "id": "R5",
-    "attribute": "passenger",
-    "deontic": "may",
-    "aim": "(leave p)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; R4 removes it in flight. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(p) = leave enabled (R5) and not barred (R4)"
+    "source": "Reconstruction from the third review's 6-rule sketch (no statute opened): 14 CFR 91.11 / 121.580 (interference with crew; crew may restrain) and flight-attendant duties are named by the reviewer from general knowledge. UNVERIFIED (general knowledge; no source opened) (a passenger cannot leave in flight). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(p) = leave enabled (a default capacity), which this disability makes false aboard"
    },
    {
     "id": "R6",
@@ -6219,14 +6120,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -6234,7 +6137,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    },
    {
     "name": "attach",
@@ -6314,7 +6217,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
    },
    {
     "id": "R5",
@@ -6336,7 +6239,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -6348,28 +6251,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
    },
    {
     "id": "R10",
@@ -6775,14 +6656,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -6790,7 +6673,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    },
    {
     "name": "attach",
@@ -6859,7 +6742,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
    },
    {
     "id": "R5",
@@ -6881,7 +6764,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -6893,28 +6776,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
    },
    {
     "id": "R10",
@@ -7335,14 +7196,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -7350,7 +7213,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    },
    {
     "name": "attach",
@@ -7419,7 +7282,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
    },
    {
     "id": "R5",
@@ -7441,7 +7304,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -7453,28 +7316,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
    },
    {
     "id": "R10",
@@ -7910,14 +7751,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -7925,7 +7768,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    },
    {
     "name": "attach",
@@ -7994,7 +7837,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
    },
    {
     "id": "R5",
@@ -8016,29 +7859,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R10",
@@ -8488,14 +8309,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -8503,7 +8326,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    },
    {
     "name": "attach",
@@ -8583,29 +8406,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R10",
@@ -8707,7 +8508,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md] (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Statute texts not opened ([R]). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R9 (feme sole) or R16 (married), R4 deleted",
+    "source": "Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md] (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Statute texts not opened ([R]). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: sue is a default capacity (the former R9 'may sue when not married' is deleted, revision 4) and R4, the disability, is deleted; R16 is kept as the act's own express permission",
     "var_roles": {
      "w": "wife",
      "h": "husband"
@@ -8734,7 +8535,7 @@
    "rule": "R4->R16",
    "differs_on": "no_standing"
   },
-  "notes": "Plan delta `suit`: delete R4; R9 was conditioned on (not married), so a may sue while married (R16) is added (one replacement, distance 1) and has_standing reads R9 or R16. PREREGISTERED (2026-11-03, before any run): no_standing UNREACHABLE (open) = has_standing flips true; subject_cannot_exit still REACHABLE (R6 stands: exit needs divorce reform, not encoded): the engine should say standing before exit.",
+  "notes": "Plan delta `suit`: delete R4; sue is a default capacity (the former R9, 'may sue when not married', only encoded it and was deleted in revision 4), so deleting the R4 disability alone restores it; R16 (may sue while married) is kept as the act's own express permission (the historical act, redundant for enablement) and has_standing reads the capacity. PREREGISTERED (2026-11-03, before any run): no_standing UNREACHABLE (open) = has_standing flips true; subject_cannot_exit still REACHABLE (R6 stands: exit needs divorce reform, not encoded): the engine should say standing before exit.",
   "initial": [],
   "initial_free": [
    "female",
@@ -9074,14 +8875,16 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "sue",
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    },
    {
     "name": "contract",
@@ -9089,7 +8892,7 @@
      "w"
     ],
     "effects": [],
-    "liberty": true
+    "default_capacity": true
    },
    {
     "name": "attach",
@@ -9174,7 +8977,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
    },
    {
     "id": "R5",
@@ -9196,7 +8999,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -9208,28 +9011,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
-   },
-   {
-    "id": "R8",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(leave w)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
-   },
-   {
-    "id": "R9",
-    "attribute": "wife",
-    "deontic": "may",
-    "aim": "(sue w)",
-    "conditions": "(not (married h w))",
-    "or_else": null,
-    "strand": "tying",
-    "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
    },
    {
     "id": "R10",
@@ -9536,7 +9317,8 @@
     "args": [
      "daughter"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    }
   ],
   "rules": [
@@ -9627,17 +9409,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "the marriage condition: Mackie, 'Ending Footbinding and Infibulation: A Convention Account', ASR 61(6):999-1017 (1996), abstract (read 2026-11-04 as a search-index snippet, the article itself not opened: https://www.jstor.org/stable/2096305 paywalled, PDF mirrors unreachable from this session): 'Female footbinding in China lasted for 1,000 years but ended in a single generation. I show that each practice is a self-enforcing convention, in Schelling's (1960) sense, maintained by interdependent expectations on the marriage market'; 'A Schelling coordination diagram explains how the three methods of the Chinese campaign to abolish footbinding succeeded in bringing it to a quick end'; 'The convention hypothesis predicts that promotion of such pledge associations would help bring female genital mutilation to an end' [F for these sentences; body [R]] ('interdependent expectations on the marriage market'); Brown, Bossen, Gates & Satterthwaite-Phillips, 'Marriage Mobility and Footbinding in Pre-1949 Rural China', J. Asian Studies 71(4):1035-1067 (2012), abstract only (search snippet, 2026-11-04, [R]): in a sample of 7,314 rural women footbinding did not guarantee a better marriage (two-thirds did not marry up); the marriage-market reading is Mackie's, and this entry encodes it as the convention, not as a claim that binding bought mobility (the data qualify mobility, not marriageability as encoded). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] marriageable(f, d) = marry_off enabled (R7)"
-   },
-   {
-    "id": "R8",
-    "attribute": "daughter",
-    "deontic": "may",
-    "aim": "(refuse_binding daughter)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of refusal is always there; R9 removes it. Strand tag by analogy with the house exit pattern, not from the source (encoding review 2026-11-04 finding 6). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(d) = refuse_binding enabled (R8) and not barred (R9)"
    },
    {
     "id": "R9",
@@ -9832,7 +9603,8 @@
     "args": [
      "daughter"
     ],
-    "effects": []
+    "effects": [],
+    "default_capacity": true
    }
   ],
   "rules": [
@@ -9901,17 +9673,6 @@
     "strand": "tying",
     "implicit": false,
     "source": "the marriage condition: Mackie, 'Ending Footbinding and Infibulation: A Convention Account', ASR 61(6):999-1017 (1996), abstract (read 2026-11-04 as a search-index snippet, the article itself not opened: https://www.jstor.org/stable/2096305 paywalled, PDF mirrors unreachable from this session): 'Female footbinding in China lasted for 1,000 years but ended in a single generation. I show that each practice is a self-enforcing convention, in Schelling's (1960) sense, maintained by interdependent expectations on the marriage market'; 'A Schelling coordination diagram explains how the three methods of the Chinese campaign to abolish footbinding succeeded in bringing it to a quick end'; 'The convention hypothesis predicts that promotion of such pledge associations would help bring female genital mutilation to an end' [F for these sentences; body [R]] ('interdependent expectations on the marriage market'); Brown, Bossen, Gates & Satterthwaite-Phillips, 'Marriage Mobility and Footbinding in Pre-1949 Rural China', J. Asian Studies 71(4):1035-1067 (2012), abstract only (search snippet, 2026-11-04, [R]): in a sample of 7,314 rural women footbinding did not guarantee a better marriage (two-thirds did not marry up); the marriage-market reading is Mackie's, and this entry encodes it as the convention, not as a claim that binding bought mobility (the data qualify mobility, not marriageability as encoded). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] marriageable(f, d) = marry_off enabled (R7)"
-   },
-   {
-    "id": "R8",
-    "attribute": "daughter",
-    "deontic": "may",
-    "aim": "(refuse_binding daughter)",
-    "conditions": "true",
-    "or_else": null,
-    "strand": "rival",
-    "implicit": true,
-    "source": "implicit: the physical possibility of refusal is always there; R9 removes it. Strand tag by analogy with the house exit pattern, not from the source (encoding review 2026-11-04 finding 6). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(d) = refuse_binding enabled (R8) and not barred (R9)"
    },
    {
     "id": "R9",

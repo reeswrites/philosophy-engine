@@ -186,7 +186,7 @@
   "family": "care_duty_on_women",
   "check": "invariant",
   "history": "Added 2026-11-05 (plans/priority.md slice 1 revision 2 (d)) so ectogenesis R5 carries a freedom property; female_parent_care_persists was blind to R5 (docs/reviews/2026-11-05-ablation-slice1-review.md finding 6)",
-  "gloss": "Whenever a subject is born and has a female registered parent, some female parent of that child provides care. Invariant-shaped: it is violated at any step where a born child has a female parent and none of them yet cares, so a permission to care (R4) cannot make it hold and only a duty on the female parent (R5) closes the gap. Written for ectogenesis R5; the sibling female_parent_care_persists is persists-shaped.",
+  "gloss": "Whenever a subject is born and has a female registered parent, some female parent of that child provides care. Invariant-shaped with a one-step grace: a child who was a subject with a female parent at the previous step must have a caring female parent at this step. The grace is the action/state convention (an action `must` fires at t and its effect lands at t+1, ADR 0009 note 2026-11-05), so a permission to care (R4) cannot make it hold and only a duty on the female parent (R5) closes the gap. Blind at step 0 and to a child born at the last step. The plain same-step form was tried first and failed on R5 too; this form is post-hoc (plans/priority.md, slice 1 revision 2 note). Written for ectogenesis R5; the sibling female_parent_care_persists is persists-shaped.",
   "formal": "(forall ((c agent) (t0 step)) (=> (and (succ t0 t) (is_subject c t0) (exists ((q agent)) (and (parent q c t0) (female q t0)))) (exists ((p agent)) (and (parent p c t) (female p t) (provides_care p c t)))))"
  }
 ]
