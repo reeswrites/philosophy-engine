@@ -267,7 +267,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    }
   ],
   "rules": [
@@ -6232,7 +6233,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    },
    {
     "name": "attach",
@@ -6787,7 +6789,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    },
    {
     "name": "attach",
@@ -7346,7 +7349,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    },
    {
     "name": "attach",
@@ -7920,7 +7924,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    },
    {
     "name": "attach",
@@ -8497,7 +8502,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    },
    {
     "name": "attach",
@@ -9082,7 +9088,8 @@
     "args": [
      "w"
     ],
-    "effects": []
+    "effects": [],
+    "liberty": true
    },
    {
     "name": "attach",
