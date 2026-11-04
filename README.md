@@ -1,5 +1,63 @@
 # philosophy-engine
 
+The Python engine behind [computational-liberation](https://github.com/reeswrites/computational-liberation). It takes things written as logic or as rules, asks the Z3 solver what follows from them, and reports a plain sentence plus the formal certificate behind it. It is research software: expect breaking changes. Apache-2.0.
+
+Two families of input share the pipeline:
+
+- **Arguments** (`data/phase0`): philosophical arguments reconstructed as premises and a conclusion, formalized in first-order logic by a language model, checked for validity with Z3, and compared for shared logical form. This was the engine's first job (Phase 0, done; the developer log below records it).
+- **Institutions** (`data/institutions`): laws, policies and norms encoded as ADICO rules (Ostrom's Institutional Grammar: Attribute, Deontic, aIm, Conditions, Or else), checked for what they permit or force over a bounded number of steps, compared for structural isomorphism, and run under adaptive agents. This is the family computational-liberation uses. The theory, the dataset, the preregistered expectations, the reviews and the claims register live in that repo; this repo supplies the code and keeps a synced copy of the dataset.
+
+If you want to know *why* institutions are encoded this way, read [computational-liberation/docs/overview.md](https://github.com/reeswrites/computational-liberation/blob/main/docs/overview.md). If you want to know what a verdict means before you quote one, read [interpreting results](https://github.com/reeswrites/computational-liberation/blob/main/docs/interpreting-results.md).
+
+## Commands
+
+`uv sync` installs; `uv run pytest -q -m "not llm"` runs the offline tests. Run `uv run phil ...` from inside the repo that holds the `data/` you want (paths resolve from the current directory, or `PHIL_DATA_DIR` / `PHIL_RUNS_DIR`).
+
+| Command | What it does | Exit code |
+|---|---|---|
+| `phil families` | List the data families found under `data/` | |
+| `phil rules check --inst ID [--prop NAME] [--trace] [--k 6]` | Check one institution's expected properties against Z3; `--trace` prints the counterexample trace | 1 on any mismatch |
+| `phil rules check-all` | The same for every institution; prints agreement with preregistered expectations and any inert rule | 1 on any mismatch |
+| `phil rules iso (--pair A B \| --all) [--with-strands] [--cond exact\|guard]` | Structural isomorphism between rule sets: what matched, what did not, the care+control sub-signature | |
+| `phil rules gate [--verbose]` | Layer-1 rediscovery gate, criteria (a) to (f) | 0 PASS, 1 FAIL |
+| `phil rules cache stats\|clear` | The content-addressed result cache under `runs/rules-cache/` | |
+| `phil abm run --inst ID (--seed N \| --seeds N) [--modules material,coordination]` | Layer 2: one seeded agent-based run, or rates over seeds | |
+| `phil abm sweep --inst ID --seeds N --param name=lo:hi:steps` | A parameter grid over seeds; every number is a rate over seeds | |
+| `phil abm score --inst ID --seeds N` | Veil-of-ignorance freedom and flourishing vectors, means over seeds | 3 on error |
+| `phil abm gate --seeds N` | Layer-2 gate, criteria (a) to (d); (d) needs 100 seeds | 0 PASS, 1 FAIL, 2 BLOCKED, 3 load error |
+| `phil ingest`, `run`, `status`, `show`, `report`, `gate`, `dashboard`, `calls` | The arguments family (Phase 0); see the developer log below | |
+
+Full flags are in the module docstrings of [`philengine/cli_rules.py`](philengine/cli_rules.py) and [`philengine/cli_abm.py`](philengine/cli_abm.py). Every `phil rules` output ends with the line `'open' means not reached within k, never 'safe'`.
+
+## How `phil rules` is put together
+
+```mermaid
+flowchart LR
+  J["institutions.json<br/>properties.json"] --> S["schemas_rules.py<br/>load and validate"]
+  S --> L["rules_lower.py<br/>rules to Z3, steps 0..k"]
+  S --> R["rules_reference.py<br/>independent trace semantics"]
+  L --> Z["Z3"]
+  Z --> C["rules_checks.py<br/>verdicts, vacuity, inert rules"]
+  R -. tests compare .-> C
+  C --> G["rules_gate.py<br/>criteria a to f"]
+  S --> I["rules_iso.py<br/>skeleton bijection"]
+  I --> G
+  C --> O["phil rules check, check-all"]
+  G --> P["phil rules gate"]
+  I --> Q["phil rules iso"]
+```
+
+*The layer-1 modules. `schemas_rules` loads and validates an entry; `rules_lower` turns its rules into Z3 constraints over k steps; `rules_checks` asks Z3 for each property and flags vacuous or inert results; `rules_iso` compares rule skeletons; `rules_gate` combines both into the lettered criteria. `rules_reference` is a second implementation of the same semantics, written independently so the tests can compare the two.*
+
+The layer-2 package `philengine/abm/` (`model.py`, `agent.py`, `graph.py`, `sweep.py`, `score.py`, `gate.py`, `report.py`) imports `rules_reference.Reference` for its reading of which actions the rules enable, so layers 1 and 2 never disagree about enabledness. It is built on Mesa 3.x. Three mechanism modules are switches: `material` is built, `coordination` is in progress, `imagination` is a stub (2026-11-04).
+
+Design decisions that explain the code: [ADR 0002](docs/decisions/0002-rule-format-adico-json.md) (rule format), [ADR 0003](docs/decisions/0003-time-by-bounded-unrolling.md) (time by bounded unrolling, k = 6), [ADR 0004](docs/decisions/0004-entailment-not-prediction.md) (entailment, not prediction), [ADR 0009](docs/decisions/0009-state-obligations.md) (an aim can be a state), [ADR 0013](docs/decisions/0013-derived-power-fluents.md) (power is derived from what the rules enable). The full index is [docs/decisions/](docs/decisions/); theory and process ADRs live in computational-liberation. Terms: [docs/glossary.md](docs/glossary.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## History (developer log)
+
+Everything below is the engine's running log, kept as written: handoff decisions, the Phase 0 findings on the arguments family, and the fix rounds. It is a record, not a guide.
+
+
 ## What this is
 
 An engine that formalizes arguments and institutions, checks them with Z3, and compares them for shared logical form. Every result ships as a plain sentence plus the formal certificate behind it: validity verdicts with countermodels, reachability verdicts over bounded traces, isomorphism with its remainder. Runs are reproducible and expectations are written down before runs.
