@@ -56,7 +56,8 @@ def sweep(inst: InstitutionJSON, axes: dict[str, list[float]], seeds: int, steps
                         params=params) for s in range(seeds)]
         summary = summarize(reps)
         rows = [{"params": point, "seed": r.seed, "final_adoption": r.final_adoption(), "fluent_rates": r.fluent_rates,
-                 "breach_rate": r.breach_rate(), "sanctioned_rate": r.sanctioned_rate()} for r in reps]
+                 "breach_rate": r.breach_rate(), "unavoidable_rate": r.unavoidable_rate(),
+                 "sanctioned_rate": r.sanctioned_rate()} for r in reps]
         grid.append({"params": point, "rates": {k: v for k, v in summary.items() if k != "runs"}, "rows": rows})
     return {"institution": inst.id, "seeds": seeds, "steps": steps, "agents_per_role": agents_per_role,
             "modules": list(modules), "axes": {n: axes[n] for n in names}, "grid": grid}

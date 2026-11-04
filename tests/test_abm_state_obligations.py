@@ -114,7 +114,9 @@ def test_breach_rates_over_seeds_split_on_sanction_weight():
 
 def test_unavoidable_breach_is_warned_once_per_run():
     """Strict enabledness (ADR 0013): without `may care`, once a carer has neglected nothing available to it
-    re-establishes provides_care while assigned, so the breach is unavoidable; reported once, counted."""
+    re-establishes provides_care while assigned, so the breach is unavoidable; reported once, counted.
+    Updated 2026-11-04 (review finding 3): an unavoidable breach is not a breach of choice, so from step 2 on it
+    is in `unavoidable`, not `breaches`, and nobody is sanctioned for it; before, `breaches` stayed 1.0."""
     inst = kibbutz_like()
     inst.rules = [r for r in inst.rules if r.id != "R5"]
     for r in inst.rules:
@@ -133,7 +135,19 @@ def test_unavoidable_breach_is_warned_once_per_run():
     assert len(ws) == 1 and "role carer" in ws[0] and "3 step(s)" in ws[0], rep.warnings
     assert m.unavoidable["R3"][2] == 3  # counted over steps, reported once
     assert not any(w.startswith("inconsistent") for w in rep.warnings)  # one rule alone: not a conflict
-    assert all(v["carer"] == 1.0 for v in rep.breaches[1:])  # charged as breaches throughout
+    assert rep.breaches[1]["carer"] == 1.0 and rep.unavoidable[1]["carer"] == 0.0  # step 1: neglect was a choice
+    assert all(v["carer"] == 0.0 for v in rep.breaches[2:])  # then no option keeps P: not a breach of choice
+    assert all(v["carer"] == 1.0 for v in rep.unavoidable[2:])
+    assert all(k.unavoidable == ["R3"] and k.breached == [] for k in m.by_role["carer"])
+    assert rep.breach_rate()["carer"] == pytest.approx(1 / 5) and rep.unavoidable_rate()["carer"] == pytest.approx(3 / 5)
+    # finding 4: the counters are exact whatever is read between steps
+    m2 = InstitutionModel(inst, seed=0, agents_per_role=3, payoffs={"neglect": 5.0},
+                          params={"sanction_weight": 0.0, "copy_rate": 0.0})
+    for _ in range(5):
+        m2.step()
+        for _ in range(3):
+            m2.available_for("carer"); m2.state_obligations_for("carer"); m2.state_breaches("carer", None)
+    assert m2.unavoidable["R3"] == m.unavoidable["R3"] == ("carer", 2, 3)
 
 
 def test_choosing_nothing_is_the_lawful_baseline():
@@ -146,6 +160,86 @@ def test_choosing_nothing_is_the_lawful_baseline():
     m.step(); m.step()
     assert all(k.chosen is None and k.breached == [] for k in m.by_role["carer"])
     assert m.report().breach_rate()["carer"] == 0.0
+
+
+# ---------------------------------------------------------------- 2026-11-04 review findings 2, 3, 7b
+
+def dataset_shaped(initial=()) -> InstitutionJSON:
+    """The kibbutz-childrens-house entry's shape: the carer has a must-be (R3) and a breaker `may neglect` (R7),
+    the committee's `assign` establishes provides_care, and NO action of the carer restores it (no `may care`:
+    `care` is declared but unnamed, so never available under strict enabledness)."""
+    inst = kibbutz_like()
+    inst.rules = [r for r in inst.rules if r.id != "R5"]
+    inst.initial = list(initial)
+    return inst
+
+
+def test_dataset_shaped_breach_is_a_choice_only_while_an_option_keeps_the_state():
+    """Review finding 2: on the dataset shape the carer's only move is the breaker, so with P held by the
+    committee's assign the sign test on `neglect` decides. Sanction zero: every carer breaches by choice and is
+    counted in `breaches`; sanction above the payoff: nobody does (they choose nothing). Finding 3: when nobody
+    re-establishes P, the breach is unavoidable: `breaches` stays 0, `unavoidable` is 1, nobody is sanctioned."""
+    free = InstitutionModel(dataset_shaped(), seed=0, agents_per_role=6, payoffs={"neglect": 1.0},
+                            params={"sanction_weight": 0.0, "copy_rate": 0.0})
+    free.step(); free.step()
+    assert free.available_for("carer") == [NEGLECT]
+    assert all(k.chosen == NEGLECT and k.breached == ["R3"] and k.unavoidable == [] for k in free.by_role["carer"])
+    assert free.breaches[-1]["carer"] == 1.0 and free.unavoidable_steps[-1]["carer"] == 0.0
+    dear = InstitutionModel(dataset_shaped(), seed=0, agents_per_role=6, payoffs={"neglect": 1.0},
+                            params={"sanction_weight": 1.0, "copy_rate": 0.0})  # expected sanction 1 * 3 > 1
+    for _ in range(4):
+        dear.step()
+    assert all(k.chosen is None and k.breached == [] for k in dear.by_role["carer"])
+    assert all(v["carer"] == 0.0 for v in dear.breaches) and all(v["carer"] == 0.0 for v in dear.unavoidable_steps)
+    # assigned but uncared-for from the start, and the committee never (re-)assigns: no option of the carer keeps P
+    stuck = dataset_shaped(initial=["(assigned carer)"])
+    for r in stuck.rules:
+        if r.id == "R1":
+            r.conditions = "(not (assigned carer))"
+    for w in (0.0, 10.0):
+        m = InstitutionModel(stuck, seed=0, agents_per_role=6, payoffs={"neglect": 1.0},
+                             params={"sanction_weight": w, "copy_rate": 0.0})
+        for _ in range(5):
+            m.step()
+        rep = m.report()
+        assert ATOM not in m.state and m.state_obligation_rules("carer") == {ATOM: ["R3"]}
+        assert rep.breach_rate()["carer"] == 0.0 and rep.unavoidable_rate()["carer"] == 1.0
+        assert rep.sanctioned_rate()["carer"] == 0.0  # A4: no choice, no sanction
+        assert all(k.unavoidable == ["R3"] and k.obligation_outcomes == [] for k in m.by_role["carer"])
+        assert all(c.trust == {} for c in m.by_role["child"])  # nothing chosen to keep or breach: trust unmoved
+        assert len([x for x in rep.warnings if x.startswith("unavoidable breach: R3")]) == 1
+        assert "unavoidable_rate_over_seeds" in __import__("philengine.abm.report", fromlist=["summarize"]).summarize([rep])
+
+
+def test_material_floor_admits_the_keepers_of_each_obligation_symmetrically():
+    """Review finding 7b: under the floor the candidates are the practice plus, per obligation in force, the
+    actions that keep it: the must action for an action must, the keep-set for a must-be. With an action must
+    (R10 `must care`) and the must-be R3 both in force on a carer below the floor and without a practice: when P
+    holds, `rest` keeps R3 (no effect on P) and is admitted although it is not the must action (before, only
+    `care` was); when P is false only `care` keeps R3, so `rest` is dropped and `care` is chosen."""
+    def inst(initial=()):
+        out = kibbutz_like(extra_actions=[{"name": "rest", "args": ["carer"]}],
+                           extra_rules=[{"id": "R9", "attribute": "carer", "deontic": "may", "aim": "(rest carer)",
+                                         "conditions": "true", "strand": "rival"},
+                                        {"id": "R10", "attribute": "carer", "deontic": "must", "aim": "(care carer child)",
+                                         "conditions": "(assigned carer)", "strand": "superadditive", "or_else": "R6"}])
+        out.initial = list(initial)
+        return out
+    REST = ("rest", ("carer",))
+    pay = {"rest": 3.0, "care": 1.0, "neglect": 0.5}
+    # sanction 0.1 * 3 steps = 0.3 per rule: rest nets 2.7 breaching R10 alone, 2.4 breaching R10 and R3
+    params = {"initial_surplus": 0.0, "default_income": 0.0, "floor": 1.0, "copy_rate": 0.0, "sanction_weight": 0.1}
+    # the floor binds everyone (surplus 0 < 1), so the committee never assigns: the state is set by `initial`
+    held = InstitutionModel(inst(initial=["(assigned carer)", "(provides_care carer child)"]), seed=0,
+                            agents_per_role=6, payoffs=pay, params=params)
+    assert all(k.surplus < 1.0 and k.practice is None for k in held.by_role["carer"])
+    assert held.keeps("carer", REST) and held.obligations_for("carer") == [CARE]
+    held.step()
+    assert all(k.chosen == REST and k.breached == ["R10"] for k in held.by_role["carer"])  # keeps R3: admitted
+    broken = InstitutionModel(inst(initial=["(assigned carer)"]), seed=0, agents_per_role=6, payoffs=pay, params=params)
+    assert not broken.keeps("carer", REST) and broken.keeps("carer", CARE)
+    broken.step()
+    assert all(k.chosen == CARE and k.breached == [] for k in broken.by_role["carer"])  # rest keeps nothing: dropped
 
 
 # ---------------------------------------------------------------- item 2 (a): one sanction quantity

@@ -131,17 +131,7 @@ class Reference:
                     raise RefError(f"{r.id}: aim is a derived fluent")
                 cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
                 names = [x.name for x in aim.args]
-                fdecl = self.fluents[aim.pred]
-                types = {}
-                for i, n in enumerate(names):
-                    if n in self.roles:
-                        types[n] = n
-                    elif n in r.var_roles:
-                        types[n] = r.var_roles[n]
-                    elif fdecl.arg_roles is not None:
-                        types[n] = fdecl.arg_roles[i]
-                    else:
-                        types[n] = self._var_role(n)
+                types = self.aim_types(r)
                 free = sorted(self._free_vars(cond) - set(names)) if cond is not None else []
                 free_doms = []
                 for v in free:
@@ -164,18 +154,7 @@ class Reference:
             names = [x.name for x in aim.args]
             if len(names) != len(self.actions[aim.pred].args):
                 raise RefError(f"{r.id}: aim arity")
-            types = {}
-            atypes = self._action_types(self.actions[aim.pred])
-            for i, n in enumerate(names):
-                p = self.actions[aim.pred].args[i]
-                if i == 0:
-                    types[n] = r.attribute
-                elif n in self.roles:
-                    types[n] = n
-                elif n in r.var_roles:
-                    types[n] = r.var_roles[n]
-                else:
-                    types[n] = atypes.get(p)
+            types = self.aim_types(r)
             free = sorted(self._free_vars(cond) - set(names)) if cond is not None else []
             free_doms = []
             for v in free:
@@ -210,6 +189,41 @@ class Reference:
         if not isinstance(a, sx.App):
             raise RefError(f"aim must be an application: {text!r}")
         return a
+
+    def aim_types(self, r) -> dict[str, str | None]:
+        """{aim argument name: role or None} for a rule's aim, the ONE typing of rule declarations (used for rule
+        instances here and for A5 bearing in the ABM). Action aim: position 0 is the attribute; after it a literal
+        role name > the rule's `var_roles` > the action's `arg_roles` (else its prefix heuristic). State aim
+        (fluent head): literal role name > `var_roles` > the fluent's `arg_roles` > prefix heuristic."""
+        aim = self._aim(r.aim)
+        names = [x.name for x in aim.args]
+        types: dict[str, str | None] = {}
+        if aim.pred in self.fluents and aim.pred not in self.actions:
+            fdecl = self.fluents[aim.pred]
+            for i, n in enumerate(names):
+                if n in self.roles:
+                    types[n] = n
+                elif n in r.var_roles:
+                    types[n] = r.var_roles[n]
+                elif fdecl.arg_roles is not None:
+                    types[n] = fdecl.arg_roles[i]
+                else:
+                    types[n] = self._var_role(n)
+            return types
+        if aim.pred not in self.actions:
+            raise RefError(f"{r.id}: unknown action {aim.pred}")
+        atypes = self._action_types(self.actions[aim.pred])
+        params = self.actions[aim.pred].args
+        for i, n in enumerate(names):
+            if i == 0:
+                types[n] = r.attribute
+            elif n in self.roles:
+                types[n] = n
+            elif n in r.var_roles:
+                types[n] = r.var_roles[n]
+            else:
+                types[n] = atypes.get(params[i]) if i < len(params) else None
+        return types
 
     def _var_role(self, name: str) -> str | None:
         if name in self.roles:

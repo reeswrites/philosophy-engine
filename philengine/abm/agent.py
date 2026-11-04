@@ -10,10 +10,15 @@ obligations in ADR 0015, amendment 2026-11-04), in this priority order (ASSUMED)
      (A4): any available action whose net payoff (payoff minus expected sanction for the rules it breaches) beats
      the best lawful net payoff joins the candidate set. A rule with `or_else: null` carries no sanction, so
      breaching it is free; a must_not with `or_else: null` is a disability and `Reference.power` already removed
-     it (ADR 0013). With no lawful option at all (conflicting musts, or a must-be nothing available can establish)
-     every available action is a candidate and the model records the diagnostic once per run (`report.warnings`).
-  2. material: below the surplus `floor` the candidates collapse to the current practice plus the obligations
-     (action musts, and the lawful actions when a state obligation is in force).
+     it (ADR 0013). A must-be no option keeps (`model.unavoidable_rules`: neither nothing nor any available action
+     re-establishes P) is an UNAVOIDABLE breach, not a breach of choice: it is left out of `breaches`, prices no
+     sanction, and is booked in `unavoidable` instead (2026-11-04 review finding 3; A4: breach is a choice). With
+     no lawful option at all (conflicting musts) every available action is a candidate and the model records the
+     diagnostic once per run (`report.warnings`).
+  2. material: below the surplus `floor` the candidates collapse to the current practice plus, for each
+     obligation in force, the candidates that keep it: the must action for an action must, the keep-set (the
+     candidates whose successor leaves P true) for a must-be. Symmetric across the two kinds (finding 7b); the
+     floor never admits an action only because it is lawful.
   3. with probability `copy_rate`, imitate the neighbour whose last action earned most (Axelrod-style), if it earned
      more than this agent did;
   4. else material payoff-following: switch to the candidate whose net payoff strictly beats the current practice's;
@@ -26,8 +31,11 @@ random draw goes through `model.random`, seeded once per run.
 
 State obligations (A8): `must-be P when C` on role r, with C true now, obliges each agent of role r to choose an
 action whose effects leave P true in the successor state (`model.keeps`: the reference's `successor` applied to the
-current shared state plus this agent's own action alone). Breaching one is charged exactly like an action-rule
-breach and feeds trust (A5) through the fluent's declared argument roles.
+current shared state plus this agent's own action alone). Breaching one by choice is charged exactly like an
+action-rule breach and feeds trust (A5) through the fluent's declared argument roles. When no option keeps P the
+breach is unavoidable: not a choice, so not charged, not in `breached`, and not an obligation outcome for trust
+(ASSUMED: trust reads what a neighbour chose, and here nothing was open to choose); the agent lists the rule ids
+in `unavoidable` and the model counts them per step.
 
 Sanctions (A4; one quantity for expectation and realisation, slice-2 review item): breaching a rule with `or_else`
 makes the agent sanctioned for `sanction_steps` steps; at each of those steps the realised payoff (and surplus) is
@@ -68,7 +76,8 @@ class InstitutionAgent(mesa.Agent):
         self.last_payoff = 0.0
         # (obligation, kept) at the last step; an obligation is an action instance (must-do) or a fluent atom (must-be)
         self.obligation_outcomes: list[tuple[tuple, bool]] = []
-        self.breached: list[str] = []  # rule ids breached at the last step
+        self.breached: list[str] = []  # rule ids breached BY CHOICE at the last step
+        self.unavoidable: list[str] = []  # must-be rule ids no option could keep at the last step (not a breach)
         self.breach_count = 0  # sanctionable breaches so far (graduated sanction exponent)
         self.sanctioned_until = -1  # step index; sanctioned while model.t < this
         self.sanction_now = 0.0  # per-step charge applied while sanctioned
@@ -109,12 +118,18 @@ class InstitutionAgent(mesa.Agent):
         obl = m.obligation_rules(self.role)  # {act: [must rule ids]} (action-aimed)
         sobl = m.state_obligation_rules(self.role)  # {fluent atom: [must-be rule ids]} (state-aimed, A8)
         forb = m.forbidding_rules(self.role)  # {act: [sanctionable must_not rule ids]}
+        unavoidable = m.unavoidable_rules(self.role)  # must-be ids no option keeps now: not a choice (finding 3)
 
         def breaches(a: ActionInst | None) -> list[str]:
+            """Rule ids choosing `a` breaches BY CHOICE (an unavoidable must-be is breached whatever `a` is)."""
             out = list(forb.get(a, [])) if a is not None else []
             out += [r for o, rs in obl.items() if o != a for r in rs]
-            out += [r for rs in m.state_breaches(self.role, a).values() for r in rs]
+            out += [r for rs in m.state_breaches(self.role, a).values() for r in rs if r not in unavoidable]
             return out
+
+        def keeps_some_state_obligation(a: ActionInst) -> bool:
+            broken = m.state_breaches(self.role, a)
+            return any(atom not in broken for atom in sobl)
 
         net = {a: m.payoff(a) - sum(self.expected_sanction(r) for r in breaches(a)) for a in available}
         lawful = [a for a in available if not breaches(a)]
@@ -123,9 +138,10 @@ class InstitutionAgent(mesa.Agent):
             best_lawful = max([net[a] for a in lawful] + ([0.0] if none_lawful else []))
             candidates = lawful + [a for a in available if a not in lawful and net[a] > best_lawful]
         else:
-            candidates = list(available)  # nothing lawful: diagnosed by the model (unavoidable / conflicting)
+            candidates = list(available)  # nothing lawful: conflicting musts, diagnosed by the model
         if "material" in m.modules and self.surplus < p["floor"]:
-            candidates = [a for a in candidates if a == self.practice or a in obl or (sobl and a in lawful)]
+            candidates = [a for a in candidates
+                          if a == self.practice or a in obl or keeps_some_state_obligation(a)]
         chosen: ActionInst | None = None
         source = "none"
         if candidates:
@@ -162,8 +178,10 @@ class InstitutionAgent(mesa.Agent):
         self.chosen = chosen
         self.last_choice_source = source
         broken_atoms = m.state_breaches(self.role, chosen)
-        self.obligation_outcomes = [(o, o == chosen) for o in obl] + [(atom, atom not in broken_atoms) for atom in sobl]
+        self.obligation_outcomes = [(o, o == chosen) for o in obl] + [
+            (atom, atom not in broken_atoms) for atom, rids in sobl.items() if not set(rids) <= unavoidable]
         self.breached = breaches(chosen)
+        self.unavoidable = sorted(unavoidable)
         sanctionable = [r for r in self.breached if m.sanctionable(r)]
         if sanctionable:
             self.sanction_now = sum(self.sanction_charge(r) for r in sanctionable)
