@@ -933,16 +933,16 @@ ECTO_FLUENTS = ECTO_FLUENTS_COMMON + [
    F("gestated_ex_utero",1,"c is in a device (ectogenesis only; exists to mark an absence of a body)")]
 SURR_FLUENTS = ECTO_FLUENTS_COMMON + [
    F("gestates",2,"x's body carries c (surrogacy only)")]
+_ECTO_START = A("start_gestation",["provider","child"],[E("in_gestation",["child"],True)])
 _ECTO_SHARED_ACTIONS = [
-   A("start_gestation",["provider","child"],[E("in_gestation",["child"],True)]),
    A("register_parentage",["registry","intended_parent","child"],[E("parent",["intended_parent","child"],True)]),
    A("provide_care",["intended_parent","child"],[E("provides_care",["intended_parent","child"],True)]),
    A("reprimand",["registry","x"],[])]
-ECTO_ACTIONS = _ECTO_SHARED_ACTIONS + [
+ECTO_ACTIONS = [_ECTO_START] + _ECTO_SHARED_ACTIONS + [
    A("transfer_to_device",["provider","child"],[E("gestated_ex_utero",["child"],True)]),
    A("decant",["provider","child"],[E("is_subject",["child"],True),E("in_gestation",["child"],False),E("gestated_ex_utero",["child"],False)])]
 SURR_ACTIONS = _ECTO_SHARED_ACTIONS + [
-   A("implant",["provider","gestator","child"],[E("gestates",["gestator","child"],True)]),
+   A("implant",["provider","gestator","child"],[E("in_gestation",["child"],True),E("gestates",["gestator","child"],True)]),  # Revision 2: merged, no bodiless step
    A("give_birth",["gestator","child"],[E("birthing_parent",["gestator","child"],True),E("is_subject",["child"],True),
                                         E("in_gestation",["child"],False),E("gestates",["gestator","child"],False)])]
 def _ecto_common_rules():
@@ -959,8 +959,8 @@ ECTO_RULES = [_c["R1"],
   R("R3","provider","must","(decant provider child)","(gestated_ex_utero child)","R6","superadditive",False,FIRESTONE+". The birth duty moves from a body to a device operator; decant never sets birthing_parent. Strand tag is a HAND TAG (ASSUMED author decision 2026-11-04)."),
   _c["R4"],_c["R5"],_c["R6"],_c["R7"]]
 _c = _ecto_common_rules()
-SURR_RULES = [_c["R1"],
-  R("R2","provider","may","(implant provider gestator child)","(in_gestation child)",None,"rival",False,"gestational surrogacy: the clinic implants an embryo in the gestator. "+SURR_UNV),
+SURR_RULES = [  # Revision 2: R1 and start_gestation removed (plans/ectogenesis.md v2)
+  R("R2","provider","may","(implant provider gestator child)","true",None,"rival",False,"gestational surrogacy: the clinic implants an embryo in the gestator. "+SURR_UNV),
   R("R3","gestator","must","(give_birth gestator child)","(gestates gestator child)","R6","rival",False,"the gestator carries to term and gives birth; the rival input sits in one body. "+SURR_UNV+" Gestator consent and the right to keep the child are out of scope (ASSUMED author decision 2026-11-04)."),
   _c["R4"],_c["R5"],_c["R6"],_c["R7"]]
 inst.append({
@@ -972,7 +972,7 @@ inst.append({
                         "solo_care_by_non_birthing_parent":"reachable","care_assigned_by_sex":"violated"},
  "isomorphic_to":[{"id":"gestational-surrogacy","level":"guard","sub_signature":[]}],
  "not_isomorphic_to":["gestational-surrogacy","coverture-household","police-crisis","cps","kibbutz-childrens-house"],
- "minimal_pair_of":{"id":"gestational-surrogacy","rule":"R2,R3","differs_on":"birth_labor_rival"},
+ "minimal_pair_of":{"id":"gestational-surrogacy","rule":"R1,R2,R3","differs_on":"birth_labor_rival"},
  "notes":("Firestone's claim: ectogenesis removes the rival input itself (one body, a short window), where transferable-leave and kibbutz-childrens-house redistribute the care obligation around it. Substitution pair with gestational-surrogacy: R2 (transfer_to_device vs implant) and R3 (decant vs give_birth) swapped; everything else is shared. "+ECTO_DECISIONS+" "+ECTO_PREREG),
 })
 inst.append({
@@ -985,7 +985,7 @@ inst.append({
  "isomorphic_to":[{"id":"ectogenesis","level":"guard","sub_signature":[]}],
  "not_isomorphic_to":["ectogenesis","coverture-household","police-crisis","cps","kibbutz-childrens-house"],
  "minimal_pair_of":None,
- "notes":("Control: the rival input moves to a weaker party (failure mode Displacement; the model case is the global care chain; layer 3). The minimal pair is recorded on ectogenesis. "+ECTO_DECISIONS+" "+ECTO_PREREG),
+ "notes":("Control: the rival input moves to a weaker party (failure mode Displacement; the model case is the global care chain; layer 3). The minimal pair is recorded on ectogenesis. Revision 2 (2026-11-04): start_gestation merged into implant per plans/ectogenesis.md v2; v1 drift 1 stays in the record. "+ECTO_DECISIONS+" "+ECTO_PREREG),
 })
 
 def L(f,*a): return "(%s %s)" % (f, " ".join(a))

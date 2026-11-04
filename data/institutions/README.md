@@ -349,3 +349,25 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
 - Checks: `phil rules check-all` 122/123 (was 115/115; the one miss is DRIFT 1); `phil rules gate` PASS (criteria a to f;
   25 institutions, 0 inert); pytest 15 passed. `phil abm gate` not run (a full run was in progress elsewhere).
 - Layer 2 not required by the plan. Failure modes (ADR 0016) as in the plan section 5.
+
+**Revision 2 (2026-11-04; plans/ectogenesis.md "Revision 2", preregistered before the rerun, v1 unedited).**
+- Change, `gestational-surrogacy` only: R1 and `start_gestation` removed; `implant(provider, gestator, child)` now sets
+  `in_gestation` and `gestates` in one step; R2 keeps id and rival strand, condition `(in_gestation child)` -> `true`;
+  R3-R7 unchanged (six rules). `ectogenesis` untouched. `minimal_pair_of` is now rule "R1,R2,R3". Note line added to the entry.
+- `phil rules check-all`: 123/123 (was 122/123 in v1; the miss was DRIFT 1). `phil rules gate`: PASS (a to f; 25 institutions).
+- v2 verdicts, preregistered / observed (layer 1, k=6, strict, init declared): all 8 as preregistered.
+
+| Property | surrogacy | ectogenesis |
+|---|---|---|
+| `birth_labor_rival` | holds_to_k / holds_to_k | violated / violated |
+| `care_decoupled_from_birth` | unreachable_open / unreachable_open | reachable / reachable |
+| `solo_care_by_non_birthing_parent` | reachable / reachable | reachable / reachable |
+| `care_assigned_by_sex` | violated / violated | violated / violated |
+
+  `birth_labor_rival` now separates the pair at layer 1 (by construction, as flagged in advance).
+- Iso, ectogenesis ~ surrogacy (`phil rules iso --pair ectogenesis gestational-surrogacy [--cond guard] [--with-strands]`):
+  guard: not iso, distance 2, matched 5; guard+strands: not iso, distance 3, matched 4; exact: not iso, distance 3,
+  matched 4 (R4 to R7; unmatched ectogenesis R1, R2, R3, surrogacy R2, R3). Preregistered: not iso at all three (met).
+- **DRIFT 3 (iso, recorded not tuned):** preregistered distance about 3 and matched 4 held at guard+strands and exact but
+  not at guard, where the observed distance is 2 and matched 5. Not-iso verdicts unaffected. Other-institution
+  comparisons were not rerun beyond the gate (PASS); no change claimed.
