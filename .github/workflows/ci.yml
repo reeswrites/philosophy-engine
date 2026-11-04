@@ -5,22 +5,13 @@ on:
 
 jobs:
   test:
-    name: test (py${{ matrix.python-version }})
+    name: test
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - python-version: "3.12"
-            experimental: false
-          - python-version: "3.14"
-            experimental: true   # z3-solver wheels may lag on 3.14
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --python ${{ matrix.python-version }}
+      - run: uv python install 3.14
+      - run: uv sync --python 3.14
       - run: uv run pytest -q -m "not llm"
       - run: uv run phil rules check-all
 
@@ -31,6 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install 3.12
-      - run: uv sync --python 3.12
+      - run: uv python install 3.14
+      - run: uv sync --python 3.14
       - run: uv run phil rules gate

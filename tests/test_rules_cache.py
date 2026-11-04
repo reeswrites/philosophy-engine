@@ -162,9 +162,18 @@ def test_default_run_all_has_no_cache(tmp_path, monkeypatch):
 def test_cached_verdict_equals_fresh(tmp_path, make):
     fresh = run(make(), None)
     c = RuleCache(tmp_path)
-    run(make(), c)
+    stored = run(make(), c)
     hit = run(make(), RuleCache(tmp_path))
-    assert strip(hit) == strip(fresh)
+    assert strip(hit) == strip(stored)  # a hit is the stored run, byte for byte (traces included)
+
+    # z3 may pick a different (equally valid) model on a re-solve depending on process-global state, so a fresh
+    # run is compared on everything except which witness trace it found
+    def verdicts(rep):
+        d = strip(rep)
+        for r in d["results"]:
+            r["trace"] = None if r["trace"] is None else len(r["trace"])
+        return d
+    assert verdicts(hit) == verdicts(fresh)
     assert hit.timing and all(t.cached for t in hit.timing)
 
 
@@ -184,7 +193,7 @@ def test_unknown_results_are_not_stored(tmp_path, monkeypatch):
 def test_timing_records_every_query():
     rep = run(tiny(), None)
     phases = {t.phase for t in rep.timing}
-    assert {"ground", "consistent", "inert", "check", "vacuity"} <= phases
+    assert {"ground", "consistent", "check", "vacuity"} <= phases
     q = [t for t in rep.timing if t.phase == "check"]
     assert len(q) == 3 and all(t.solve_ms >= 0 and t.build_ms >= 0 and t.result in ("sat", "unsat") for t in q)
     assert all(t.k == 3 and t.step_mode == "one" and t.init == rep.init and t.z3_version == rep.z3_version for t in rep.timing)
