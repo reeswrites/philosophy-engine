@@ -84,6 +84,9 @@ class InstitutionAgent(mesa.Agent):
         # which rule of `choose` produced `chosen` at the last step (slice-3 scorer, "meaning"): one of
         # copy | switch | threshold | bootstrap | keep | obligation | none
         self.last_choice_source = "none"
+        # the candidate set `choose` picked from at the last step (after the material floor), additive, read by the
+        # gate's (c) vacuity guard (2026-11-04 review finding 1): was the forbidden instance ever a candidate?
+        self.last_candidates: list[ActionInst] = []
         self.threshold = model.random.random()
         self.surplus = float(model.params["initial_surplus"])
         self.neighbours: list["InstitutionAgent"] = []
@@ -142,6 +145,7 @@ class InstitutionAgent(mesa.Agent):
         if "material" in m.modules and self.surplus < p["floor"]:
             candidates = [a for a in candidates
                           if a == self.practice or a in obl or keeps_some_state_obligation(a)]
+        self.last_candidates = list(candidates)
         chosen: ActionInst | None = None
         source = "none"
         if candidates:

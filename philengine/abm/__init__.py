@@ -27,6 +27,13 @@ reading, awaiting author decision):
                     `InstitutionJSON` is not changed; `model.load_payoffs` reads the raw entry. A key naming an
                     action is that action's payoff (imitation, payoff-following); a key naming a fluent is an
                     income fluent (surplus). Absent: every action pays `default_payoff`, income is `default_income`.
+                    A1 EXTENSION (ASSUMED, 2026-11-04 review finding 1; the author can reverse): a key may name an
+                    action INSTANCE in the `action_label` format (`"assign(committee,male_member)": 1.5`) and then
+                    overrides the action-name key for that instance only. Needed because the choice rule admits a
+                    forbidden instance only when its net strictly beats the best lawful net, so with name-level
+                    payoffs two instances of one action can never differ and gate (c)'s sanction sweep is flat by
+                    construction. Swept, not calibrated: the gate sweeps the forbidden instance's payoff over a
+                    grid together with `sanction_weight`.
   per-agent typing  ASSUMED: enabledness is evaluated at the role level. The reference's domain is one agent per
                     role; the ABM's N agents of role r all read the same action instances (a, (r, ...)) as
                     available, and the shared institutional state is the reference's role-level state. No

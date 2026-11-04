@@ -14,20 +14,40 @@ blocked, else PASS.
     of B_PROP (mean over seeds at the last step) jumps by more than B_JUMP between adjacent sweep points. "No
     constant in the code sets the location" is a reviewer item the gate prints, not a mechanical check. Today
     BLOCKED: no `naming-convention` institution; the coordination module; B_PARAM is not a model parameter.
-(c) kibbutz regendering: PROP_C (`care_assigned_by_sex`, the dataset property, evaluated per step on the model's
-    role-level state through `Reference.prop`, never by fluent name) on KIBBUTZ rises toward 1 in >= SEED_RATE_MIN
-    of seeds and on KIBBUTZ_PAIR (the entry minus the implicit rule) stays flat in >= SEED_RATE_MIN of seeds, under
-    every module configuration the engine can run. Definitions (ASSUMED, printed in the output): with v_t the
-    property's value at steps 0..steps, early = mean over the first ceil(C_WINDOW*(steps+1)) values and late the
-    mean over the last as many; "rises toward 1" = late >= C_HIGH and late >= early - C_FLAT_TOL (ends
-    sex-assigned, did not fall); "flat" = late - early <= C_FLAT_TOL and late < C_HIGH (no rise, does not end
-    sex-assigned). The dataset's initial state already satisfies PROP_C at t=0, so on KIBBUTZ the "rise" clause is
-    degenerate and the check reads as persistence at 1; the pair is what separates the two.
+(c) kibbutz regendering, redesigned 2026-11-04 (review finding 1: the first cut was decided at step 1 by the
+    choice-set rule and was flat under any sanction sweep). The test is a TWO-AXIS SWEEP (plan: "swept, not
+    calibrated"; ADR 0015 A1 payoff ranges, A4 swept sanction weight, A7 rates over a sweep): `sanction_weight`
+    over C_SANCTION_GRID and the payoff of the forbidden instance C_FORBIDDEN (`assign(committee,male_member)`,
+    the instance R2 forbids; a per-instance payoff key, A1 extension) over C_PAYOFF_GRID, with `seeds` runs per
+    grid point. Readings per seed: the C_FORBIDDEN_ROLE's adoption share of C_FORBIDDEN (`adoption_shares`, step
+    0 = 0.0 prepended) and PROP_C (through `Reference.prop`, never by fluent name), each as a late-window mean
+    (last ceil(C_WINDOW*(steps+1)) values). At a grid point the forbidden instance PERSISTS-EXCLUDED when the late
+    share <= C_SHARE_LOW and is ADOPTED (the norm collapses) when the late share >= C_SHARE_HIGH; a grid point's
+    rate is the share of seeds meeting that. "Out-pays" = the instance's payoff strictly exceeds the best lawful
+    payoff available to the role at step 0 (the strict admission rule in agent.py). Pass criterion, written
+    before the run: on KIBBUTZ there is a sanction BAND (sanction_weight values at which the persist rate >=
+    SEED_RATE_MIN for EVERY payoff point) and, for EVERY out-paying payoff point, a sanction_weight BELOW the band
+    at which the adoption rate >= SEED_RATE_MIN (the sanction governs; the test FAILS when the persist verdict is
+    independent of sanction_weight across the grid: that is the vacuity the review named); on KIBBUTZ_PAIR (the
+    entry minus R2: nothing to sanction) the instance is adopted at every sanction_weight for every out-paying
+    payoff point in >= SEED_RATE_MIN of seeds. BLOCKED, never PASS/FAIL, when the instance is not an action
+    instance of the entry, is never available to the role at step 0, or is never a candidate for any agent at
+    any grid point (vacuity guard: no payoff key reaches it). Extra reported line, not a criterion: the old
+    property-trace reading at the default point (sanction_weight = DEFAULT_PARAMS, payoff = default_payoff):
+    KIBBUTZ `rises_toward_one` (late >= C_HIGH and late >= early - C_FLAT_TOL) and KIBBUTZ_PAIR `ends_below_high`
+    (late - early <= C_FLAT_TOL and late < C_HIGH; renamed from `stays_flat`, review finding 2: it accepts a 1 -> 0
+    drop, so it measures "ends below C_HIGH without rising", not flatness). Note that under shared role-level
+    state (A2) one adopting agent flips PROP_C for every agent and `release` is never available, so the property
+    stays false once broken even after the committee has returned to lawful assignment: the share is the reading.
 (d) seed stability: rank the institutions by the mean summed veil-of-ignorance score (`score.py`; nulls excluded)
     over each of two disjoint halves of the seeds (first half / second half, ASSUMED) and require Spearman >=
     D_RHO_MIN for every module configuration run; needs >= D_MIN_SEEDS seeds, else BLOCKED. Institutions whose
     runs raise are listed as errors and fail the criterion. Disagreement pairs (freedom vs flourishing) are
-    printed as information.
+    printed as information. Ranks are AVERAGE ranks (ties share the mean of the ranks they span, marked "tie"),
+    the same ranks `spearman` uses; `mean_measured` (sum / measured components) is printed beside the sum the
+    ranking uses (review findings 3b, 4). Caveat printed on the line: (d) is necessary, not sufficient (a
+    role-count scorer would also be stable), and the freedom components are static per role on this dataset,
+    so seed variance there is role sampling only.
 
 Module configurations: of the plan's eight, the gate runs those `_check_modules` accepts, minus the empty set.
 The stubs (`coordination`, `imagination`) make six unavailable; the empty set is listed as not run because the
@@ -44,7 +64,7 @@ from .. import sexpr as sx
 from ..schemas_rules import InstitutionJSON, Property
 from .model import (DEFAULT_AGENTS_PER_ROLE, DEFAULT_PARAMS, DEFAULT_STEPS, MODULES, InstitutionModel, _check_modules,
                     load_payoffs)
-from .score import PROBE_STEPS, disagreement, score, spearman
+from .score import PROBE_STEPS, disagreement, ranks, score, spearman
 
 PASS, FAIL, BLOCKED = "PASS", "FAIL", "BLOCKED"
 EXIT_CODES = {PASS: 0, FAIL: 1, BLOCKED: 2}  # ASSUMED (rules_gate has no BLOCKED); load/usage errors exit 3
@@ -65,18 +85,34 @@ B_SWEEP = [round(0.05 * i, 2) for i in range(1, 11)]  # plan (b): 0.05-0.50
 B_JUMP = 0.5  # plan (b): "> 0.5 between adjacent sweep points"
 C_HIGH = 0.90  # ASSUMED: late-window rate at or above which care counts as sex-assigned ("toward 1")
 C_WINDOW = 0.20  # ASSUMED: share of the run averaged at each end for the early / late rates
-C_FLAT_TOL = 0.10  # ASSUMED: tolerance on late - early for "flat" and on early - late for "rises"
+C_FLAT_TOL = 0.10  # ASSUMED: tolerance on late - early for "ends below high" and on early - late for "rises"
+C_FORBIDDEN = "assign(committee,male_member)"  # dataset: the instance kibbutz R2 forbids (action_label format)
+C_FORBIDDEN_ROLE = "committee"  # dataset: the role R2 binds (the actor of C_FORBIDDEN)
+C_SANCTION_GRID = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]  # ASSUMED: sanction_weight axis (A4, A7)
+C_PAYOFF_GRID = [1.0, 1.5, 2.0, 3.0]  # ASSUMED: payoff of C_FORBIDDEN; lawful actions pay default_payoff (1.0)
+C_SHARE_LOW = 0.20  # ASSUMED: late-window share at or below which the forbidden instance counts as excluded
+C_SHARE_HIGH = 0.80  # ASSUMED: late-window share at or above which it counts as adopted (the norm collapsed)
+C_SEEDS_MAX = 50  # ASSUMED (budget): seeds per (c) grid point, min(seeds, C_SEEDS_MAX); 24 points x 2 entries x 100 ran 9 min
 D_MIN_SEEDS = 100  # plan (d): ">= 100 seeds"
 D_RHO_MIN = 0.90  # plan (d): "Spearman >= 0.9"
 
 ASSUMPTIONS = {
     "SEED_RATE_MIN": SEED_RATE_MIN, "A_STEPS": A_STEPS, "A_PROP": A_PROP, "B_PROP": B_PROP, "B_PARAM": B_PARAM,
     "B_SWEEP": B_SWEEP, "B_JUMP": B_JUMP, "C_HIGH": C_HIGH, "C_WINDOW": C_WINDOW, "C_FLAT_TOL": C_FLAT_TOL,
+    "C_FORBIDDEN": C_FORBIDDEN, "C_FORBIDDEN_ROLE": C_FORBIDDEN_ROLE, "C_SANCTION_GRID": C_SANCTION_GRID,
+    "C_PAYOFF_GRID": C_PAYOFF_GRID, "C_SHARE_LOW": C_SHARE_LOW, "C_SHARE_HIGH": C_SHARE_HIGH, "C_SEEDS_MAX": C_SEEDS_MAX,
     "D_MIN_SEEDS": D_MIN_SEEDS, "D_RHO_MIN": D_RHO_MIN, "D_HALVES": "first half of the seeds vs second half",
     "PROBE_STEPS": PROBE_STEPS, "EXIT_CODES": EXIT_CODES,
-    "C_DEFINITIONS": ("rises toward 1: late >= C_HIGH and late >= early - C_FLAT_TOL; flat: late - early <= "
-                      "C_FLAT_TOL and late < C_HIGH; early/late = mean of the property over the first/last "
-                      "ceil(C_WINDOW*(steps+1)) steps (step 0 included)"),
+    "C_DEFINITIONS": ("per seed and grid point (sanction_weight x payoff of C_FORBIDDEN), late = mean over the last "
+                      "ceil(C_WINDOW*(steps+1)) values (step 0 included): excluded = late share of C_FORBIDDEN in "
+                      "C_FORBIDDEN_ROLE <= C_SHARE_LOW; adopted = late share >= C_SHARE_HIGH; out-pays = payoff > best "
+                      "lawful payoff at step 0. PASS iff (KIBBUTZ) some sanction band is excluded in >= SEED_RATE_MIN "
+                      "of seeds at every payoff AND every out-paying payoff is adopted in >= SEED_RATE_MIN of seeds at "
+                      "some sanction_weight below the band; (KIBBUTZ_PAIR) every out-paying payoff is adopted at every "
+                      "sanction_weight in >= SEED_RATE_MIN of seeds. FAIL named as vacuous when the excluded verdict is "
+                      "independent of sanction_weight. Extra line (not a criterion): property rises toward 1 = late >= "
+                      "C_HIGH and late >= early - C_FLAT_TOL; ends below high = late - early <= C_FLAT_TOL and late < "
+                      "C_HIGH"),
 }
 
 
@@ -174,7 +210,9 @@ def rises_toward_one(vals: list[int | float]) -> bool:
     return late >= C_HIGH and late >= early - C_FLAT_TOL
 
 
-def stays_flat(vals: list[int | float]) -> bool:
+def ends_below_high(vals: list[int | float]) -> bool:
+    """Late window below C_HIGH and no rise (a 1 -> 0 drop qualifies: this is not flatness; renamed from
+    `stays_flat`, 2026-11-04 review finding 2)."""
     early, late = windows(vals)
     return (late - early) <= C_FLAT_TOL and late < C_HIGH
 
@@ -209,18 +247,29 @@ def crit_a(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
     numbers: dict = {"pledge_actions": pledges, "collapse_rate": {}}
     lines, ok = [], True
     pay = payoffs_of(FOOTBINDING) if payoffs_of else None
+    numbers["vacuous_seeds"] = {}
     for cfg in configs:
-        collapsed = 0
+        collapsed = vacuous = 0
         for s in range(seeds):
             vals = property_trace(inst, prop, s, A_STEPS, agents_per_role, cfg, pay)
-            collapsed += int(vals[0] == 1 and vals[-1] == 0)
-        rate = collapsed / seeds
+            if vals[0] != 1:
+                vacuous += 1  # the practice never held: neither collapse nor persistence (6a, 2026-11-04)
+                continue
+            collapsed += int(vals[-1] == 0)
+        valid = seeds - vacuous
+        rate = (collapsed / valid) if valid else None  # over the seeds where the practice held at step 0
         numbers["collapse_rate"][_cfg_key(cfg)] = rate
+        numbers["vacuous_seeds"][_cfg_key(cfg)] = vacuous
         expect_collapse = "coordination" in cfg and pledges
-        good = (rate >= SEED_RATE_MIN) if expect_collapse else (rate < SEED_RATE_MIN)
+        # persistence arm: the collapse rate must be <= 1 - SEED_RATE_MIN (6a: 79% collapse is not persistence)
+        persist_max = round(1 - SEED_RATE_MIN, 9)  # rounded so 20/100 is not > 0.19999999999999996
+        good = rate is not None and ((rate >= SEED_RATE_MIN) if expect_collapse else (rate <= persist_max))
         ok &= good
-        lines.append(f"  {_cfg_key(cfg)}: collapse within {A_STEPS} steps in {rate:.0%} of {seeds} seeds "
-                     f"(expected {'collapse' if expect_collapse else 'persistence'}): {'ok' if good else 'NOT ok'}")
+        rate_s = "undefined (no seed held the practice at step 0)" if rate is None else f"{rate:.0%}"
+        lines.append(f"  {_cfg_key(cfg)}: collapse within {A_STEPS} steps in {rate_s} of {valid} seeds where {A_PROP} "
+                     f"held at step 0 ({vacuous} vacuous seed(s) excluded; expected "
+                     f"{'collapse >= ' + format(SEED_RATE_MIN, '.0%') if expect_collapse else 'persistence: collapse <= ' + format(1 - SEED_RATE_MIN, '.0%')}): "
+                     f"{'ok' if good else 'NOT ok'}")
     return Criterion("a", PASS if ok else FAIL, f"collapse rates {numbers['collapse_rate']}; pledges={pledges}",
                      numbers=numbers, lines=lines)
 
@@ -265,8 +314,59 @@ def crit_b(by: dict, props: dict[str, Property], seeds: int, configs, not_run: d
 
 
 # ------------------------------------------------------------------ (c) kibbutz regendering
+def _parse_label(label: str) -> tuple[str, tuple[str, ...]]:
+    """`action_label` inverse: "assign(committee,male_member)" -> ("assign", ("committee", "male_member"))."""
+    if "(" not in label or not label.endswith(")"):
+        raise ValueError(f"{label!r} is not an action instance label (name(role,...))")
+    name, rest = label[:-1].split("(", 1)
+    return name, tuple(x for x in rest.split(",") if x)
+
+
+def c_run(inst: InstitutionJSON, prop_ast, seed: int, steps: int, agents_per_role: int, modules, payoffs: dict | None,
+          params: dict, role: str, label: str) -> dict:
+    """One (c) run: {share: the role's adoption share of `label` at steps 0..steps (step 0 = 0.0), prop: PROP_C at
+    steps 0..steps through `Reference.prop`, candidate: was `label` ever in a `role` agent's candidate set}."""
+    m = InstitutionModel(inst, seed=seed, agents_per_role=agents_per_role, modules=modules, payoffs=payoffs, params=params)
+    target = _parse_label(label)
+    share = [m.adoption_shares().get(role, {}).get(label, 0.0)]
+    prop = [int(m.ref.prop(prop_ast, [m.state], 0))]
+    candidate = False
+    for _ in range(steps):
+        m.step()
+        share.append(m.adoption[-1].get(role, {}).get(label, 0.0))
+        prop.append(int(m.ref.prop(prop_ast, [m.state], 0)))
+        candidate = candidate or any(target in a.last_candidates for a in m.by_role.get(role, []))
+    return {"share": share, "prop": prop, "candidate": candidate}
+
+
+def _c_table(entry: dict, inst_id: str, role: str, label: str, seeds: int) -> list[str]:
+    """Compact text table: rows sanction_weight, columns payoff; cell = mean late share, then the flag E (excluded
+    in >= SEED_RATE_MIN of seeds) / A (adopted in >= SEED_RATE_MIN) / - with that flag's seed rate."""
+    ws, ps = entry["sanction_grid"], entry["payoff_grid"]
+    out = [f"  {inst_id}: mean late share of {label} in {role} [E=excluded / A=adopted in the shown share of "
+           f"{seeds} seeds; min {SEED_RATE_MIN:.0%}]; out-paying payoffs {entry['out_paying']} (best lawful "
+           f"{entry['lawful_best']})"]
+    out.append("  sanction_weight \\ payoff " + "".join(f"{p:>12}" for p in ps))
+    for w in ws:
+        cells = []
+        for p in ps:
+            g = entry["grid"][str(w)][str(p)]
+            if g["excluded_rate"] >= SEED_RATE_MIN:
+                flag = f"E{g['excluded_rate']:.0%}"
+            elif g["adopted_rate"] >= SEED_RATE_MIN:
+                flag = f"A{g['adopted_rate']:.0%}"
+            else:
+                flag = "-"
+            cells.append(f"{g['mean_late_share']:.2f} {flag}")
+        out.append(f"  {w:<24}" + "".join(f"{c:>12}" for c in cells))
+    return out
+
+
 def crit_c(by: dict, props: dict[str, Property], seeds: int, configs, steps: int = DEFAULT_STEPS,
-           agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, payoffs_of=None) -> Criterion:
+           agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, payoffs_of=None, forbidden: str = C_FORBIDDEN,
+           role: str = C_FORBIDDEN_ROLE, sanction_grid=None, payoff_grid=None) -> Criterion:
+    sanction_grid = list(C_SANCTION_GRID if sanction_grid is None else sanction_grid)
+    payoff_grid = list(C_PAYOFF_GRID if payoff_grid is None else payoff_grid)
     missing = [i for i in (KIBBUTZ, KIBBUTZ_PAIR) if i not in by]
     if missing:
         return Criterion("c", BLOCKED, f"missing institutions {missing}", blocked_reason=f"missing institutions {missing}")
@@ -277,36 +377,111 @@ def crit_c(by: dict, props: dict[str, Property], seeds: int, configs, steps: int
         return Criterion("c", BLOCKED, "no module configuration can run", blocked_reason="no runnable module configuration")
     if seeds < 1:
         return Criterion("c", BLOCKED, "seeds must be >= 1", blocked_reason="no seeds")
-    numbers: dict = {"property": PROP_C, "steps": steps, "seeds": seeds, "by_config": {}}
-    lines, ok = [], True
+    try:
+        target = _parse_label(forbidden)
+    except ValueError as e:
+        return Criterion("c", BLOCKED, str(e), blocked_reason=str(e))
+    ast = sx.parse(prop.formal)
+    seeds_asked, seeds = seeds, min(seeds, C_SEEDS_MAX)  # budget cap per grid point, stated in the output
+    numbers: dict = {"property": PROP_C, "steps": steps, "seeds": seeds, "seeds_asked": seeds_asked, "forbidden": forbidden, "role": role,
+                     "sanction_grid": sanction_grid, "payoff_grid": payoff_grid, "by_config": {}}
+    lines, ok, blocked = [], True, None
     for cfg in configs:
         key = _cfg_key(cfg)
         entry: dict = {}
-        for inst_id, pred, label in ((KIBBUTZ, rises_toward_one, "rises toward 1"), (KIBBUTZ_PAIR, stays_flat, "flat")):
-            pay = payoffs_of(inst_id) if payoffs_of else None
-            traces = [property_trace(by[inst_id], prop, s, steps, agents_per_role, cfg, pay) for s in range(seeds)]
-            hits = [pred(tr) for tr in traces]
-            rate = sum(hits) / seeds
-            ew = [windows(tr) for tr in traces]
-            entry[inst_id] = {"criterion": label, "rate": rate, "seeds_meeting": sum(hits),
-                              "early_mean": sum(e for e, _ in ew) / seeds, "late_mean": sum(l for _, l in ew) / seeds,
-                              "mean_trace": _mean_trace(traces),
-                              "per_seed": [{"seed": s, "early": e, "late": l, "ok": h}
-                                           for s, (e, l), h in zip(range(seeds), ew, hits)]}
-            good = rate >= SEED_RATE_MIN
-            ok &= good
-            lines.append(f"  {key} {inst_id}: {PROP_C} {label} in {rate:.0%} of {seeds} seeds "
-                         f"(early {entry[inst_id]['early_mean']:.2f} -> late {entry[inst_id]['late_mean']:.2f}; "
-                         f"min {SEED_RATE_MIN:.0%}): {'ok' if good else 'NOT ok'}")
-            mt = entry[inst_id]["mean_trace"]
-            lines.append(f"    mean {PROP_C} per step (0..{steps}): " + " ".join(f"{v:.2f}" for v in mt))
+        for inst_id in (KIBBUTZ, KIBBUTZ_PAIR):
+            inst = by[inst_id]
+            base_pay = dict((payoffs_of(inst_id) if payoffs_of else None) or {})
+            probe = InstitutionModel(inst, seed=0, agents_per_role=agents_per_role, modules=cfg, payoffs=base_pay)
+            if target not in probe.ref.action_insts:
+                blocked = f"{forbidden} is not an action instance of {inst_id}"
+                break
+            if role not in probe.roles or target not in probe.available_for(role):
+                blocked = f"{forbidden} is never available to {role!r} in {inst_id} at step 0 (no may/must rule names it)"
+                break
+            lawful_best = max([probe.payoff(a) for a in probe.available_for(role) if a not in probe.forbidden_for(role)]
+                              + [0.0])
+            e: dict = {"sanction_grid": sanction_grid, "payoff_grid": payoff_grid, "lawful_best": lawful_best,
+                       "out_paying": [p for p in payoff_grid if p > lawful_best], "forbidden_at_step0":
+                       target in probe.forbidden_for(role), "grid": {}, "ever_candidate": False}
+            for w in sanction_grid:
+                e["grid"][str(w)] = {}
+                for p in payoff_grid:
+                    pay = dict(base_pay, **{forbidden: p})
+                    runs = [c_run(inst, ast, s, steps, agents_per_role, cfg, pay, {"sanction_weight": w}, role, forbidden)
+                            for s in range(seeds)]
+                    late_share = [windows(r["share"])[1] for r in runs]
+                    pw = [windows(r["prop"]) for r in runs]
+                    excl = [ls <= C_SHARE_LOW for ls in late_share]
+                    adop = [ls >= C_SHARE_HIGH for ls in late_share]
+                    e["ever_candidate"] |= any(r["candidate"] for r in runs)
+                    e["grid"][str(w)][str(p)] = {
+                        "sanction_weight": w, "payoff": p, "mean_late_share": sum(late_share) / seeds,
+                        "excluded_rate": sum(excl) / seeds, "adopted_rate": sum(adop) / seeds,
+                        "property_rises_rate": sum(rises_toward_one(r["prop"]) for r in runs) / seeds,
+                        "property_ends_below_high_rate": sum(ends_below_high(r["prop"]) for r in runs) / seeds,
+                        "property_late_mean": sum(l for _, l in pw) / seeds,
+                        "property_early_mean": sum(ea for ea, _ in pw) / seeds,
+                        "per_seed": [{"seed": s, "late_share": ls, "property_early": ea, "property_late": l,
+                                      "candidate": r["candidate"]}
+                                     for s, ls, (ea, l), r in zip(range(seeds), late_share, pw, runs)]}
+            entry[inst_id] = e
+        if blocked:
+            break
+        if not any(entry[i]["ever_candidate"] for i in (KIBBUTZ, KIBBUTZ_PAIR)):
+            blocked = (f"{forbidden} was never a candidate for any {role!r} agent at any grid point in either entry: "
+                       f"no payoff key reaches it, the sweep is vacuous")
+            break
+        # --- KIBBUTZ: a sanction band excludes it at every payoff; below the band every out-paying payoff adopts it
+        k = entry[KIBBUTZ]
+        g = k["grid"]
+        excluded_at = lambda w, p: g[str(w)][str(p)]["excluded_rate"] >= SEED_RATE_MIN
+        adopted_at = lambda w, p: g[str(w)][str(p)]["adopted_rate"] >= SEED_RATE_MIN
+        band = [w for w in sanction_grid if all(excluded_at(w, p) for p in payoff_grid)]
+        out_paying = k["out_paying"]
+        below = {str(p): [w for w in sanction_grid if band and w < min(band) and adopted_at(w, p)] for p in out_paying}
+        independent = bool(out_paying) and all(len({excluded_at(w, p) for w in sanction_grid}) == 1 for p in out_paying)
+        k_ok = bool(band) and bool(out_paying) and all(below[str(p)] for p in out_paying)
+        k.update(band=band, adopted_below_band=below, excluded_independent_of_sanction=independent, ok=k_ok)
+        # --- KIBBUTZ_PAIR: adopted everywhere it out-pays, whatever the sanction weight
+        q = entry[KIBBUTZ_PAIR]
+        qg = q["grid"]
+        q_out = q["out_paying"]
+        q_fail = [(w, p) for p in q_out for w in sanction_grid if qg[str(w)][str(p)]["adopted_rate"] < SEED_RATE_MIN]
+        q_ok = bool(q_out) and not q_fail
+        q.update(not_adopted_at=q_fail, ok=q_ok)
+        ok &= k_ok and q_ok
         numbers["by_config"][key] = entry
-    summary = "; ".join(f"{k}: {KIBBUTZ} rises {v[KIBBUTZ]['rate']:.0%}, {KIBBUTZ_PAIR} flat {v[KIBBUTZ_PAIR]['rate']:.0%}"
+        lines.append(f"  {key} {KIBBUTZ}: sanction band excluding {forbidden} at every payoff: {band or 'NONE'}; "
+                     f"out-paying payoffs adopted below the band at sanction_weight {below}; excluded verdict "
+                     f"independent of sanction_weight: {'YES (vacuous)' if independent else 'no'}: "
+                     f"{'ok' if k_ok else 'NOT ok'}")
+        lines.append(f"  {key} {KIBBUTZ_PAIR}: out-paying payoffs {q_out} adopted at every sanction_weight: "
+                     f"{'yes' if q_ok else 'NOT ok, not adopted at (sanction_weight, payoff) ' + str(q_fail)}")
+        for inst_id in (KIBBUTZ, KIBBUTZ_PAIR):
+            lines.extend(_c_table(entry[inst_id], inst_id, role, forbidden, seeds))
+        dw, dp = DEFAULT_PARAMS["sanction_weight"], DEFAULT_PARAMS["default_payoff"]
+        if dw in sanction_grid and dp in payoff_grid:
+            kd, qd = g[str(dw)][str(dp)], qg[str(dw)][str(dp)]
+            lines.append(f"  extra (not a criterion), property trace at the default point sanction_weight={dw}, "
+                         f"payoff={dp}: {KIBBUTZ} {PROP_C} rises toward 1 in {kd['property_rises_rate']:.0%} of seeds "
+                         f"(late mean {kd['property_late_mean']:.2f}); {KIBBUTZ_PAIR} ends_below_high in "
+                         f"{qd['property_ends_below_high_rate']:.0%} (late mean {qd['property_late_mean']:.2f}); "
+                         f"ends_below_high accepts a 1 -> 0 drop (finding 2)")
+        if seeds < seeds_asked:
+            lines.append(f"  budget: (c) ran {seeds} of the {seeds_asked} seeds at each of the "
+                         f"{len(sanction_grid) * len(payoff_grid)} grid points per entry (C_SEEDS_MAX={C_SEEDS_MAX})")
+        lines.append(f"  note: under shared role-level state one adopting agent breaks {PROP_C} for all and `release` "
+                     f"is never available, so the property stays false after the committee returns to lawful "
+                     f"assignment; the share is the reading, the property is reported per grid point in JSON")
+    if blocked:
+        return Criterion("c", BLOCKED, blocked, blocked_reason=blocked, numbers=numbers, lines=lines)
+    summary = "; ".join(f"{k}: {KIBBUTZ} band {v[KIBBUTZ]['band'] or 'NONE'}, adopted below band "
+                        f"{v[KIBBUTZ]['adopted_below_band']}, {KIBBUTZ_PAIR} adopted everywhere it out-pays: "
+                        f"{'yes' if v[KIBBUTZ_PAIR]['ok'] else 'no'}"
                         for k, v in numbers["by_config"].items())
-    lines.append(f"  note: the dataset's initial state already satisfies {PROP_C} at t=0, so on {KIBBUTZ} the rise "
-                 "clause is degenerate (read as persistence at 1); the pair is what separates the two")
-    return Criterion("c", PASS if ok else FAIL, f"{summary} (min {SEED_RATE_MIN:.0%} of seeds; {len(configs)} "
-                     f"configuration(s) run)", numbers=numbers, lines=lines)
+    return Criterion("c", PASS if ok else FAIL, f"{summary} (min {SEED_RATE_MIN:.0%} of {seeds} seeds per grid point; "
+                     f"{len(configs)} configuration(s) run)", numbers=numbers, lines=lines)
 
 
 # ------------------------------------------------------------------ (d) seed stability
@@ -340,10 +515,15 @@ def crit_d(insts: list[InstitutionJSON], seeds: int, configs, steps: int = DEFAU
         rho = spearman(mean_a, mean_b) if ids else None
         rank_a = sorted(ids, key=lambda i: -mean_a[ids.index(i)])
         rank_b = sorted(ids, key=lambda i: -mean_b[ids.index(i)])
+        # average ranks (ties share the mean of the ranks they span), the ranks `spearman` uses (finding 3b)
+        avg_a = dict(zip(ids, ranks([-x for x in mean_a]))) if ids else {}
+        avg_b = dict(zip(ids, ranks([-x for x in mean_b]))) if ids else {}
+        mm = {sm["institution"]: sm["total"].get("mean_measured") for sm in summaries}
         dis = disagreement(summaries)
         entry = {"rho": rho, "institutions": len(ids), "errors": errors,
                  "mean_total_half_a": dict(zip(ids, mean_a)), "mean_total_half_b": dict(zip(ids, mean_b)),
-                 "ranking_half_a": rank_a, "ranking_half_b": rank_b, "disagreement_pairs": dis,
+                 "ranking_half_a": rank_a, "ranking_half_b": rank_b, "avg_rank_half_a": avg_a, "avg_rank_half_b": avg_b,
+                 "mean_measured_total": mm, "disagreement_pairs": dis,
                  "nulls": {sm["institution"]: sm["nulls"] for sm in summaries},
                  "scores": {sm["institution"]: {"freedom": sm["freedom"], "flourishing": sm["flourishing"],
                                                  "freedom_sum": sm["freedom_sum"], "flourishing_sum": sm["flourishing_sum"],
@@ -355,9 +535,17 @@ def crit_d(insts: list[InstitutionJSON], seeds: int, configs, steps: int = DEFAU
         lines.append(f"  {key}: Spearman {rho_s} over {len(ids)} institutions, halves of {half}/{seeds - half} seeds "
                      f"(min {D_RHO_MIN}); {len(errors)} error(s); {len(dis)} freedom/flourishing disagreement pair(s): "
                      f"{'ok' if good else 'NOT ok'}")
+        lines.append("  caveat: (d) is necessary, not sufficient (a role-count scorer would be as stable); the freedom "
+                     "components are static per role on this dataset, so their seed variance is role sampling only; "
+                     "ranked on the summed score (nulls excluded), mean over measured components printed beside it")
+
+        tie_a = {r for r in avg_a.values() if list(avg_a.values()).count(r) > 1}
+        tie_b = {r for r in avg_b.values() if list(avg_b.values()).count(r) > 1}
         for i in ids:
-            lines.append(f"    {i}: total half A {mean_a[ids.index(i)]:.3f} (rank {rank_a.index(i) + 1}), "
-                         f"half B {mean_b[ids.index(i)]:.3f} (rank {rank_b.index(i) + 1})")
+            ra, rb = avg_a[i], avg_b[i]
+            lines.append(f"    {i}: total half A {mean_a[ids.index(i)]:.3f} (avg rank {ra:g}{' tie' if ra in tie_a else ''}), "
+                         f"half B {mean_b[ids.index(i)]:.3f} (avg rank {rb:g}{' tie' if rb in tie_b else ''}); "
+                         f"mean over measured components {mm.get(i) if mm.get(i) is None else format(mm[i], '.3f')}")
         for i, e in errors.items():
             lines.append(f"    error {i}: {e}")
         for d in dis:
@@ -390,7 +578,13 @@ def run_gate(insts: list[InstitutionJSON], props: dict[str, Property], seeds: in
 def format_gate(rep: GateReport, verbose: bool = False) -> str:
     rows = [("criterion", "status", "detail")]
     for c in rep.criteria:
-        rows.append((c.key, c.status, c.detail if c.status != BLOCKED else f"blocked: {c.blocked_reason}"))
+        if c.status == BLOCKED:
+            # a BLOCKED letter's computed detail travels with the text (finding 7), not only the JSON
+            same = c.detail.replace("'", "") == (c.blocked_reason or "").replace("'", "")
+            extra = f"; computed: {c.detail}" if c.detail and not same else ""
+            rows.append((c.key, c.status, f"blocked: {c.blocked_reason}{extra}"))
+        else:
+            rows.append((c.key, c.status, c.detail))
     w0 = max(len(r[0]) for r in rows); w1 = max(len(r[1]) for r in rows)
     out = [f"{r[0]:<{w0}}  {r[1]:<{w1}}  {r[2]}" for r in rows]
     out.insert(1, "-" * (w0 + w1 + 4) + "-" * 40)
@@ -404,7 +598,7 @@ def format_gate(rep: GateReport, verbose: bool = False) -> str:
                                                   if k not in ("C_DEFINITIONS", "EXIT_CODES")))
     out.append(f"  (c) definitions: {ASSUMPTIONS['C_DEFINITIONS']}")
     for c in rep.criteria:
-        if c.lines and (verbose or c.status != BLOCKED):
+        if c.lines:  # a BLOCKED letter's computed lines are printed too (finding 7); --verbose adds per-item lines
             out.append("")
             out.append(f"[{c.key}]")
             out.extend(c.lines if verbose else [l for l in c.lines if not l.startswith("    ")])

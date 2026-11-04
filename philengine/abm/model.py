@@ -50,6 +50,11 @@ of the rules goes through `rules_reference.Reference`:
 Payoffs (ASSUMED, see package docstring): `load_payoffs` reads an optional top-level `payoffs` dict from the
 institution's raw entry in institutions.json. A key naming an action is that action's payoff (imitation and
 payoff-following); a key naming a fluent is an income fluent. Absent, every action pays `default_payoff`.
+Per-instance payoffs (A1 extension, ASSUMED, 2026-11-04 review finding 1; the author can reverse): a key may
+also name one action INSTANCE in the `action_label` format, e.g. `"assign(committee,male_member)": 1.5`; an
+instance key overrides the action-name key for that instance only, so two instances of one action can pay
+differently (the gate's (c) sweep needs the forbidden instance to out-pay its lawful sibling). Action-name and
+fluent keys keep working; `phil abm sweep --param payoff.<key>` takes instance keys too.
 Initial state: the reference's declared/empty split, with every unconstrained atom false (ASSUMED).
 
 Mechanism modules: `material` (slice 1); `coordination`, `imagination` raise NotImplementedError.
@@ -101,7 +106,8 @@ def _check_modules(modules) -> list[str]:
 
 
 def load_payoffs(path: str | Path, inst_id: str) -> dict[str, float] | None:
-    """The optional `payoffs` block of the institution's raw entry ({action or fluent: float}), or None."""
+    """The optional `payoffs` block of the institution's raw entry ({action, action instance or fluent: float}),
+    or None."""
     raw = json.loads(Path(path).read_text())
     for item in raw if isinstance(raw, list) else []:
         if isinstance(item, dict) and item.get("id") == inst_id:
@@ -198,8 +204,12 @@ class InstitutionModel(mesa.Model):
         return (a[0][: -len(PLEDGE_SUFFIX)], a[1])
 
     def payoff(self, a: ActionInst | None) -> float:
+        """Instance key (`action_label(a)`) > action-name key > `default_payoff` (A1 extension, ASSUMED)."""
         if a is None:
             return 0.0
+        lab = action_label(a)
+        if lab in self.payoffs:
+            return self.payoffs[lab]
         return self.payoffs.get(a[0], self.params["default_payoff"])
 
     def income_for(self, role: str) -> float:

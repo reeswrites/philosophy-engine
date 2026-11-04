@@ -26,7 +26,12 @@ an ordinary agent. Two vectors are read off the probe:
                             the end of the probe (ASSUMED: a count at the end, not a mean over steps; trust starts
                             at `initial_trust` = 0.5 so only trust the probe earned counts).
 
-Sums exclude null components and say which were excluded. Every number `score()` reports is a mean over seeds
+Sums exclude null components and say which were excluded, and carry `mean_measured` (the sum divided by the
+number of measured components) beside `value`, because institutions with a null component are summed over fewer
+terms (2026-11-04 review finding 4; gate (d) still ranks on the sum and prints both). Weight of being_known: it is
+a COUNT in [0, number of the probe's neighbours] (about k+1 = 7 on the default graph) summed with shares in [0, 1],
+so it can dominate the total; documented, not reweighted (the scorer is not redesigned here).
+Every number `score()` reports is a mean over seeds
 with the per-seed values kept (A7). `disagreement()` lists pairs of institutions that freedom and flourishing
 rank oppositely. `spearman()` is a dependency-free rank correlation (average ranks on ties) for gate (d).
 
@@ -80,8 +85,12 @@ class ProbeScore:
 
 
 def _sum(vec: dict[str, float | None]) -> dict:
+    """{value: sum over measured components, excluded: the null ones, mean_measured: value / measured count (None
+    when nothing is measured)}."""
     excluded = sorted(k for k, v in vec.items() if v is None)
-    return {"value": sum(v for v in vec.values() if v is not None), "excluded": excluded}
+    measured = [v for v in vec.values() if v is not None]
+    return {"value": sum(measured), "excluded": excluded,
+            "mean_measured": (sum(measured) / len(measured)) if measured else None}
 
 
 # ------------------------------------------------------------------ readings of the encoding
