@@ -77,7 +77,17 @@ class ActionDecl(BaseModel):
     arg_roles: list[str | None] | None = None  # one role (or null) per parameter; None = heuristic typing
     effects: list[Effect] = []
     gloss: str = ""
-    liberty: bool = False  # ADR 0013 amendment 2026-11-05: (enabled a ...) is true unless a disability bars it
+    default_capacity: bool = False  # ADR 0013 amendment 2026-11-05: (enabled a ...) is true unless a disability bars it
+
+    @model_validator(mode="before")
+    @classmethod
+    def _liberty_alias(cls, data):
+        # alias for the 2026-11-04 dataset; remove after the dataset is regenerated
+        if isinstance(data, dict) and "liberty" in data:
+            data = dict(data)
+            old = data.pop("liberty")
+            data.setdefault("default_capacity", old)
+        return data
 
     @model_validator(mode="before")
     @classmethod

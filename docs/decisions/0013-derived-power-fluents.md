@@ -35,27 +35,30 @@ under an odd number of negations; anti-monotone iff it occurs only under odd. Th
 properties only; for anti-monotone ones the mirror holds (removing a may never removes reachability). Mixed-polarity
 properties are exempt from both. mwpa-suit minus R16 -> `no_standing` reachable is pinned as a regression test.
 
-## Amendment 2026-11-05: liberty actions
+## Amendment 2026-11-05: default-capacity actions
 The 2026-11-03 amendment made an action no `may`/`must` rule names confer no power. That is right for powers a rule
-grants (earnings, standing) and wrong for liberties an institution withholds by prohibition (coverture R7 `must_not
-contract`): cutting a sole prohibition could never move a derived power, because with nothing granting it the power was
-already constant false. Experiment 2026-11-05: flipping nameless actions to enabled across the board moved 14
-preregistered verdicts (coverture read liberal), so the split cannot be a global default; it is declared per action by
-the encoder, preregistered. `ActionDecl.liberty: bool = False`. For a liberty action instance, `(enabled a args)` at t is
-true iff no disability (a `must_not` with `or_else` null) on that instance has its condition true at t, whether or not a
-`may`/`must` names it (a `may`/`must` on it is redundant for enablement; a `must` still matters as an obligation). A
-power action (the default) keeps the 2026-11-03 semantics. This is the Hohfeldian liberty/power distinction: a liberty is
-the absence of a duty not to, a power is a granted ability to change legal relations. Trace semantics is unchanged
-(`regulated_actions` and the firing-enablement block still let an unregulated action fire); liberty touches only the
-`(enabled ...)` pseudo-predicate in derived fluents, and the "never enabled" warning no longer fires for liberty actions.
+grants (detain, attach, reassign) and wrong for default capacities an institution withholds by prohibition (coverture
+R7 `must_not contract`): cutting a sole prohibition could never move a derived power, because with nothing granting it
+the power was already constant false. Experiment 2026-11-05: flipping nameless actions to enabled across the board moved
+14 preregistered verdicts (coverture read liberal), so the split cannot be a global default; it is declared per action by
+the encoder, preregistered. `ActionDecl.default_capacity: bool = False` (the old key `liberty` is still accepted as an
+input alias for the 2026-11-04 dataset, to be removed once it is regenerated). For a default-capacity action instance,
+`(enabled a args)` at t is true iff no disability (a `must_not` with `or_else` null) on that instance has its condition
+true at t, whether or not a `may`/`must` names it (a `may`/`must` on it is redundant for enablement; a `must` still
+matters as an obligation). A power action (the default) keeps the 2026-11-03 semantics. A default capacity is what a
+person of that kind can do unless an express disability removes it (a feme sole contracts, sues, holds property;
+coverture removes these by `must_not ... or_else null`); a power, the default for actions, exists only when a
+`may`/`must` confers it (detain, attach, reassign). Decided 2026-11-04: only a disability (`must_not` with `or_else`
+null) removes a default capacity; a sanctioned `must_not` leaves the capacity in place and punishes its exercise, as it
+does for a conferred power. Pinned by test. Trace semantics is unchanged (`regulated_actions` and the firing-enablement
+block still let an unregulated action fire); default capacity touches only the `(enabled ...)` pseudo-predicate in
+derived fluents, and the "never enabled" warning no longer fires for default-capacity actions.
 Both `rules_lower.Lowering.enabled` and `rules_reference.power` implement it independently.
 
 Note 2026-11-04 (after docs/reviews/2026-11-05-liberty-flag-rev3-review.md in computational-liberation): (1) the
-ABM is affected: `abm/model.py` gates available actions on `Reference.power`, so a liberty action with no `may`/`must`
-is now a lawful candidate for agents; the frozen layer-2 gate record is not guaranteed to reproduce on entries with a
-liberty action (seven coverture-chain entries), and `abm/model.py`'s docstring line stating "an action no may/must
-rule names is never available" is out of date. (2) Current code: only a disability (`must_not`, `or_else` null) bars
-a liberty action's derived power; a sanctioned `must_not` does not. The gloss above ("absence of a duty not to")
-would bar it. The reviewer also notes the name is a Hohfeldian misnomer (contracting is a power; the mechanism is a
-default capacity of that kind of agent, removed only by an express disability). Rename and the sanctioned-prohibition
-choice are open author decisions; no test pins the latter yet.
+ABM is affected: `abm/model.py` gates available actions on `Reference.power`, so a default-capacity action with no
+`may`/`must` is now a lawful candidate for agents; the frozen layer-2 gate record is not guaranteed to reproduce on
+entries with a default-capacity action (seven coverture-chain entries), and `abm/model.py`'s docstring line stating "an
+action no may/must rule names is never available" is out of date. (2) The reviewer noted the original name was a
+Hohfeldian misnomer (contracting is a power; the mechanism is a default capacity of that kind of agent, removed only by
+an express disability). Both decided 2026-11-04; see above.

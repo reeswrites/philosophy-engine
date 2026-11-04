@@ -32,7 +32,7 @@ Semantics implemented (each line is a reading of the plan; where the plan is sil
               is not part of the state: it is evaluated on demand from its expression with `params` bound to
               the arguments. (enabled a x ...) is true in a state iff (a, (x, ...)) is an action instance and
               some may/must rule instance on it has its condition true (an action no may/must rule names is
-              never (enabled ...), though it may still fire freely: ADR 0013 amendment 2026-11-03; a `liberty` action
+              never (enabled ...), though it may still fire freely: ADR 0013 amendment 2026-11-03; a `default_capacity` action
               needs no grant: ADR 0013 amendment 2026-11-05) and no
               must_not rule with or_else null on that instance has its condition true. Derived fluents
               never appear in effects or the initial state; a trace that lists one is checked against the
@@ -322,9 +322,9 @@ class Reference:
         act = (action, tuple(args))
         if act not in self.action_inst_set:
             return False
-        if not self.actions[action].liberty and not any(
+        if not self.actions[action].default_capacity and not any(
                 self.cond_holds(ri, state) for ri in self.rules_on.get(act, []) if ri.deontic in ("may", "must")):
-            return False  # a liberty action (ADR 0013 amendment 2026-11-05) skips this grant requirement
+            return False  # a default-capacity action (ADR 0013 amendment 2026-11-05) skips this grant requirement
         return not any(ri.deontic == "must_not" and ri.rule_id in self.disabilities and self.cond_holds(ri, state)
                        for ri in self.rules_on.get(act, []))
 
