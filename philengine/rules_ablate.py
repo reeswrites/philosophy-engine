@@ -7,7 +7,11 @@
 A *flip* is a change of verdict among the six real verdicts (reachable, open, holds_to_k, violated, persists, fails).
 `error`, `inconsistent`, and an `open` that is a z3 unknown (not the bounded-search "not found within k") never count as
 a flip. A deletion that leaves no compliant trace is reported as `inconsistent_after` (its own row, no flips).
-Loads are counts per property kind (freedom / goods); structure and failure_mode flips are listed, not counted. Loads are
+Loads are counts per property FAMILY (Property.family, default the property id; one flip counted once per family per
+rule) per kind (freedom / goods); structure and failure_mode flips are listed, not counted. Ranking is on
+load_freedom_up (families only); load_freedom_down names a load-bearing protection, never a cut. Every `may` rule gets a
+second row (variant "prohibited", id `<id>~prohibit`): replaced by a must_not with the same attribute, aim, conditions,
+strand and implicit, or_else null. It is ranked and never deregulated. Loads are
 never summed. The ablated institution is rebuilt through InstitutionJSON.model_validate, so derived power fluents
 (ADR 0013) recompute exactly as for any institution.
 
@@ -42,7 +46,7 @@ UNFREEDOM = frozenset({
     "dependent_cannot_exit", "subject_cannot_exit", "subject_cannot_exit_persists", "no_standing", "no_standing_persists",
     "financial_dependence", "financial_dependence_unpropertied", "cannot_contract", "worker_uninsured",
     "binding_practised", "marriage_requires_binding", "care_assigned_by_sex", "reproduction_controlled_by_owner",
-    "offspring_owned", "female_parent_care_persists"})
+    "offspring_owned", "female_parent_care_persists", "care_duty_on_women"})
 _UNFREEDOM_PRESENT = ("reachable", "holds_to_k", "persists")
 _UNFREEDOM_ABSENT = ("open", "violated", "fails")
 
@@ -65,14 +69,18 @@ class RuleAblation:
     strand: str
     implicit: bool
     permission_removed: bool
-    load_freedom: int = 0  # = load_freedom_up + load_freedom_down + load_freedom_unsigned
+    variant: str = "deleted"  # deleted | prohibited
+    load_freedom: int = 0  # families with any freedom flip (up, down or unsigned)
     load_freedom_up: int = 0
     load_freedom_down: int = 0
     load_freedom_unsigned: int = 0
+    families_up: list[str] = field(default_factory=list)
+    families_down: list[str] = field(default_factory=list)
     load_goods: int = 0
     deregulated: bool = False  # deleted may/must was the last regulator of its action: not ranked
     flip_directions: dict[str, str] = field(default_factory=dict)  # freedom flips: property -> freedom_up/down/unsigned
     check_kinds: dict[str, str] = field(default_factory=dict)  # property -> check kind actually run
+    check_sources: dict[str, str] = field(default_factory=dict)  # property -> property | expected | majority | suffix | default
     structure_flips: list[str] = field(default_factory=list)
     failure_mode_flips: list[str] = field(default_factory=list)
     flips: list[tuple[str, str, str]] = field(default_factory=list)  # (property, before, after)
@@ -111,6 +119,25 @@ def without_rule(inst: InstitutionJSON, rule_id: str) -> tuple[InstitutionJSON, 
     return InstitutionJSON.model_validate(d), orphaned
 
 
+def prohibited(inst: InstitutionJSON, rule_id: str) -> tuple[InstitutionJSON, list[str]]:
+    """inst with one `may` rule replaced by a must_not (id `<id>~prohibit`, or_else null), through the loader path."""
+    d = inst.model_dump()
+    new_id = rule_id + "~prohibit"
+    orphaned = []
+    found = False
+    for r in d["rules"]:
+        if r["id"] == rule_id:
+            r.update(id=new_id, deontic="must_not", or_else=None)
+            found = True
+    if not found:
+        raise KeyError(rule_id)
+    for r in d["rules"]:
+        if r.get("or_else") == rule_id:
+            r["or_else"] = None
+            orphaned.append(r["id"])
+    return InstitutionJSON.model_validate(d), orphaned
+
+
 def check_kinds(insts: list[InstitutionJSON]) -> dict[str, str]:
     """Check kind per property name, from the expectations across all entries (most common wins). Properties no entry
     expects fall back to `persists` for names ending _persists, else `reachable` (see check_for_property)."""
@@ -124,10 +151,22 @@ def check_kinds(insts: list[InstitutionJSON]) -> dict[str, str]:
     return {n: max(v.items(), key=lambda x: (x[1], x[0]))[0] for n, v in votes.items()}
 
 
-def check_for_property(name: str, inst: InstitutionJSON, kinds: dict[str, str] | None) -> str:
+def check_source(name: str, inst: InstitutionJSON, kinds: dict[str, str] | None,
+                 properties: dict[str, Property] | None = None) -> tuple[str, str]:
+    """(check kind, source): property (explicit `check` key) | expected (this entry) | majority (other entries) | suffix | default."""
+    if properties and name in properties and properties[name].check:
+        return properties[name].check, "property"
     c = rules_checks.check_for_expected(inst.expected_properties[name]) if name in inst.expected_properties else None
-    c = c or (kinds or {}).get(name)
-    return c or ("persists" if name.endswith("_persists") else "reachable")
+    if c:
+        return c, "expected"
+    if (kinds or {}).get(name):
+        return kinds[name], "majority"
+    return ("persists", "suffix") if name.endswith("_persists") else ("reachable", "default")
+
+
+def check_for_property(name: str, inst: InstitutionJSON, kinds: dict[str, str] | None,
+                       properties: dict[str, Property] | None = None) -> str:
+    return check_source(name, inst, kinds, properties)[0]
 
 
 def applicable_which(inst: InstitutionJSON, properties: dict[str, Property],
@@ -141,9 +180,9 @@ def applicable_which(inst: InstitutionJSON, properties: dict[str, Property],
             if errs or any("undeclared fluent" in w for w in warns):
                 na.append(n)
                 continue
-        which[n] = [check_for_property(n, inst, kinds)]
+        which[n] = [check_for_property(n, inst, kinds, properties)]
     for n in inst.expected_properties:
-        which.setdefault(n, [check_for_property(n, inst, kinds)])
+        which.setdefault(n, [check_for_property(n, inst, kinds, properties)])
     return which, sorted(na)
 
 
@@ -172,47 +211,60 @@ def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
     bv = _verdicts(base)
     out = []
     for rule in inst.rules:
-        ab = RuleAblation(rule_id=rule.id, deontic=rule.deontic, strand=rule.strand, implicit=rule.implicit,
-                          permission_removed=False, k=k, applicable=len(which), not_applicable=na,
-                          check_kinds={n: c[0] for n, c in which.items()})
-        inst2, ab.orphaned_or_else = without_rule(inst, rule.id)
-        if rule.deontic in ("may", "must") and aim_kind(rule, inst) == "action":
-            ab.deregulated = parse_aim(rule.aim).pred not in regulated_actions(inst2)
-        ab.permission_removed = rule.deontic == "may" and not ab.deregulated
-        rep = rules_checks.run_all(inst2, properties, k=k, which=which, **run_kw)
-        if rep.consistent == "unsat" and base.consistent != "unsat":
-            ab.inconsistent_after = True
-            out.append(ab)
-            continue
-        av = _verdicts(rep)
-        for name, b in bv.items():
-            a = av.get(name)
-            before, after = effective_verdict(b), (effective_verdict(a) if a else None)
-            if before is None or after is None:
-                if b.verdict == "error" or a is None or a.verdict == "error" or before is None or after is None:
-                    ab.uncounted.append(name)
-                continue
-            if before == after:
-                continue
-            ab.flips.append((name, before, after))
-            kind = properties[name].kind if name in properties else "structure"
-            if kind == "freedom":
-                ab.load_freedom += 1
-                d = ab.flip_directions[name] = flip_direction(name, before, after)
-                if d == "freedom_up":
-                    ab.load_freedom_up += 1
-                elif d == "freedom_down":
-                    ab.load_freedom_down += 1
-                else:
-                    ab.load_freedom_unsigned += 1
-            elif kind == "goods":
-                ab.load_goods += 1
-            elif kind == "structure":
-                ab.structure_flips.append(name)
+        variants = [("deleted", rule.id)] + ([("prohibited", rule.id + "~prohibit")] if rule.deontic == "may" else [])
+        for variant, rid in variants:
+            ab = RuleAblation(rule_id=rid, deontic=rule.deontic if variant == "deleted" else "must_not", strand=rule.strand,
+                              implicit=rule.implicit, permission_removed=False, variant=variant, k=k,
+                              applicable=len(which), not_applicable=na, check_kinds={n: c[0] for n, c in which.items()},
+                              check_sources={n: check_source(n, inst, kinds, properties)[1] for n in which})
+            if variant == "deleted":
+                inst2, ab.orphaned_or_else = without_rule(inst, rule.id)
+                if rule.deontic in ("may", "must") and aim_kind(rule, inst) == "action":
+                    ab.deregulated = parse_aim(rule.aim).pred not in regulated_actions(inst2)
+                ab.permission_removed = rule.deontic == "may" and not ab.deregulated
             else:
-                ab.failure_mode_flips.append(name)
-        out.append(ab)
+                inst2, ab.orphaned_or_else = prohibited(inst, rule.id)
+                ab.permission_removed = True
+            _fill(ab, inst2, properties, k, which, base, bv, **run_kw)
+            out.append(ab)
     return out
+
+
+def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
+    rep = rules_checks.run_all(inst2, properties, k=k, which=which, **run_kw)
+    if rep.consistent == "unsat" and base.consistent != "unsat":
+        ab.inconsistent_after = True
+        return
+    av = _verdicts(rep)
+    fam_all, fam_up, fam_down, goods = set(), set(), set(), set()
+    for name, b in bv.items():
+        a = av.get(name)
+        before, after = effective_verdict(b), (effective_verdict(a) if a else None)
+        if before is None or after is None:
+            ab.uncounted.append(name)
+            continue
+        if before == after:
+            continue
+        ab.flips.append((name, before, after))
+        kind = properties[name].kind if name in properties else "structure"
+        fam = (properties[name].family if name in properties else name)
+        if kind == "freedom":
+            fam_all.add(fam)
+            d = ab.flip_directions[name] = flip_direction(name, before, after)
+            if d == "freedom_up":
+                fam_up.add(fam)
+            elif d == "freedom_down":
+                fam_down.add(fam)
+        elif kind == "goods":
+            goods.add(fam)
+        elif kind == "structure":
+            ab.structure_flips.append(name)
+        else:
+            ab.failure_mode_flips.append(name)
+    ab.families_up, ab.families_down = sorted(fam_up), sorted(fam_down)
+    ab.load_freedom, ab.load_freedom_up, ab.load_freedom_down = len(fam_all), len(fam_up), len(fam_down)
+    ab.load_freedom_unsigned = len(fam_all - fam_up - fam_down)
+    ab.load_goods = len(goods)
 
 
 @dataclass
@@ -240,8 +292,8 @@ def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: t
                    kinds: dict[str, str] | None = None, **run_kw) -> list[MultiKAblation]:
     per_k = {k: {a.rule_id: a for a in ablate(inst, properties, k, kinds, **run_kw)} for k in ks}
     out = []
-    for rule in inst.rules:
-        by_k = {k: per_k[k][rule.id] for k in ks}
+    for rid in per_k[ks[0]]:
+        by_k = {k: per_k[k][rid] for k in ks}
         names = set()
         for a in by_k.values():
             names |= {f[0] for f in a.flips}
@@ -250,21 +302,21 @@ def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: t
             seen = {next(((f[1], f[2]) for f in a.flips if f[0] == n), None) for a in by_k.values()}
             if len(seen) > 1:
                 dis.append(n)
-        out.append(MultiKAblation(rule.id, by_k, dis))
+        out.append(MultiKAblation(rid, by_k, dis))
     return out
 
 
 def summarize(entries: dict[str, list[MultiKAblation]], ks: tuple[int, ...]) -> dict:
-    """One row per entry: top ranked (non-deregulated, consistent) rules by load_freedom at ks[0], ties listed, plus counts
+    """One row per entry: top ranked (non-deregulated, consistent) rules by load_freedom_up at ks[0], ties listed, plus counts
     of inconsistent_after and uncounted rows (any k)."""
     out = {}
     for eid, res in entries.items():
         k0 = ks[0]
         ranked = [m for m in res if not m.by_k[k0].deregulated and not m.by_k[k0].inconsistent_after]
-        best = max((m.by_k[k0].load_freedom for m in ranked), default=0)
+        best = max((m.by_k[k0].load_freedom_up for m in ranked), default=0)
         out[eid] = {
-            "k": k0, "top_load_freedom": best,
-            "top_rules": sorted(m.rule_id for m in ranked if m.by_k[k0].load_freedom == best) if best > 0 else [],
+            "k": k0, "top_load_freedom_up": best,
+            "top_rules": sorted(m.rule_id for m in ranked if m.by_k[k0].load_freedom_up == best) if best > 0 else [],
             "deregulated_not_ranked": sorted(m.rule_id for m in res if m.by_k[k0].deregulated),
             "inconsistent_after": sum(a.inconsistent_after for m in res for a in m.by_k.values()),
             "uncounted": sum(len(a.uncounted) for m in res for a in m.by_k.values()),

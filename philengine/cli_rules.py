@@ -279,7 +279,10 @@ def cmd_ablate(a) -> int:
             summ = ", ".join(f"{n}:{b}>{c}[{first.flip_directions.get(n, '')}]" if first.flip_directions.get(n) else f"{n}:{b}>{c}"
                              for n, b, c in first.flips) or "-"
         note = ("deregulated (action becomes unregulated: always enabled, derived power zeroed)" if first.deregulated
+                else "prohibited" if first.variant == "prohibited"
                 else "permission removed" if first.permission_removed else "-")
+        if first.load_freedom_down > 0 and first.load_freedom_up == 0:
+            note = "load-bearing protection" if note == "-" else note + "; load-bearing protection"
         return (m.rule_id, first.deontic, first.strand, lf, ud, lg, note,
                 ",".join(first.orphaned_or_else) or "-", ",".join(m.k_disagreement) or "-", summ)
 
@@ -299,11 +302,12 @@ def cmd_ablate(a) -> int:
                          "not_applicable": r0.not_applicable if r0 else [],
                          "check_kinds": r0.check_kinds if r0 else {},
                          "rules": [m.to_dict() for m in res]}
-        res.sort(key=lambda m: (-m.by_k[ks[0]].load_freedom, m.rule_id))
+        res.sort(key=lambda m: (-m.by_k[ks[0]].load_freedom_up, m.rule_id))
         napp = f"{r0.applicable} properties applicable, {len(r0.not_applicable)} not applicable" if r0 else "no rules"
         print(f"== {inst.id}  ({napp}; k={','.join(map(str, ks))}; loads shown per k; flips at k={ks[0]}; open means not found within k)")
         if r0:
-            print("   check kinds: " + ", ".join(f"{n}={c}" for n, c in sorted(r0.check_kinds.items())))
+            print("   check kinds: " + ", ".join(f"{n}={c}" + (f"[{r0.check_sources[n]}]" if r0.check_sources.get(n, "expected") != "expected" else "")
+                                                for n, c in sorted(r0.check_kinds.items())) + "  ([src]: property=explicit check key, majority/suffix/default=fallback; unmarked = entry expectation)")
         table([row(m) for m in res if not m.by_k[ks[0]].deregulated])
         dereg = [row(m) for m in res if m.by_k[ks[0]].deregulated]
         if dereg:

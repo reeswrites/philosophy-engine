@@ -209,6 +209,14 @@ class Property(BaseModel):
     gloss: str = ""
     formal: str  # state formula, `t` free; fluent applications carry t last
     scope: str | None = None
+    check: CheckKind | None = None  # explicit check kind; when absent ablation falls back to expectations / majority vote / suffix
+    family: str = ""  # ablation load counts one flip per family per rule; defaults to the property's own name
+
+    @model_validator(mode="after")
+    def _family_default(self):
+        if not self.family:
+            self.family = self.name
+        return self
 
 
 class TraceStep(BaseModel):
