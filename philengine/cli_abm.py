@@ -16,6 +16,8 @@ optional `payoffs` block on the institution's dataset entry (absent: uniform def
 `score` prints the veil-of-ignorance vectors (abm/score.py) as means over seeds with per-seed values (errors exit
 3, as `gate`). `gate` runs the layer-2 gate (a)-(d) (abm/gate.py) and exits 0 PASS, 1 FAIL, 2 BLOCKED, 3 on a
 load/usage error. A payoff key may name an action instance (`payoff.assign(committee,male_member)`).
+`--committed-action NAME` (run, sweep, score) overrides the entry's `payoffs.committed_action`: the action a
+`committed_minority` holds (coordination module; `--param committed_minority=0.05:0.5:10` sweeps the share).
 """
 from __future__ import annotations
 
@@ -29,6 +31,10 @@ from .abm import gate as abm_gate
 from .abm.score import PROBE_STEPS, score
 from .abm.sweep import parse_param, sweep
 from .schemas_rules import RulesLoadError, default_paths, load_institutions, load_properties
+
+
+def _base_params(a) -> dict | None:
+    return {"committed_action": a.committed_action} if getattr(a, "committed_action", None) else None
 
 
 def cmd_run(a) -> int:
@@ -51,7 +57,7 @@ def cmd_run(a) -> int:
         return 2
     try:
         reps = [run_abm(by_id[a.institution], seed=s, steps=a.steps, agents_per_role=a.agents_per_role,
-                        modules=modules, payoffs=payoffs) for s in seeds]
+                        modules=modules, payoffs=payoffs, params=_base_params(a)) for s in seeds]
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -78,7 +84,7 @@ def cmd_sweep(a) -> int:
     try:
         axes = dict(parse_param(t) for t in a.param)
         out = sweep(by_id[a.institution], axes, seeds=a.seeds, steps=a.steps, agents_per_role=a.agents_per_role,
-                    modules=modules, payoffs=load_payoffs(path, a.institution))
+                    modules=modules, payoffs=load_payoffs(path, a.institution), base_params=_base_params(a))
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -102,7 +108,8 @@ def cmd_score(a) -> int:
     modules = [m.strip() for m in a.modules.split(",") if m.strip()]
     try:
         out = score(by_id[a.institution], a.seeds, steps=a.steps, probe_steps=a.probe_steps,
-                    agents_per_role=a.agents_per_role, modules=modules, payoffs=load_payoffs(path, a.institution))
+                    agents_per_role=a.agents_per_role, modules=modules, payoffs=load_payoffs(path, a.institution),
+                    params=_base_params(a))
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 3
@@ -144,6 +151,7 @@ def register(sub) -> None:
     s.add_argument("--agents-per-role", type=int, default=DEFAULT_AGENTS_PER_ROLE)
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
+    s.add_argument("--committed-action", default=None, help="action (or instance label) a committed_minority holds")
     s.set_defaults(fn=cmd_run)
     s = rs.add_parser("sweep", help="parameter grid over seeds; every number is a rate over seeds")
     s.add_argument("--institution", "--inst", required=True, dest="institution")
@@ -154,6 +162,7 @@ def register(sub) -> None:
     s.add_argument("--agents-per-role", type=int, default=DEFAULT_AGENTS_PER_ROLE)
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
+    s.add_argument("--committed-action", default=None, help="action (or instance label) a committed_minority holds")
     s.set_defaults(fn=cmd_sweep)
     s = rs.add_parser("score", help="veil-of-ignorance freedom and flourishing vectors, means over seeds")
     s.add_argument("--institution", "--inst", required=True, dest="institution")
@@ -163,6 +172,7 @@ def register(sub) -> None:
     s.add_argument("--agents-per-role", type=int, default=DEFAULT_AGENTS_PER_ROLE)
     s.add_argument("--modules", default="material", help=f"comma-separated subset of {','.join(MODULES)}")
     s.add_argument("--institutions", default=None, help="path to institutions.json")
+    s.add_argument("--committed-action", default=None, help="action (or instance label) a committed_minority holds")
     s.set_defaults(fn=cmd_score)
     s = rs.add_parser("gate", help="layer-2 gate (a)-(d); exit 0 PASS, 1 FAIL, 2 BLOCKED, 3 load error")
     s.add_argument("--seeds", type=int, required=True, help="seeds 0..N-1 for every check ((d) needs >= 100)")

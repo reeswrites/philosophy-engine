@@ -183,10 +183,11 @@ def test_synchronous_update():
 
 
 def test_stub_modules_raise():
-    for mod in ("coordination", "imagination"):
-        assert mod in MODULES
-        with pytest.raises(NotImplementedError):
-            run_abm(tiny(), seed=0, steps=1, agents_per_role=2, modules=["material", mod])
+    """Slice 4: `coordination` runs; `imagination` is still a stub."""
+    assert "coordination" in MODULES and "imagination" in MODULES
+    run_abm(tiny(), seed=0, steps=1, agents_per_role=2, modules=["material", "coordination"])
+    with pytest.raises(NotImplementedError):
+        run_abm(tiny(), seed=0, steps=1, agents_per_role=2, modules=["material", "imagination"])
     with pytest.raises(ValueError):
         run_abm(tiny(), seed=0, steps=1, agents_per_role=2, modules=["telepathy"])
 
@@ -293,8 +294,10 @@ def test_must_without_or_else_is_free_to_breach():
 
 
 def test_sanctionable_must_not_is_breached_only_when_worth_it():
+    # or_else R1 (may work when true): a sanction rule in force whatever the breach does. (R3's condition,
+    # paid(worker), is cancelled by quitting, so under the slice-4 in-force reading R3 would not land.)
     forbid = {"id": "R4", "attribute": "worker", "deontic": "must_not", "aim": "(quit worker)",
-              "conditions": "true", "strand": "rival", "or_else": "R3"}
+              "conditions": "true", "strand": "rival", "or_else": "R1"}
     inst = tiny(extra_rules=[forbid])
     tempted = InstitutionModel(inst, seed=0, agents_per_role=3, payoffs={"quit": 5.0, "work": 1.0},
                                params=dict(sanction_weight=1.0, copy_rate=0.0))

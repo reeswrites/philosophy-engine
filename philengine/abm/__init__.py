@@ -10,14 +10,19 @@ state, which must / must_not instances bind now, and uses its `successor` for ef
 not define, the ABM does not know.
 
 SLICE 1: `material` mechanism only, as the simplest payoff-following adoption; `coordination` and `imagination`
-are stubs raising NotImplementedError. SLICE 2 (author decisions A3-A5, A7 in
+were stubs raising NotImplementedError. SLICE 2 (author decisions A3-A5, A7 in
 computational-liberation/docs/decisions-pending.md): breach as a choice with graduated sanctions, directed trust,
 the `_pledge` stand-in, `phil abm sweep`. SLICE 3: the veil-of-ignorance scorer (`score.py`: a probe agent
 dropped in after stabilisation; freedom = exit / voice / recognition, flourishing = pleasure / meaning /
 being-known, nulls excluded from sums and named) and the layer-2 gate (`gate.py`, `phil abm gate`): (a)
 footbinding and (b) committed minority are BLOCKED until the institutions and the coordination module exist,
 (c) kibbutz regendering and (d) seed stability run on the material module. The agent gained one additive
-attribute, `last_choice_source`, so the scorer can read which rule of `choose` fired.
+attribute, `last_choice_source`, so the scorer can read which rule of `choose` fired. SLICE 4 (2026-11-04): the
+`coordination` module (assurance-gated payoffs on the entry's `coordinated` actions, the Mackie pledge flip, a
+Centola `committed_minority` holding `committed_action`), `initial_practice`, the sanction-in-force reading,
+`sweep.necessary_modules`, and the gate unblocked: every module subset without `imagination` runs, (a) and (b)
+run when the entries exist (a as a payoff x sanction sweep read off adoption shares; b as the committed_minority
+sweep read off the committed action's share). `imagination` is still a stub.
 
 Design choices, each marked DECIDED (author decision cited) or ASSUMED (the plan's proposed default or the simplest
 reading, awaiting author decision):
@@ -89,6 +94,26 @@ reading, awaiting author decision):
                     its non-actor arguments (instance args are role names, resolved from arg_roles / typing by the
                     reference). Obligations with no role argument move no trust. Clipped to [0,1]; carried, not
                     yet consumed (the assurance test is a later slice).
+  coordination      SLICE 4 (plan "Modules"; ASSUMED where marked). Declarations live on the dataset entry, in
+                    the `payoffs` block or as entry-level keys (both read, block wins; no schema change, A1):
+                    `coordinated: [action names]` (assurance-gated), `committed_action: name | label` (what a
+                    committed minority holds), `initial_practice: name | label` (the actor role's agents start on
+                    it, so an established convention exists to tip; the initial STATE is still `initial`).
+                    Assurance: a coordinated action pays, expected and realised, only when the agent's same-role
+                    neighbour share of it (practice or pledge, snapshotted) meets its threshold, else 0. Pledge
+                    flip (Mackie): an agent whose pledge's base is a candidate and whose base share meets its
+                    threshold switches practice to it (before imitation, ASSUMED). Committed minority (Centola):
+                    `committed_minority` in [0, 1] of each actor role, rounded, drawn from model.random at init,
+                    holds `committed_action` whatever it pays (error if set without a committed action; a
+                    warning, not a minority, with the module off); reported per role as `committed`. Bootstrap
+                    (rule 6) now also fires under coordination (ASSUMED); `{}` stays static. Thresholds are
+                    U(0, threshold_max) (sweepable). Sanction in force (ASSUMED, the plan's "belief that sanction
+                    will land" read 0/1 through the reference): an `or_else` naming a rule of the entry lands only
+                    when some instance of that rule has its condition true in the successor of the breach; it
+                    changes nothing on the dataset's kibbutz (R6 `when true`), lifts footbinding's R5 once any
+                    family has pledged (role-level state: for everyone), and defers cps R3 / paternity-quota R3
+                    until their trigger holds. Reserved keys, committed set and sanction reading are the author's
+                    to reverse.
   pledge            DECIDED (A3, stand-in): an action named `X_pledge` with X declared is a pledge for X. Choosing
                     it sets the agent's public `pledge` to the X instance and leaves practice unchanged; same-role
                     neighbours' threshold shares count practice or pledge. Target per A3 is a public derived
@@ -108,6 +133,8 @@ reading, awaiting author decision):
                       sanction_weight  1.0   -> {0.0, 0.5, 1.0, 2.0, 5.0} (0.0 = sanctions exist but cost nothing)
                       sanction_steps   3     -> {1, 3, 5, 10}
                       sanction_escalation 1.5 -> {1.0, 1.5, 2.0} (1.0 = no graduation)
+                      committed_minority 0.0  -> 0.05..0.50 by 0.05 (gate (b)); needs committed_action
+                      threshold_max    1.0   -> {0.5, 0.75, 1.0}
                     `phil abm sweep --param name=lo:hi:steps` runs these as grids (A7); payoff.<action> axes too.
                     plus graph k in {4, 6, 8} and p in {0.0, 0.1, 0.5} (plan open question 2: lattice / random).
 """

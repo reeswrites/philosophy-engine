@@ -40,6 +40,14 @@ of the rules goes through `rules_reference.Reference`:
                         per step, at the start of `step()` on the state the agents choose in; reads of the
                         readings between steps (scorer, gate) never touch the counters (review finding 4).
   sanctionable(rule)    the rule has `or_else` (a sanction exists); `or_else: null` on a must = free to breach.
+  sanction_in_force(rule, a)  (slice 4, ASSUMED; the plan's "weighted by the agent's belief that sanction will
+                        land", read as 0/1 through the reference) when `or_else` names a rule of the entry, the
+                        sanction lands only if some instance of that rule has its condition true in
+                        `Reference.successor(state, {a})`, the state the breach `a` produces (the footbinding
+                        sanction R5, suitors may reject an unbound daughter, is lifted while the family is
+                        pledged: Mackie's pledge association). An `or_else` that names no rule of the entry (free
+                        text, an external sanction) always lands, as before. Both the expected and the realised
+                        charge use this one reading at the step of the breach.
   is_pledge / pledge_base  an action named `X_pledge` with X declared is a pledge for X (A3 stand-in).
   successor             `Reference.successor` on the union of distinct instances agents chose this step.
   income_for(role)      sum of `payoffs[f]` over state atoms (f, tuple) with the role in the tuple, for fluent
@@ -57,7 +65,17 @@ differently (the gate's (c) sweep needs the forbidden instance to out-pay its la
 fluent keys keep working; `phil abm sweep --param payoff.<key>` takes instance keys too.
 Initial state: the reference's declared/empty split, with every unconstrained atom false (ASSUMED).
 
-Mechanism modules: `material` (slice 1); `coordination`, `imagination` raise NotImplementedError.
+Reserved payoffs-block keys (slice 4, ASSUMED; the block is already the dataset-level hand input of A1, so no
+schema change): `coordinated` (list of action names: assurance-gated under the coordination module),
+`committed_action` (action name or instance label: what a `committed_minority` holds) and `initial_practice`
+(action name or instance label: the practice the actor role's uncommitted agents start with, so an established
+convention exists for a minority to tip). `load_payoffs` passes them through, from the payoffs block or from the entry's top level (block wins); the model splits them off
+`self.payoffs` (which stays numeric) into `self.coordinated`, `self.committed_action`, `self.initial_practice`.
+`params["committed_action"]` / `params["initial_practice"]` (strings, not sweep axes) override the block.
+
+Mechanism modules: `material` (slice 1); `coordination` (slice 4: assurance-gated payoffs on `coordinated`
+actions, the Mackie pledge flip, a Centola `committed_minority`; see agent.py); `imagination` raises
+NotImplementedError (stub).
 """
 from __future__ import annotations
 
@@ -74,6 +92,9 @@ from .graph import DEFAULT_K, DEFAULT_P, small_world
 from .report import AbmReport
 
 MODULES = ("material", "coordination", "imagination")
+STUB_MODULES = ("imagination",)
+# payoffs-block keys that are not payoffs (slice 4, ASSUMED): see the module docstring
+RESERVED_PAYOFF_KEYS = ("coordinated", "committed_action", "initial_practice")
 DEFAULT_STEPS = 50
 DEFAULT_AGENTS_PER_ROLE = 20
 # Every value here is a slice-1 placeholder to be SWEPT, not calibrated (plan: "Non-goals"); see the package
@@ -91,6 +112,8 @@ DEFAULT_PARAMS: dict[str, float] = {
     "sanction_weight": 1.0,  # A4: per-step charge while sanctioned for breaching a rule with or_else
     "sanction_steps": 3,  # A4: steps an agent stays sanctioned after a breach; expected sanction = weight * steps
     "sanction_escalation": 1.5,  # A4: graduated multiplier on the per-step charge per prior breach
+    "committed_minority": 0.0,  # coordination (Centola 2018): share of each actor role committed to `committed_action`
+    "threshold_max": 1.0,  # agent thresholds are drawn uniform on [0, threshold_max] (Granovetter; swept, A7)
 }
 
 
@@ -99,26 +122,44 @@ def _check_modules(modules) -> list[str]:
     for m in modules:
         if m not in MODULES:
             raise ValueError(f"unknown mechanism module {m!r}; have {MODULES}")
-        if m in ("coordination", "imagination"):
-            raise NotImplementedError(f"mechanism module {m!r} is not in slice 1 (stub)")
+        if m in STUB_MODULES:
+            raise NotImplementedError(f"mechanism module {m!r} is a stub (not built yet)")
         out.append(m)
     return out
 
 
-def load_payoffs(path: str | Path, inst_id: str) -> dict[str, float] | None:
-    """The optional `payoffs` block of the institution's raw entry ({action, action instance or fluent: float}),
-    or None."""
+def load_payoffs(path: str | Path, inst_id: str) -> dict | None:
+    """The optional `payoffs` block of the institution's raw entry ({action, action instance or fluent: float},
+    plus the RESERVED_PAYOFF_KEYS passed through as given), or None."""
     raw = json.loads(Path(path).read_text())
     for item in raw if isinstance(raw, list) else []:
         if isinstance(item, dict) and item.get("id") == inst_id:
             p = item.get("payoffs")
-            return {str(k): float(v) for k, v in p.items()} if isinstance(p, dict) else None
+            out = {str(k): (v if k in RESERVED_PAYOFF_KEYS else float(v)) for k, v in p.items()} if isinstance(p, dict) else {}
+            # a reserved key may also sit on the entry itself (the footbinding entry puts `coordinated` there);
+            # the payoffs block wins when both are given
+            for k in RESERVED_PAYOFF_KEYS:
+                if k in item and k not in out:
+                    out[k] = item[k]
+            return out or None
     return None
+
+
+def split_payoffs(payoffs: dict | None) -> tuple[dict[str, float], dict]:
+    """(numeric payoffs, {reserved key: value}) from a payoffs block that may carry RESERVED_PAYOFF_KEYS."""
+    numeric: dict[str, float] = {}
+    reserved: dict = {}
+    for k, v in (payoffs or {}).items():
+        if k in RESERVED_PAYOFF_KEYS:
+            reserved[k] = v
+        else:
+            numeric[k] = float(v)
+    return numeric, reserved
 
 
 class InstitutionModel(mesa.Model):
     def __init__(self, inst: InstitutionJSON, seed: int = 0, agents_per_role: int = DEFAULT_AGENTS_PER_ROLE,
-                 modules=("material",), payoffs: dict[str, float] | None = None, params: dict | None = None,
+                 modules=("material",), payoffs: dict | None = None, params: dict | None = None,
                  graph_k: int = DEFAULT_K, graph_p: float = DEFAULT_P):
         super().__init__(rng=seed)
         self.inst = inst
@@ -126,11 +167,15 @@ class InstitutionModel(mesa.Model):
         self.agents_per_role = agents_per_role
         self.modules = _check_modules(modules)
         self.params = {**DEFAULT_PARAMS, **(params or {})}
-        self.payoffs = dict(payoffs or {})
+        self.payoffs, reserved = split_payoffs(payoffs)
         self.warnings: list[str] = []
         self.ref = Reference(inst, k=1)
         self.t = 0
         self._sanctionable = {r.id: r.or_else is not None for r in inst.rules}
+        self._or_else = {r.id: r.or_else for r in inst.rules}
+        self._rule_insts: dict[str, list] = {}  # rule id -> its instances (action and state rules)
+        for ri in [*(x for lst in self.ref.rules_on.values() for x in lst), *self.ref.state_rules]:
+            self._rule_insts.setdefault(ri.rule_id, []).append(ri)
         self._attribute = {r.id: r.attribute for r in inst.rules}
         self._action_names = {a.name for a in inst.actions}
         self._bears: dict[str, frozenset[str]] = {}  # rule id -> declared argument roles other than the actor's
@@ -150,6 +195,13 @@ class InstitutionModel(mesa.Model):
         self._unavoidable_now: dict[str, frozenset[str]] = {}  # role -> must-be rule ids no option keeps this step
         fluent_names = {f.name for f in inst.fluents}
         self.income_fluents = {k: v for k, v in self.payoffs.items() if k in fluent_names}
+        # coordination (slice 4): which actions are assurance-gated, what committed agents hold, where practice starts
+        self.coordinated: frozenset[str] = frozenset(reserved.get("coordinated") or ())
+        unknown = sorted(self.coordinated - self._action_names)
+        if unknown:
+            raise ValueError(f"payoffs block `coordinated` names actions {unknown} not declared by {inst.id}")
+        self.committed_action: ActionInst | None = None
+        self.initial_practice: ActionInst | None = None
         fixed, free = self.ref.initial_split()
         if free:
             self.warnings.append(f"{len(free)} unconstrained initial atom(s) set false")
@@ -168,11 +220,75 @@ class InstitutionModel(mesa.Model):
         for i, a in enumerate(population):
             a.neighbours = [population[j] for j in g.neighbors(i)]
             a.role_neighbours = [n for n in a.neighbours if n.role == a.role]
+        self._init_practices(self.params.get("initial_practice") or reserved.get("initial_practice"))
+        self._init_committed(self.params.get("committed_action") or reserved.get("committed_action"))
         self.adoption: list[dict[str, dict[str, float]]] = []
         self.breaches: list[dict[str, float]] = []  # [step][role] -> share of agents that breached a rule BY CHOICE
         self.unavoidable_steps: list[dict[str, float]] = []  # [step][role] -> share under an unavoidable must-be
         self.sanctioned: list[dict[str, float]] = []  # [step][role] -> share sanctioned
         self._cache: dict[str, tuple] = {}
+
+    # ------------------------------------------------------------ initial practice and committed minority (slice 4)
+    def resolve_instances(self, what: str, spec) -> list[ActionInst]:
+        """Action instances named by `spec`: an `action_label` ("new_name(speaker)") names one instance; a bare
+        action name names every instance of that action, at most one per actor role (else name the instance)."""
+        if not isinstance(spec, str) or not spec:
+            raise ValueError(f"{what}: expected an action name or instance label, got {spec!r}")
+        insts = list(self.ref.action_insts)
+        by_label = {action_label(a): a for a in insts}
+        if spec in by_label:
+            return [by_label[spec]]
+        named = [a for a in insts if a[0] == spec]
+        if not named:
+            raise ValueError(f"{what}: {spec!r} is neither an action of {self.inst.id} nor one of its instances; "
+                             f"actions {sorted(self._action_names)}")
+        per_role: dict[str, int] = {}
+        for a in named:
+            per_role[a[1][0]] = per_role.get(a[1][0], 0) + 1
+        if any(n > 1 for n in per_role.values()):
+            raise ValueError(f"{what}: {spec!r} has several instances for one role "
+                             f"({sorted(action_label(a) for a in named)}); name the instance label")
+        return named
+
+    def _init_practices(self, spec) -> None:
+        """`initial_practice` (ASSUMED): every agent of the instance's actor role starts with it as practice (an
+        established convention; the initial STATE is still the entry's `initial`)."""
+        if spec is None:
+            return
+        for inst in self.resolve_instances("initial_practice", spec):
+            self.initial_practice = inst
+            for a in self.by_role.get(inst[1][0], []):
+                a.practice = inst
+
+    def _init_committed(self, spec) -> None:
+        """Coordination module, Centola 2018: round(committed_minority * n) agents of each actor role of
+        `committed_action`, drawn from `model.random`, hold that instance whatever it pays (`agent.committed`).
+        They count in adoption shares from step 0 (their practice is the committed action). Setting
+        committed_minority > 0 without a committed action is an error; setting it with the coordination module
+        off is a reported warning (the minority belongs to the module)."""
+        frac = float(self.params["committed_minority"])
+        if not 0.0 <= frac <= 1.0:
+            raise ValueError(f"committed_minority must be in [0, 1], got {frac}")
+        if spec is not None:
+            self.committed_action = self.resolve_instances("committed_action", spec)[0]
+        if frac == 0.0:
+            return
+        if spec is None:
+            raise ValueError("committed_minority > 0 needs a committed action: `committed_action` in the entry's "
+                             "payoffs block or params['committed_action'] (an action name or instance label)")
+        if "coordination" not in self.modules:
+            self.warnings.append(f"committed_minority={frac} ignored: the committed minority belongs to the "
+                                 f"coordination module, which is off")
+            return
+        for inst in self.resolve_instances("committed_action", spec):
+            members = self.by_role.get(inst[1][0], [])
+            n = int(round(frac * len(members)))
+            for a in self.random.sample(members, n):
+                a.committed = inst
+                a.practice = inst
+
+    def committed_shares(self) -> dict[str, float]:
+        return self._role_rate(lambda a: a.committed is not None)
 
     # ------------------------------------------------------------ rule readings (through the reference)
     def sanctionable(self, rule_id: str) -> bool:
@@ -195,6 +311,21 @@ class InstitutionModel(mesa.Model):
         roles (A5), independent of which rule is in force now."""
         rids = self._must_rules_by_head_attr.get((obligation[0], actor), ())
         return any(me in self._bears.get(r, frozenset()) for r in rids)
+
+    def sanction_in_force(self, rule_id: str, a: ActionInst | None) -> bool:
+        """Would the sanction of `rule_id` land on an agent breaching it by choosing `a` now? See the docstring."""
+        if not self.sanctionable(rule_id):
+            return False
+        target = self._or_else.get(rule_id)
+        if target is None or target not in self._rule_insts:
+            return True
+        key = ("_sif", target, a)
+        if key in self._cache:
+            return self._cache[key]
+        succ = self.ref.successor(self.state, frozenset([a]) if a is not None else frozenset())
+        ok = any(self.ref.cond_holds(ri, succ) for ri in self._rule_insts[target])
+        self._cache[key] = ok
+        return ok
 
     def is_pledge(self, a: ActionInst) -> bool:
         n = a[0]
@@ -388,8 +519,11 @@ class InstitutionModel(mesa.Model):
         return out
 
     def report(self) -> AbmReport:
+        extra = {"payoffs": dict(self.payoffs), "coordinated": sorted(self.coordinated),
+                 "committed_action": action_label(self.committed_action) if self.committed_action else None,
+                 "initial_practice": action_label(self.initial_practice) if self.initial_practice else None}
         return AbmReport(institution=self.inst.id, seed=self.seed_value, modules=list(self.modules),
-                         params=dict(self.params, payoffs=dict(self.payoffs)), steps=len(self.adoption),
+                         params=dict(self.params, **extra), steps=len(self.adoption), committed=self.committed_shares(),
                          agents_per_role=self.agents_per_role, roles=list(self.roles), adoption=list(self.adoption),
                          fluent_rates=self.fluent_rates(), breaches=list(self.breaches),
                          unavoidable=list(self.unavoidable_steps), sanctioned=list(self.sanctioned), warnings=list(self.warnings) + self.diagnostics())
@@ -397,8 +531,10 @@ class InstitutionModel(mesa.Model):
 
 def run_abm(inst: InstitutionJSON, seed: int = 0, steps: int = DEFAULT_STEPS,
             agents_per_role: int = DEFAULT_AGENTS_PER_ROLE, modules=("material",),
-            payoffs: dict[str, float] | None = None, params: dict | None = None) -> AbmReport:
-    m = InstitutionModel(inst, seed=seed, agents_per_role=agents_per_role, modules=modules, payoffs=payoffs, params=params)
+            payoffs: dict | None = None, params: dict | None = None,
+            graph_k: int = DEFAULT_K, graph_p: float = DEFAULT_P) -> AbmReport:
+    m = InstitutionModel(inst, seed=seed, agents_per_role=agents_per_role, modules=modules, payoffs=payoffs, params=params,
+                         graph_k=graph_k, graph_p=graph_p)
     for _ in range(steps):
         m.step()
     return m.report()

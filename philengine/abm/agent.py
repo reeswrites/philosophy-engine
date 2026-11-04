@@ -15,17 +15,31 @@ obligations in ADR 0015, amendment 2026-11-04), in this priority order (ASSUMED)
      sanction, and is booked in `unavoidable` instead (2026-11-04 review finding 3; A4: breach is a choice). With
      no lawful option at all (conflicting musts) every available action is a candidate and the model records the
      diagnostic once per run (`report.warnings`).
+  0. coordination, committed minority (Centola 2018): a committed agent (`committed`, set by the model at init)
+     takes its committed instance whenever it is available, whatever it pays or costs; otherwise it chooses nothing.
   2. material: below the surplus `floor` the candidates collapse to the current practice plus, for each
      obligation in force, the candidates that keep it: the must action for an action must, the keep-set (the
      candidates whose successor leaves P true) for a must-be. Symmetric across the two kinds (finding 7b); the
      floor never admits an action only because it is lawful.
+  2b. coordination, pledge flip (Mackie 1996): an agent holding a pledge whose base instance is a candidate and
+     whose same-role neighbour share (practice or pledge, snapshotted) meets this `threshold` switches practice
+     to the base instance. Placed before imitation on purpose (ASSUMED): a pledge is a public commitment honoured
+     once assurance is met, not a payoff comparison. It fires only while the practice differs from the base: a
+     flipped agent is then governed by the ordinary rules (the pledge does not lock it in).
   3. with probability `copy_rate`, imitate the neighbour whose last action earned most (Axelrod-style), if it earned
      more than this agent did;
   4. else material payoff-following: switch to the candidate whose net payoff strictly beats the current practice's;
   5. else take the candidate whose same-role neighbour share (practice or pledge, A3) meets this `threshold`;
-  6. else, with no usable practice, material bootstrap: the best net-paying candidate (ties by the model rng);
+  6. else, with no usable practice, bootstrap: the best net-paying candidate (ties by the model rng). The rule
+     belongs to the material module and, since slice 4, to the coordination module too (ASSUMED: an adaptive
+     module needs a first practice to adapt; under coordination the net is the assurance-gated one, so at a cold
+     start every coordinated action ties at 0 and the rng picks). Under `{}` no agent ever starts a practice.
   7. else keep the practice; with obligations in force and no usable practice, a random lawful candidate.
 Choosing a `*_pledge` action sets `pledge` to the base instance and leaves practice unchanged (A3 stand-in).
+Assurance (coordination module, Skyrms 2004 / plan "Modules"): an action named in the entry's `coordinated` list
+pays its payoff, expected (in `net`, so in copy / switch / bootstrap comparisons) and realised (`settle`), only
+when this agent's same-role neighbour share of it (practice or pledge, snapshotted at the step's start) meets
+this `threshold`; otherwise it pays 0. Sanctions are charged as before. With the module off nothing is gated.
 Updates are synchronous: every choice reads the practices and pledges snapshotted at the start of the step. Every
 random draw goes through `model.random`, seeded once per run.
 
@@ -43,7 +57,9 @@ reduced by the per-step charge `sanction_weight * sanction_escalation ** (prior 
 EXPECTS before breaching is the total of that charge over the window, per-step charge * sanction_steps
 (`expected_sanction`), so expected == realised when the agent does not breach again inside the window; a further
 breach inside the window replaces the running sanction with the new (graduated, higher) one rather than stacking
-(ASSUMED).
+(ASSUMED). A sanction lands only when its `or_else` rule is in force in the state the breach produces
+(`model.sanction_in_force`, slice 4, ASSUMED): otherwise the breach is booked in `breached` but prices and charges
+nothing and starts no sanction window.
 Trust (A5): my trust in neighbour n moves when n keeps (+delta) or breaches (-beta*delta) an obligation bearing on
 me: my role is among the aim's DECLARED argument roles other than the actor's (`model.bears_on`, from the action's or
 fluent's `arg_roles` as the reference types them, never from instance values).
@@ -82,12 +98,14 @@ class InstitutionAgent(mesa.Agent):
         self.sanctioned_until = -1  # step index; sanctioned while model.t < this
         self.sanction_now = 0.0  # per-step charge applied while sanctioned
         # which rule of `choose` produced `chosen` at the last step (slice-3 scorer, "meaning"): one of
-        # copy | switch | threshold | bootstrap | keep | obligation | none
+        # committed | flip | copy | switch | threshold | bootstrap | keep | obligation | none
         self.last_choice_source = "none"
         # the candidate set `choose` picked from at the last step (after the material floor), additive, read by the
         # gate's (c) vacuity guard (2026-11-04 review finding 1): was the forbidden instance ever a candidate?
         self.last_candidates: list[ActionInst] = []
-        self.threshold = model.random.random()
+        self.committed: ActionInst | None = None  # coordination: the instance this agent holds whatever it pays
+        self._shares: dict[ActionInst, float] = {}  # same-role neighbour shares read at this step's choice
+        self.threshold = model.random.random() * float(model.params["threshold_max"])  # U(0, threshold_max)
         self.surplus = float(model.params["initial_surplus"])
         self.neighbours: list["InstitutionAgent"] = []
         self.role_neighbours: list["InstitutionAgent"] = []
@@ -98,20 +116,34 @@ class InstitutionAgent(mesa.Agent):
         self.pledge_prev = self.pledge
 
     # ------------------------------------------------------------ sanctions
-    def sanction_charge(self, rule_id: str) -> float:
-        """Per-step charge while sanctioned for breaching `rule_id` now (0 if the rule carries no sanction)."""
+    def sanction_charge(self, rule_id: str, a: ActionInst | None = None) -> float:
+        """Per-step charge while sanctioned for breaching `rule_id` by choosing `a` now (0 if the rule carries no
+        sanction, or its sanction rule is not in force in the state `a` produces: `model.sanction_in_force`)."""
         p = self.model.params
-        if not self.model.sanctionable(rule_id):
+        if not self.model.sanction_in_force(rule_id, a):
             return 0.0
         return p["sanction_weight"] * p["sanction_escalation"] ** self.breach_count
 
-    def expected_sanction(self, rule_id: str) -> float:
-        """Total the agent expects to pay for breaching `rule_id` now: the per-step charge over `sanction_steps`."""
-        return self.sanction_charge(rule_id) * int(self.model.params["sanction_steps"])
+    def expected_sanction(self, rule_id: str, a: ActionInst | None = None) -> float:
+        """Total the agent expects to pay for breaching `rule_id` by choosing `a` now: the per-step charge over
+        `sanction_steps`."""
+        return self.sanction_charge(rule_id, a) * int(self.model.params["sanction_steps"])
 
     @property
     def sanctioned(self) -> bool:
         return self.model.t < self.sanctioned_until
+
+    # ------------------------------------------------------------ assurance (coordination)
+    def assured(self, a: ActionInst | None) -> bool:
+        """Does `a` pay this agent now? Always, unless the coordination module is on and `a` is a coordinated
+        action whose same-role neighbour share (read at this step's choice) is below this agent's threshold."""
+        if a is None or "coordination" not in self.model.modules or a[0] not in self.model.coordinated:
+            return True
+        return self._shares.get(a, 0.0) >= self.threshold
+
+    def gross_payoff(self, a: ActionInst | None) -> float:
+        """The payoff `a` yields this agent before sanctions: `model.payoff` gated by `assured`."""
+        return self.model.payoff(a) if self.assured(a) else 0.0
 
     # ------------------------------------------------------------ choice
     def choose(self) -> None:
@@ -134,7 +166,8 @@ class InstitutionAgent(mesa.Agent):
             broken = m.state_breaches(self.role, a)
             return any(atom not in broken for atom in sobl)
 
-        net = {a: m.payoff(a) - sum(self.expected_sanction(r) for r in breaches(a)) for a in available}
+        self._shares = self.neighbour_shares()
+        net = {a: self.gross_payoff(a) - sum(self.expected_sanction(r, a) for r in breaches(a)) for a in available}
         lawful = [a for a in available if not breaches(a)]
         none_lawful = not breaches(None)
         if lawful or none_lawful:
@@ -148,8 +181,17 @@ class InstitutionAgent(mesa.Agent):
         self.last_candidates = list(candidates)
         chosen: ActionInst | None = None
         source = "none"
-        if candidates:
-            if m.random.random() < p["copy_rate"]:
+        adaptive = "material" in m.modules or "coordination" in m.modules  # bootstrap rule (6)
+        if self.committed is not None:
+            chosen = self.committed if self.committed in available else None
+            source = "committed"
+        elif candidates:
+            if "coordination" in m.modules and self.pledge is not None and self.pledge in candidates \
+                    and self.practice != self.pledge \
+                    and self._shares.get(self.pledge, 0.0) >= self.threshold and self._shares.get(self.pledge, 0.0) > 0:
+                chosen = self.pledge
+                source = "flip"
+            if chosen is None and m.random.random() < p["copy_rate"]:
                 earners = [n for n in self.neighbours if n.last_action in candidates]
                 if earners:
                     best = max(earners, key=lambda n: n.last_payoff)
@@ -163,12 +205,12 @@ class InstitutionAgent(mesa.Agent):
                     chosen = m.random.choice([a for a in better if net[a] == top])
                     source = "switch"
             if chosen is None:
-                shares = self.neighbour_shares()
+                shares = self._shares
                 over = [a for a in candidates if shares.get(a, 0.0) >= self.threshold and shares.get(a, 0.0) > 0]
                 if over:
                     chosen = max(over, key=lambda a: shares[a])
                     source = "threshold"
-            if chosen is None and self.practice not in candidates and "material" in m.modules:
+            if chosen is None and self.practice not in candidates and adaptive:
                 top = max(net[a] for a in candidates)
                 chosen = m.random.choice([a for a in candidates if net[a] == top])
                 source = "bootstrap"
@@ -186,9 +228,9 @@ class InstitutionAgent(mesa.Agent):
             (atom, atom not in broken_atoms) for atom, rids in sobl.items() if not set(rids) <= unavoidable]
         self.breached = breaches(chosen)
         self.unavoidable = sorted(unavoidable)
-        sanctionable = [r for r in self.breached if m.sanctionable(r)]
+        sanctionable = [r for r in self.breached if m.sanction_in_force(r, chosen)]
         if sanctionable:
-            self.sanction_now = sum(self.sanction_charge(r) for r in sanctionable)
+            self.sanction_now = sum(self.sanction_charge(r, chosen) for r in sanctionable)
             self.breach_count += 1
             self.sanctioned_until = m.t + int(p["sanction_steps"])
         if chosen is not None:
@@ -215,7 +257,7 @@ class InstitutionAgent(mesa.Agent):
         m = self.model
         p = m.params
         penalty = self.sanction_now if self.sanctioned else 0.0
-        self.last_payoff = (m.payoff(self.chosen) if self.chosen is not None else 0.0) - penalty
+        self.last_payoff = self.gross_payoff(self.chosen) - penalty  # assurance-gated under coordination
         self.last_action = self.chosen
         if "material" in m.modules:
             self.surplus = max(0.0, self.surplus + m.income_for(self.role) - p["floor_cost"] - penalty)

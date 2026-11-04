@@ -5,8 +5,9 @@ adoption (per step, per role: share of that role's agents whose practice is each
 practice yet), fluent_rates (final step: share of a state fluent's tuples that are true; derived fluents are
 evaluated through the reference), breaches (per step, per role: share that breached a rule BY CHOICE, A4),
 unavoidable (per step, per role: share under a must-be no option could keep; not a breach of choice, not
-sanctioned, 2026-11-04 review finding 3), sanctioned, warnings. Score vectors and necessary_modules are later
-slices.
+sanctioned, 2026-11-04 review finding 3), sanctioned, warnings, committed (per role: the share of agents the
+coordination module committed to `committed_action`, slice 4). Score vectors live in score.py and
+`necessary_modules` in sweep.py; neither is a report field.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ class AbmReport:
     unavoidable: list[dict[str, float]] = field(default_factory=list)  # [step][role] -> share under unavoidable must-be
     sanctioned: list[dict[str, float]] = field(default_factory=list)  # [step][role] -> share under sanction
     warnings: list[str] = field(default_factory=list)
+    committed: dict[str, float] = field(default_factory=dict)  # per role: share committed to `committed_action` (coordination)
 
     def to_dict(self) -> dict:
         return asdict(self)
