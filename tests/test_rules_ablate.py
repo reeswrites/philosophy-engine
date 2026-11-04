@@ -125,7 +125,8 @@ def test_deregulation_sole_may_is_flagged_not_ranked(monkeypatch):
     assert res["R3"].deregulated  # sole may/must on exit (R2 is a must_not: does not regulate)
     assert not res["R2"].deregulated
     summ = ra.summarize({"t-keeper": ra.ablate_multi_k(inst, props, ks=(4,))}, (4,))["entries"]["t-keeper"]
-    assert summ["top_rules"] == ["R1~prohibit", "R2"] and set(summ["deregulated_not_ranked"]) == {"R1", "R3"}
+    assert summ["top_rules"] == ["R2"] and set(summ["deregulated_not_ranked"]) == {"R1", "R3"}
+    assert summ["offcondition_free_not_ranked"] == ["R1~prohibit"]  # sole regulator, condition (not (held w)): leaks
     assert summ["top_load_freedom_up"] == 1
     assert summ["inconsistent_after"] == 0 and summ["uncounted"] == 0
 
@@ -206,8 +207,8 @@ def test_cli_ablate_writes_json(tmp_path, capsys, monkeypatch):
     assert "deregulated (action becomes unregulated" in txt and "2 properties applicable, 1 not applicable" in txt
     d = json.loads(out.read_text())
     sd = json.loads(summ.read_text())
-    assert sd["entries"]["t-keeper"]["top_rules"] == ["R1~prohibit", "R2"] and sd["totals"]["entries"] == 1
-    assert "deregulated, not ranked" in txt and "check kinds: held_persists=persists" in txt
+    assert sd["entries"]["t-keeper"]["top_rules"] == ["R2"] and sd["totals"]["entries"] == 1
+    assert "deregulated, not ranked" in txt and "prohibit leaks off-condition (sole regulator): not ranked" in txt and " mixed " in txt and "check kinds: held_persists=persists" in txt
     assert d["entries"]["t-keeper"]["check_kinds"]["held_persists"] == "persists"
     assert d["ks"] == [3, 4] and d["entries"]["t-keeper"]["rules"][0]["rule_id"]
 
@@ -225,22 +226,61 @@ def test_family_collapses_twin_properties(monkeypatch):
     assert len(a.flips) == 2 and (a.load_freedom, a.load_freedom_up) == (1, 1) and a.families_up == ["held"]
 
 
-def test_ranking_ignores_down_flips():
-    def mk(rid, up, down):
-        ab = ra.RuleAblation(rule_id=rid, deontic="must_not", strand="rival", implicit=False, permission_removed=False,
-                             load_freedom=up + down, load_freedom_up=up, load_freedom_down=down, k=4)
-        return ra.MultiKAblation(rid, {4: ab}, [])
-    summ = ra.summarize({"t": [mk("A", 0, 3), mk("B", 1, 0), mk("C", 1, 2)]}, (4,))["entries"]["t"]
-    assert summ["top_rules"] == ["B", "C"] and summ["top_load_freedom_up"] == 1
+R4 = {"id": "R4", "attribute": "keeper", "deontic": "must_not", "aim": "(seize k w)", "conditions": "true",
+      "or_else": None, "strand": "tying"}
 
 
-def test_prohibit_variant_ranks_where_deletion_deregulates(monkeypatch):
+def keeper_down(mixed=False):
+    """keeper + R4 (must_not seize, always): held_reachable is open; deleting R4 makes it reachable (freedom_down)."""
+    inst, props = keeper([R4])
+    props["held_reachable"] = props["held_reachable"].model_copy(update={"kind": "freedom"})
+    if mixed:  # u2 holds_to_k > violated on the same deletion (freedom_up), same family as held_reachable
+        props["u2"] = Property(name="u2", kind="freedom", formal="(not (held ward t))", check="invariant")
+        for n in ("held_reachable", "u2"):
+            props[n] = props[n].model_copy(update={"family": "held"})
+    return inst, props
+
+
+def test_ranking_ignores_down_flips_pipeline(monkeypatch):
+    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
+    inst, props = keeper_down()
+    res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
+    assert res["R4"].flips == [("held_reachable", "open", "reachable")]
+    assert (res["R4"].load_freedom, res["R4"].load_freedom_up, res["R4"].load_freedom_down) == (1, 0, 1)
+    summ = ra.summarize({"t": ra.ablate_multi_k(inst, props, ks=(4,))}, (4,))["entries"]["t"]
+    assert summ["top_rules"] == [] and summ["top_load_freedom_up"] == 0  # the only flip is down: R4 not ranked
+
+
+def test_mixed_family_counts_in_neither_direction(monkeypatch):
+    monkeypatch.setattr(ra, "UNFREEDOM", UNF | {"u2"})
+    inst, props = keeper_down(mixed=True)
+    a = next(a for a in ra.ablate(inst, props, k=4) if a.rule_id == "R4")
+    assert a.flip_directions == {"held_reachable": "freedom_down", "u2": "freedom_up"}
+    assert (a.load_freedom, a.load_freedom_up, a.load_freedom_down, a.load_freedom_mixed) == (1, 0, 0, 1)
+    assert a.families_mixed == ["held"] and a.families_up == [] and a.families_down == []
+
+
+def test_prohibit_leak_sole_regulator_vs_true_condition(monkeypatch):
+    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
+    inst, props = keeper_free()
+    res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
+    assert res["R1~prohibit"].offcondition_free and res["R1~prohibit"].load_freedom_up == 1  # loads still shown
+    assert not res["R3~prohibit"].offcondition_free  # condition true: the must_not binds everywhere
+    assert not any(a.offcondition_free for a in res.values() if a.variant == "deleted")
+    extra = {"id": "R7", "attribute": "keeper", "deontic": "may", "aim": "(seize k w)", "conditions": "true", "strand": "rival"}
+    inst2, props2 = keeper([extra])
+    assert not next(a for a in ra.ablate(inst2, props2, k=3) if a.rule_id == "R1~prohibit").offcondition_free  # not sole
+    summ = ra.summarize({"t": ra.ablate_multi_k(inst, props, ks=(4,))}, (4,))["entries"]["t"]
+    assert "R1~prohibit" not in summ["top_rules"] and summ["offcondition_free_not_ranked"] == ["R1~prohibit"]
+
+
+def test_prohibit_variant_of_sole_may_is_offcondition_and_unranked(monkeypatch):
     monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper_free()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
     assert res["R1"].deregulated and res["R1"].variant == "deleted"
     p = res["R1~prohibit"]
-    assert p.variant == "prohibited" and not p.deregulated and p.load_freedom_up == 1
+    assert p.variant == "prohibited" and not p.deregulated and p.load_freedom_up == 1 and p.offcondition_free
     assert p.flips == [("held_reachable", "reachable", "open")]
     inst2, orphan = ra.prohibited(inst, "R1")
     r = next(r for r in inst2.rules if r.id == "R1~prohibit")
@@ -257,4 +297,18 @@ def test_explicit_property_check_wins_and_source_reported():
     assert ra.check_source("held_persists", inst, {}, props) == ("persists", "expected")
     assert ra.check_source("x_persists", inst, {}, props) == ("persists", "suffix")
     assert ra.check_source("x", inst, {"x": "invariant"}, props) == ("invariant", "majority")
-    assert "care_duty_on_women" in ra.UNFREEDOM
+    assert ra.flip_direction("care_duty_on_women", "persists", "fails") == "freedom_up"
+    assert ra.flip_direction("care_duty_on_women", "fails", "persists") == "freedom_down"
+
+
+def test_sole_must_not_deleted_is_ranked_not_deregulated(monkeypatch):
+    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
+    inst, props = keeper()
+    d = inst.model_dump()
+    d["rules"] = [r for r in d["rules"] if r["id"] != "R3"]  # R2 (must_not exit) is now the only rule on exit
+    inst = InstitutionJSON.model_validate(d)
+    a = next(a for a in ra.ablate(inst, props, k=4) if a.rule_id == "R2")
+    assert a.sole_rule and not a.deregulated
+    assert a.flip_directions == {"held_persists": "freedom_up"} and a.load_freedom_up == 1
+    summ = ra.summarize({"t": ra.ablate_multi_k(inst, props, ks=(4,))}, (4,))["entries"]["t"]
+    assert "R2" in summ["top_rules"] and "R2" not in summ["deregulated_not_ranked"]

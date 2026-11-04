@@ -266,12 +266,13 @@ def cmd_ablate(a) -> int:
     full = {}
     results = {}
     kinds = rules_ablate.check_kinds(all_insts)
-    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "load_goods", "note", "orphaned_or_else", "k-disagree", "flips")
+    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "load_goods", "note", "orphaned_or_else", "k-disagree", "flips")
 
     def row(m):
         first = m.by_k[ks[0]]
         lf = "/".join(str(m.by_k[k].load_freedom) for k in ks)
         ud = "/".join(f"{m.by_k[k].load_freedom_up}+{m.by_k[k].load_freedom_down}" for k in ks)
+        mx = "/".join(str(m.by_k[k].load_freedom_mixed) for k in ks)
         lg = "/".join(str(m.by_k[k].load_goods) for k in ks)
         if first.inconsistent_after:
             summ = "inconsistent after deletion (no compliant trace)"
@@ -279,11 +280,12 @@ def cmd_ablate(a) -> int:
             summ = ", ".join(f"{n}:{b}>{c}[{first.flip_directions.get(n, '')}]" if first.flip_directions.get(n) else f"{n}:{b}>{c}"
                              for n, b, c in first.flips) or "-"
         note = ("deregulated (action becomes unregulated: always enabled, derived power zeroed)" if first.deregulated
+                else "prohibit leaks off-condition (sole regulator): not ranked" if first.offcondition_free
                 else "prohibited" if first.variant == "prohibited"
                 else "permission removed" if first.permission_removed else "-")
-        if first.load_freedom_down > 0 and first.load_freedom_up == 0:
+        if first.load_freedom_down > 0 and first.load_freedom_up == 0 and not (first.deregulated or first.offcondition_free):
             note = "load-bearing protection" if note == "-" else note + "; load-bearing protection"
-        return (m.rule_id, first.deontic, first.strand, lf, ud, lg, note,
+        return (m.rule_id, first.deontic, first.strand, lf, ud, mx, lg, note,
                 ",".join(first.orphaned_or_else) or "-", ",".join(m.k_disagreement) or "-", summ)
 
     def table(rows):
@@ -308,10 +310,10 @@ def cmd_ablate(a) -> int:
         if r0:
             print("   check kinds: " + ", ".join(f"{n}={c}" + (f"[{r0.check_sources[n]}]" if r0.check_sources.get(n, "expected") != "expected" else "")
                                                 for n, c in sorted(r0.check_kinds.items())) + "  ([src]: property=explicit check key, majority/suffix/default=fallback; unmarked = entry expectation)")
-        table([row(m) for m in res if not m.by_k[ks[0]].deregulated])
-        dereg = [row(m) for m in res if m.by_k[ks[0]].deregulated]
+        table([row(m) for m in res if not (m.by_k[ks[0]].deregulated or m.by_k[ks[0]].offcondition_free)])
+        dereg = [row(m) for m in res if m.by_k[ks[0]].deregulated or m.by_k[ks[0]].offcondition_free]
         if dereg:
-            print("-- deregulated, not ranked (the deleted rule was the action's last may/must; loads shown, excluded from ranking)")
+            print("-- deregulated, not ranked (deleted rule was the action's last may/must, or the prohibit of a sole-regulator may leaks off-condition; loads shown, excluded from ranking)")
             table(dereg)
         print()
     if a.summary:

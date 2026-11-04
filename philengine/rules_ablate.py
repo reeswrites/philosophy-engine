@@ -11,30 +11,42 @@ Loads are counts per property FAMILY (Property.family, default the property id; 
 rule) per kind (freedom / goods); structure and failure_mode flips are listed, not counted. Ranking is on
 load_freedom_up (families only); load_freedom_down names a load-bearing protection, never a cut. Every `may` rule gets a
 second row (variant "prohibited", id `<id>~prohibit`): replaced by a must_not with the same attribute, aim, conditions,
-strand and implicit, or_else null. It is ranked and never deregulated. Loads are
+strand and implicit, or_else null. It is ranked unless it leaks (below). Loads are
 never summed. The ablated institution is rebuilt through InstitutionJSON.model_validate, so derived power fluents
 (ADR 0013) recompute exactly as for any institution.
 
 ASSUMED (option (a) of docs/reviews/2026-11-05-ablation-slice1-review.md, chosen by the coordinator as the slice-1
-reading; the author has not ratified it): a deleted may/must rule whose aim action keeps NO may/must rule leaves that
+reading; the author has not ratified it): a deleted `may` rule whose aim action keeps NO may/must rule leaves that
 action unregulated (rules_lower.regulated_actions): always enabled, and every derived power over it zeroed. Such a
 deletion is `deregulated`; its loads are computed and shown but it is NOT ranked (CLI: separate block; summary: excluded).
-Only a `may` deletion that leaves the action regulated is labelled "permission removed".
+Only a `may` deletion is `deregulated`: deleting a sole must/must_not is the honest meaning of cutting the rule and
+ranks normally (informational flag `sole_rule`). Only a `may` deletion that leaves the action regulated is labelled "permission removed".
+
+ASSUMED (option (b) of docs/reviews/2026-11-05-ablation-slice1-rev2-review.md, slice 1; not ratified): the prohibit
+variant of a `may` that was the SOLE regulator of its action (the action is not in regulated_actions of the prohibited
+institution) leaks: the must_not binds only where the condition holds, and elsewhere the action is unregulated and
+always enabled. Such a row has `offcondition_free` True, is listed with the deregulated block ("prohibit leaks
+off-condition (sole regulator): not ranked"), never ranked, loads still shown. Exception: a `may` whose condition is
+`true` binds everywhere, so no leak and the row is ranked. Alternatives not taken: (a) add a catch-all permission so the
+action stays regulated off-condition; (c) drop the prohibit variant for sole regulators.
+
+ASSUMED (families): a family with one member flipping up and another down for the same rule is `mixed`
+(families_mixed). It counts in neither load_freedom_up nor load_freedom_down, once in load_freedom, and prints in the
+`mixed` column.
 
 Orphaned or_else: a rule whose `or_else` named the deleted rule would no longer validate; that reference is cleared and the
 rule id listed in `orphaned_or_else`. Under compliance=strict an orphan is ignored (or_else is not read), so load is not
 inflated. Under compliance=sanctioned the clearing hardens the rule (a soft must_not becomes a hard disability), which can
 inflate load; read sanctioned runs only with the orphaned_or_else column.
 
-Flip direction (freedom kind only): see POLARITY. load_freedom = load_freedom_up + load_freedom_down (+ unsigned for a
-freedom property missing from the table).
+Flip direction (freedom kind only): see UNFREEDOM. load_freedom = up + down + mixed + unsigned families.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
 from . import rules_checks
-from .rules_lower import regulated_actions, validate_property, aim_kind, parse_aim
+from .rules_lower import TRUE_WORDS, regulated_actions, validate_property, aim_kind, parse_aim
 from .schemas_rules import InstitutionJSON, Property, RuleCheckReport
 
 REAL = ("reachable", "open", "holds_to_k", "violated", "persists", "fails")
@@ -76,6 +88,10 @@ class RuleAblation:
     load_freedom_unsigned: int = 0
     families_up: list[str] = field(default_factory=list)
     families_down: list[str] = field(default_factory=list)
+    families_mixed: list[str] = field(default_factory=list)  # members flip both up and down: in neither up nor down
+    load_freedom_mixed: int = 0
+    sole_rule: bool = False  # informational: the deleted rule was the only rule naming its action (ranked normally)
+    offcondition_free: bool = False  # prohibit of a sole-regulator may with a non-true condition: leaks off-condition
     load_goods: int = 0
     deregulated: bool = False  # deleted may/must was the last regulator of its action: not ranked
     flip_directions: dict[str, str] = field(default_factory=dict)  # freedom flips: property -> freedom_up/down/unsigned
@@ -219,12 +235,18 @@ def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
                               check_sources={n: check_source(n, inst, kinds, properties)[1] for n in which})
             if variant == "deleted":
                 inst2, ab.orphaned_or_else = without_rule(inst, rule.id)
-                if rule.deontic in ("may", "must") and aim_kind(rule, inst) == "action":
-                    ab.deregulated = parse_aim(rule.aim).pred not in regulated_actions(inst2)
+                if aim_kind(rule, inst) == "action":
+                    head = parse_aim(rule.aim).pred
+                    ab.sole_rule = not any(parse_aim(r.aim).pred == head for r in inst2.rules)
+                    if rule.deontic == "may":  # only a deleted permission "deregulates"; cutting a must/must_not is a cut
+                        ab.deregulated = head not in regulated_actions(inst2)
                 ab.permission_removed = rule.deontic == "may" and not ab.deregulated
             else:
                 inst2, ab.orphaned_or_else = prohibited(inst, rule.id)
                 ab.permission_removed = True
+                if (aim_kind(rule, inst) == "action" and rule.conditions.strip() not in TRUE_WORDS
+                        and parse_aim(rule.aim).pred not in regulated_actions(inst2)):
+                    ab.offcondition_free = True
             _fill(ab, inst2, properties, k, which, base, bv, **run_kw)
             out.append(ab)
     return out
@@ -261,9 +283,12 @@ def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
             ab.structure_flips.append(name)
         else:
             ab.failure_mode_flips.append(name)
-    ab.families_up, ab.families_down = sorted(fam_up), sorted(fam_down)
+    mixed = fam_up & fam_down
+    fam_up, fam_down = fam_up - mixed, fam_down - mixed
+    ab.families_up, ab.families_down, ab.families_mixed = sorted(fam_up), sorted(fam_down), sorted(mixed)
     ab.load_freedom, ab.load_freedom_up, ab.load_freedom_down = len(fam_all), len(fam_up), len(fam_down)
-    ab.load_freedom_unsigned = len(fam_all - fam_up - fam_down)
+    ab.load_freedom_mixed = len(mixed)
+    ab.load_freedom_unsigned = len(fam_all - fam_up - fam_down - mixed)
     ab.load_goods = len(goods)
 
 
@@ -306,18 +331,23 @@ def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: t
     return out
 
 
+def _unranked(a: RuleAblation) -> bool:
+    return a.deregulated or a.offcondition_free
+
+
 def summarize(entries: dict[str, list[MultiKAblation]], ks: tuple[int, ...]) -> dict:
-    """One row per entry: top ranked (non-deregulated, consistent) rules by load_freedom_up at ks[0], ties listed, plus counts
+    """One row per entry: top ranked (not deregulated / offcondition_free, consistent) rules by load_freedom_up at ks[0], ties listed, plus counts
     of inconsistent_after and uncounted rows (any k)."""
     out = {}
     for eid, res in entries.items():
         k0 = ks[0]
-        ranked = [m for m in res if not m.by_k[k0].deregulated and not m.by_k[k0].inconsistent_after]
+        ranked = [m for m in res if not _unranked(m.by_k[k0]) and not m.by_k[k0].inconsistent_after]
         best = max((m.by_k[k0].load_freedom_up for m in ranked), default=0)
         out[eid] = {
             "k": k0, "top_load_freedom_up": best,
             "top_rules": sorted(m.rule_id for m in ranked if m.by_k[k0].load_freedom_up == best) if best > 0 else [],
             "deregulated_not_ranked": sorted(m.rule_id for m in res if m.by_k[k0].deregulated),
+            "offcondition_free_not_ranked": sorted(m.rule_id for m in res if m.by_k[k0].offcondition_free),
             "inconsistent_after": sum(a.inconsistent_after for m in res for a in m.by_k.values()),
             "uncounted": sum(len(a.uncounted) for m in res for a in m.by_k.values()),
         }
