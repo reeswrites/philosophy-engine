@@ -228,3 +228,50 @@ def test_cli_check_all_prints_flags_and_inert(capsys, tmp_path):
     out = capsys.readouterr().out
     assert "flags" in out and "vacuous,antecedent-unreachable" in out
     assert "t-derived: inert R2 (load_bearing)" in out
+
+
+# ------------------------------------------------------------ dataset falsifiers (second review 2026-11-03, items 1, 2)
+def _dataset_inst(iid: str):
+    ipath, ppath = default_paths()
+    return next(i for i in load_institutions(ipath) if i.id == iid), load_properties(ppath)
+
+
+def _without(inst: InstitutionJSON, *rids: str) -> InstitutionJSON:
+    d = inst.model_dump()
+    d["rules"] = [r for r in d["rules"] if r["id"] not in rids]
+    return InstitutionJSON.model_validate(d)
+
+
+def test_deleting_police_sanction_rules_removes_the_bundled_power():
+    """With `enabled` false for an action no may/must rule names, deleting police R3 (may detain) and R5 (may
+    use_force) removes can_sanction: the old shape of care_and_sanction_same_role (care implies power) goes from
+    holds to violated, and the current shape (no one but the carer sanctions) from a non-vacuous holds_to_k to a
+    vacuous one (its antecedent, some sanction power, is unreachable)."""
+    inst, props = _dataset_inst("police-crisis")
+    old = Property(name="old_shape", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))")
+    cur = props["care_and_sanction_same_role"]
+    ps = {"old_shape": old, cur.name: cur}
+    which = {n: ["invariant"] for n in ps}
+    before = {r.property: r for r in rc.run_all(inst, ps, k=6, which=which).results}
+    after = {r.property: r for r in rc.run_all(_without(inst, "R3", "R5"), ps, k=6, which=which).results}
+    assert before[cur.name].verdict == "holds_to_k" and not before[cur.name].vacuous
+    assert after[cur.name].verdict == "holds_to_k" and after[cur.name].vacuous and after[cur.name].antecedent_reachable is False
+    assert before["old_shape"].verdict == "violated"  # power only while danger holds; care persists
+    assert after["old_shape"].verdict == "violated"  # and never holds_to_k by an always-enabled unregulated action
+    # what violates the current shape is a non-carer holding the power while someone else cares: crisis-team's R8
+    ct, _ = _dataset_inst("crisis-team")
+    rep = rc.run_all(ct, {cur.name: cur}, k=6, which={cur.name: ["invariant"]})
+    assert rep.results[0].verdict == "violated" and not rep.results[0].vacuous
+    assert rc.run_all(_without(ct, "R8"), {cur.name: cur}, k=6, which={cur.name: ["invariant"]}).results[0].verdict == "holds_to_k"
+
+
+def test_removing_guardianship_R9_restores_no_standing():
+    """companion-guardianship's `no_standing_persists: fails` rests on R9 (court may reassign on best interest) alone:
+    without it reassign is unregulated, hence never enabled, and the property persists as in companion-ownership."""
+    inst, props = _dataset_inst("companion-guardianship")
+    p = props["no_standing_persists"]
+    rep = rc.run_all(inst, {p.name: p}, k=6, which={p.name: ["persists"]})
+    assert rep.results[0].verdict == "fails"
+    rep = rc.run_all(_without(inst, "R9"), {p.name: p}, k=6, which={p.name: ["persists"]})
+    assert rep.results[0].verdict == "persists" and not rep.results[0].vacuous
+    assert any("(enabled reassign ...) names an action no may/must rule regulates" in w for w in rep.warnings)

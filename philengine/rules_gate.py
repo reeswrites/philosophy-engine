@@ -14,7 +14,8 @@ Extension section's "Extra gate criterion (f)"; tightened after docs/reviews/202
     the precommitted level either (review finding 4).
 (c) minimal pair: paternity-quota / transferable-leave at rule_distance 1, the differing rule named, and the
     verdicts differ on exactly the preregistered property `minimal_pair_of.differs_on` (review finding 5a);
-    other differences are findings.
+    other differences are findings. A `differs_on` the dataset marks `postregistered: true` is printed as
+    "post hoc", and the property it `supersedes` has its verdicts printed as a finding (second review, item 7).
 (d) kibbutz-childrens-house: deferred until the institution is in the dataset.
 (e) property-verdict agreement vs expected >= 60% (same numbers as `phil rules check-all`).
 (f) cosmetic-reform detection: companion-guardian-renamed iso to companion-ownership as a pure rename;
@@ -202,6 +203,14 @@ def crit_c(by: dict, reports: dict) -> Criterion:
     named = f"{a}:{','.join(r.unmatched_a) or '-'} vs {b}:{','.join(r.unmatched_b) or '-'}"
     pair = by[b].minimal_pair() or by[a].minimal_pair()
     prop = pair.differs_on if pair else None
+    # `minimal_pair_of.postregistered: true` marks a `differs_on` chosen after the verdicts were seen (dataset README,
+    # "Gate (c) drift"); the gate then says "post hoc", never "preregistered", and `supersedes` names the property
+    # the plan originally preregistered, whose verdicts are printed as a finding (review 2026-11-03 item 7).
+    raw = by[b].minimal_pair_of if isinstance(by[b].minimal_pair_of, dict) else by[a].minimal_pair_of
+    raw = raw if isinstance(raw, dict) else {}
+    post = bool(raw.get("postregistered"))
+    label = "post hoc" if post else "preregistered"
+    supersedes = raw.get("supersedes")
     diff, findings = [], []
     if pair and pair.rule and pair.rule not in (r.unmatched_a + r.unmatched_b):
         findings.append(f"{a}~{b}: minimal_pair_of names rule {pair.rule}, the matcher left {named} unmatched "
@@ -212,15 +221,19 @@ def crit_c(by: dict, reports: dict) -> Criterion:
             va, vb = ra.verdict(p), rb.verdict(p)
             if va != vb:
                 (diff if p == prop else findings).append(f"{p}: {va} vs {vb}")
+        if supersedes:
+            findings.insert(0, f"{a}~{b}: originally preregistered property {supersedes}: "
+                               f"{ra.verdict(supersedes)} vs {rb.verdict(supersedes)} (does not separate the pair; "
+                               f"{prop} was chosen post hoc in its place)")
     if prop is None:
         ok = False
         lines.append("  minimal_pair_of.differs_on is not set: the property the pair should differ on must be preregistered")
     else:
         ok &= bool(diff)
-        lines.append(f"  preregistered property {prop}: " + (diff[0] if diff else "verdicts do NOT differ"))
-    findings = [f if f.startswith(f"{a}~{b}:") else f"{a}~{b} also differ on {f} (not preregistered; not counted)" for f in findings]
+        lines.append(f"  {label} property {prop}: " + (diff[0] if diff else "verdicts do NOT differ"))
+    findings = [f if f.startswith(f"{a}~{b}:") else f"{a}~{b} also differ on {f} (not {label}; not counted)" for f in findings]
     return Criterion("c", "PASS" if ok else "FAIL",
-                     f"distance {r.rule_distance}, differing rule {named}; preregistered {prop or '?'}: "
+                     f"distance {r.rule_distance}, differing rule {named}; {label} {prop or '?'}: "
                      f"{'differs' if diff else 'same'}; {len(findings)} other difference(s)", lines, findings)
 
 

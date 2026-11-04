@@ -436,11 +436,23 @@ def test_derived_fluent_appears_in_traces_and_warns_on_unregulated_actions():
     rep = rc.run_all(inst, props, k=3, which={"cs": ["reachable"]})
     assert rep.results[0].verdict == "reachable"
     assert any("can_sanction(officer, subject)" in s.fluents for s in rep.results[0].trace)
-    # an unregulated action (no may/must rule) is always enabled: derived from it is trivially true, with a warning
+    # an unregulated action (no may/must rule) is never (enabled ...): no rule grants it (ADR 0013 amendment
+    # 2026-11-03), so the derived power reads false, with a warning; the action itself can still fire in traces
     d = inst.model_dump()
     d["rules"] = [r for r in d["rules"] if r["id"] != "R4"]
     rep = rc.run_all(InstitutionJSON.model_validate(d), props, k=3, which={"cs": ["reachable"]})
-    assert any("(enabled use_force ...) names an action no may/must rule regulates" in w for w in rep.warnings)
+    assert any("(enabled use_force ...) names an action no may/must rule regulates" in w and "never enabled" in w
+               for w in rep.warnings)
+    G = rl.ground(InstitutionJSON.model_validate(d), k=3)
+    assert z3.is_false(G.enabled("use_force", ("officer", "subject"), 1))
+    # custody no longer confers power: can_sanction is detain-only (responding + danger)
+    assert not _sat(G.system(), G.fluent("can_sanction", ("officer", "subject"), 2),
+                    z3.Not(z3.And(G.fluent("responding", ("officer", "subject"), 2), G.fluent("danger", ("subject",), 2))))
+    assert _sat(G.system(), G.action("use_force", ("officer", "subject"), 1))  # but it may still fire
+    # with no may/must rule on either action the power is constant false and the property unreachable
+    d["rules"] = [r for r in d["rules"] if r["id"] != "R3"]
+    rep = rc.run_all(InstitutionJSON.model_validate(d), props, k=3, which={"cs": ["reachable"]})
+    assert rep.results[0].verdict == "open"
 
 
 def test_derived_fluent_validation_errors():

@@ -92,10 +92,13 @@ def test_crit_b_unbundled_control_matching_fails():
 
 # ------------------------------------------------------------ (c) preregistered property
 def _pair(differs_on="css", drop_rule="R4"):
+    """The pair differs on R4 alone: the b side's `may use_force` is unconditional, so the officer's power never
+    lapses and css (care implies power) holds there but not on the a side (deleting R4 outright no longer changes any
+    verdict: an unregulated action is never enabled, ADR 0013 amendment)."""
     a = derived_police(id="paternity-quota")
     d = a.model_dump()
     d["id"] = "transferable-leave"
-    d["rules"] = [r for r in d["rules"] if r["id"] != drop_rule]
+    d["rules"] = [r if r["id"] != drop_rule else {**r, "conditions": "true"} for r in d["rules"]]
     d["minimal_pair_of"] = {"id": "paternity-quota", "rule": drop_rule, "differs_on": differs_on}
     b = InstitutionJSON.model_validate(d)
     props = {
@@ -125,6 +128,24 @@ def test_crit_c_tests_the_preregistered_property_only():
     by["transferable-leave"].minimal_pair_of = {"id": "paternity-quota", "rule": "R4"}
     c = rg.crit_c(by, reports)
     assert c.status == "FAIL" and "differs_on is not set" in "\n".join(c.lines)
+
+
+def test_crit_c_post_hoc_property_is_never_called_preregistered():
+    """Second review item 7: a differs_on marked postregistered prints as "post hoc", and the property it
+    supersedes has its verdicts for the pair printed as a finding."""
+    by, reports = _pair(differs_on="css")
+    by["transferable-leave"].minimal_pair_of = {"id": "paternity-quota", "rule": "R4", "differs_on": "css",
+                                                "postregistered": True, "supersedes": "custody"}
+    c = rg.crit_c(by, reports)
+    text = c.detail + "\n" + "\n".join(c.lines) + "\n" + "\n".join(c.findings)
+    assert "preregistered css" not in text and "post hoc css" in c.detail
+    assert "post hoc property css" in "\n".join(c.lines)
+    assert any("originally preregistered property custody: reachable vs reachable" in f for f in c.findings)
+    assert all("not preregistered" not in f for f in c.findings)
+    # without the flag the wording is unchanged
+    by, reports = _pair(differs_on="css")
+    c = rg.crit_c(by, reports)
+    assert "preregistered css" in c.detail and not any("originally preregistered" in f for f in c.findings)
 
 
 # ------------------------------------------------------------ (a) inert load-bearing rules

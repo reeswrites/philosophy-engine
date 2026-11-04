@@ -4,7 +4,7 @@
 
 An engine that formalizes arguments and institutions, checks them with Z3, and compares them for shared logical form. Every result ships as a plain sentence plus the formal certificate behind it: validity verdicts with countermodels, reachability verdicts over bounded traces, isomorphism with its remainder. Runs are reproducible and expectations are written down before runs.
 
-The theory this engine serves (a general theory of liberation), its claims register, reviews and the institutions dataset live in [computational-liberation](https://github.com/reeshuffled/computational-liberation), which depends on this repo and runs it over its own `data/`.
+The theory this engine serves (a general theory of liberation), its claims register, reviews and the institutions dataset live in [computational-liberation](https://github.com/reeswrites/computational-liberation), which depends on this repo and runs it over its own `data/`.
 
 **Status:** early research software; expect breaking changes. Apache-2.0.
 

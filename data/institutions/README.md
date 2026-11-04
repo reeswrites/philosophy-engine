@@ -87,8 +87,12 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
   (enabled breed_or_sterilize o a)`; `can_exit(x) := (enabled leave|vacate x)`; `has_standing(x) := (enabled sue x)`
   (plus `petition_review` for police, `petition` under appointed counsel for cps); `can_claim_for(x, s) :=
   (exists p (enabled reassign[_custody] x p s))`. companion-guardianship's `initial (can_claim_for court animal)` is
-  gone: its verdict now comes from R9 alone. Deleting police R3 and R5 now makes `care_and_sanction_same_role`
-  violated, which is the point.
+  gone: its verdict now comes from R9 alone (run: deleting R9 turns `no_standing_persists` from fails to persists).
+  Deleting police R3 and R5 removes `can_sanction` (run, 2026-11-03, after the `enabled` fix below): the old
+  care-implies-power shape of `care_and_sanction_same_role` reads violated, the current shape reads holds_to_k
+  *vacuous* (antecedent unreachable: nobody holds sanction power), which check-all flags. Before the fix both
+  deletions left the verdicts unchanged, because an action no rule named counted as always enabled (second review,
+  items 1-2).
 - **Exit is a may + a disability.** Each subject gets an implicit `may leave when true` (coverture R8, police R9,
   cps R9, companion R12; crisis-team R5 and public-library R4 already had it) and the bar is a `must_not leave`
   with `or_else: null`. The old `or_else` links (coverture R6 -> R5, police R4 -> R5, companion R6 -> R7) duplicated
@@ -127,14 +131,37 @@ Every change here answers `docs/reviews/2026-11-03-phase0-skeptical-review.md`; 
   `no_standing: violated` on the existential form); cps likewise `no_standing_persists: fails` instead of
   `no_standing: violated`, which was violated at t=0 before any child existed. Both are the same claim in the form
   that is vacuous before a subject exists; check-all shows no vacuous flags.
-- **Expectations that disagree with results (left as expected, not tuned):** police-crisis and cps
+- **Expectations that disagreed with results (superseded 2026-11-03, see the next section):** police-crisis and cps
   `care_and_sanction_same_role` expected `holds_to_k`, got `violated`. Derived, the sanction power exists only while
   its trigger (`danger`, `immediate_danger`, both exogenous) holds, while the care state persists; the state
-  invariant asks for simultaneity, which the old effect-asserted encoding faked. The claim the cluster makes is
-  rule-level (the same attribute holds the duty and the power), which the iso sub-signature now carries and the
-  state invariant does not. companion-guardianship's bare `isomorphic_to: ["cps"]` is at level exact and reads NO
-  (as before: the notes say the iso is partial, on R9 alone).
+  invariant asked for simultaneity, which the old effect-asserted encoding faked. companion-guardianship's bare
+  `isomorphic_to: ["cps"]` is at level exact and reads NO (as before: the notes say the iso is partial, on R9 alone).
 - Remaining warnings: `can_claim_for` undeclared in coverture / police / crisis-team (constant false: no advocate
   action exists there); `(enabled reassign|sue ...)` in companion-ownership / -renamed names actions only a
-  disability regulates (they are enabled-then-disabled, which is the intended reading); untyped `p` in leave R3
+  disability regulates (never enabled, which is the intended reading); untyped `p` in leave R3
   and `o2` in companion R1.
+
+## Revisions (second review 2026-11-03, `docs/reviews/2026-11-03-phase0-second-review.md`, items 1, 2, 6, 7)
+
+- **`enabled` of an unregulated action is false (items 1, 2; ADR 0013 amendment).** `(enabled a ...)` for an
+  action no may/must rule names was constant true, so deleting the rules that grant a power left the derived
+  power standing. It is now constant false (a power is what the rules grant); the action can still fire freely in
+  traces, which is a separate question (the trace floor) and unchanged. Run: police minus R3+R5 -> `can_sanction`
+  unreachable; companion-guardianship minus R9 -> `no_standing_persists` persists (was fails); companion-ownership's
+  `(enabled reassign|sue)` reads false as before. Tests: `tests/test_rules_checks.py` (dataset falsifiers),
+  `tests/test_rules_lower.py`, `tests/test_rules_meta.py` (reference, independently).
+- **`care_and_sanction_same_role` is a post-hoc property-shape change (item 6).** The shape was
+  `provides_care(x,y) & is_subject(y) => can_sanction(x,y)`: live sanction power at every step of care. The
+  motivating trace (police-crisis, k=6, init declared): step 0 `dispatch_officer` establishes `provides_care(officer,
+  subject)` with `danger` false, so `can_sanction(officer, subject)` (= detain or use_force enabled) is false while
+  care holds -> violated; cps likewise with `immediate_danger`. The gloss says "bundled in one role", which the
+  reviewer's `sanction_only_by_carer` shape states: `is_subject(y) & can_sanction(z,y) & provides_care(x,y) => z = x`
+  (no one but the carer holds sanction power). Name, gloss and all expectations are unchanged; the formula was
+  replaced **after seeing the verdicts** and is recorded as post hoc here and in the property's `history`. Verdicts
+  now: holds_to_k (non-vacuous) on coverture, police, cps, companion-*; violated on crisis-team (R8: the officer
+  the team calls holds detain while the responder cares); removing crisis-team R8 makes it hold. Cost of the shape:
+  deleting every sanction rule makes it vacuously true rather than violated (the vacuity flag carries that case).
+- **Gate (c) wording (item 7).** `minimal_pair_of` on transferable-leave carries `postregistered: true` and
+  `supersedes: "solo_care_by_non_birthing_parent"`; the gate prints "post hoc leave_reserved_for_non_birthing_parent"
+  (never "preregistered") and lists the original property's verdicts (reachable vs reachable) as a finding.
+  `properties.json` entries carry a `history` field (free text; the engine ignores it).

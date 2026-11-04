@@ -133,7 +133,7 @@ def inst_or_else():
 
 
 def inst_initial():
-    """initial + defaults (init mode `declared`); an action no rule names (always enabled)."""
+    """initial + defaults (init mode `declared`); an action no rule names (fires freely, never (enabled ...))."""
     return InstitutionJSON.model_validate({
         "id": "t-initial",
         "roles": [{"name": "parent"}, {"name": "child"}],
@@ -278,6 +278,14 @@ def test_reference_derived_fluents_pinned():
     assert ref.verdict(props["cannot_exit"], "reachable") == "reachable"
     # derived fluents are never in a state and never appear in effects
     assert all(n not in ("can_sanction", "can_exit") for tr in ref.traces() for st in tr for n, _ in st)
+    # an action no may/must rule names is never (enabled ...), though it may still fire (ADR 0013 amendment)
+    d = inst.model_dump()
+    d["rules"] = [r for r in d["rules"] if r["id"] not in ("R3", "R4")]
+    ref2 = Reference(InstitutionJSON.model_validate(d), k=3)
+    assert ref2.verdict(props["can_sanction"], "reachable") == "open"
+    act = ("use_force", ("officer", "subject"))
+    states = {st for tr in ref2.traces() for st in tr}
+    assert states and all(ref2.enabled(act, st) and not ref2.power(st, *act) for st in states)
 
 
 def engine_verdicts(inst, props, k, step_mode="one", which=None):

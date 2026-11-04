@@ -840,11 +840,13 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
     # derived fluents: define every tuple at every step now, so the definitions are part of G.system() before
     # any property is lowered (derived_order has already rejected cycles)
     G.regulated = {parse_aim(r.aim).pred for r in inst.rules if r.deontic in ("may", "must") and kinds[r.id] == "action"}
+    barred = {parse_aim(r.aim).pred for r in inst.rules if r.deontic == "must_not" and kinds[r.id] == "action"}
     for name in derived_order(inst):
         for a in sorted(_enabled_actions(G.derived[name])):
             if a not in G.regulated:
+                tail = "only a prohibition names it" if a in barred else "it can still fire freely in traces"
                 G.warnings.append(f"derived fluent {name}: (enabled {a} ...) names an action no may/must rule regulates; "
-                                  f"it is never enabled (the action can still fire freely in traces)")
+                                  f"it is never enabled ({tail})")
         for tup in G.fluent_tuples[name]:
             for t in range(k + 1):
                 G.fluent(name, tup, t)

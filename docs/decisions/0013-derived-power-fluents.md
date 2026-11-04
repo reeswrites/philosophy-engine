@@ -14,3 +14,13 @@ The dataset must be re-encoded; verdicts may change, which is the point. An acti
 
 ## Status
 accepted
+
+## Amendment 2026-11-03: an action no may/must rule names is not enabled
+The second review (`docs/reviews/2026-11-03-phase0-second-review.md`, items 1-2) found that `(enabled a ...)` read
+constant true for an action no `may`/`must` rule names, so deleting the very rules that grant a power (police R3+R5,
+guardianship R9) left the derived power in place: the falsifier the Decision promises did not run. Amended: `(enabled
+a args)` is constant false when no `may`/`must` rule names `a` (the warning stays, and says "never enabled"); a
+`must_not` alone still does not enable. Both `rules_lower` and `rules_reference` implement this independently. The
+trace semantics is unchanged: an action no rule names may still fire (that is the permissive floor of the model),
+but it confers no power, because a power is what the rules grant. Consequence: a derived fluent whose every action
+is unregulated is constant false, and a universal property over it may hold vacuously, which the vacuity flag reports.
