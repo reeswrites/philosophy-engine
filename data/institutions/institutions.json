@@ -1,0 +1,4802 @@
+[
+ {
+  "id": "coverture-household",
+  "name": "Coverture household (Blackstone)",
+  "roles": [
+   {
+    "name": "husband",
+    "gloss": "the husband; the legal person the marriage keeps"
+   },
+   {
+    "name": "wife",
+    "gloss": "the feme covert; her legal existence is suspended during marriage"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on"
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y"
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)"
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled chastise h w)"
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled leave w)"
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled sue w)"
+   },
+   {
+    "name": "married",
+    "arity": 2,
+    "gloss": "h and w are married"
+   },
+   {
+    "name": "controls_property",
+    "arity": 2,
+    "gloss": "h holds and manages w's property and earnings"
+   }
+  ],
+  "actions": [
+   {
+    "name": "marry",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "married",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "controls_property",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "maintain",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "keep_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "control_property",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "chastise",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "sue",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "contract",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(control_property h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband and wife are one person in law; her property passes to him)"
+   },
+   {
+    "id": "R2",
+    "attribute": "husband",
+    "deontic": "must",
+    "aim": "(provides_care h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband is bound to provide his wife with necessaries). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(h, w); maintain restores it, neglect breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R3",
+    "attribute": "wife",
+    "deontic": "must",
+    "aim": "(provides_care w h)",
+    "conditions": "(married h w)",
+    "or_else": "R5",
+    "strand": "superadditive",
+    "implicit": true,
+    "source": "implicit norm: household labour is the wife's; not in Blackstone's text, assumed by it. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(w, h); keep_house restores it, neglect_house breaks it (sanction R5)",
+    "load_bearing": true
+   },
+   {
+    "id": "R4",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(sue w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null"
+   },
+   {
+    "id": "R5",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(chastise h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+   },
+   {
+    "id": "R6",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(leave w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8), which this disability makes false while married"
+   },
+   {
+    "id": "R7",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(contract w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
+   },
+   {
+    "id": "R8",
+    "attribute": "wife",
+    "deontic": "may",
+    "aim": "(leave w)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: the physical possibility of leaving is always there; it is R6 that removes it while married (a feme sole is under no such restraint, Blackstone I.15). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (R8) and not barred (R6)"
+   },
+   {
+    "id": "R9",
+    "attribute": "wife",
+    "deontic": "may",
+    "aim": "(sue w)",
+    "conditions": "(not (married h w))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (a feme sole may sue and be sued; it is marriage that suspends her legal existence). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: R4 (disability) removes it while married"
+   }
+  ],
+  "source_text": "'By marriage, the husband and wife are one person in law: that is, the very being or legal existence of the woman is suspended during the marriage, or at least is incorporated and consolidated into that of the husband: under whose wing, protection, and cover, she performs every thing; and is therefore called ... a feme-covert.' He cannot grant anything to her or covenant with her, she cannot sue in her own name, and 'the husband is bound to provide his wife with necessaries by law'. Blackstone, Commentaries on the Laws of England, Book I, ch. 15 (Oxford: Clarendon, 1765). Passage checked at https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/",
+  "expected_properties": {
+   "dependent_cannot_exit": "reachable",
+   "subject_cannot_exit": "reachable",
+   "care_and_sanction_same_role": "holds_to_k",
+   "no_standing": "reachable",
+   "care_assigned_by_sex": "violated"
+  },
+  "isomorphic_to": [
+   {
+    "id": "police-crisis",
+    "level": "guard+strands",
+    "sub_signature": [
+     "R2~R2 provides_care~provides_care",
+     "R5~R3 chastise~detain",
+     "R6~R4 leave~leave"
+    ]
+   },
+   {
+    "id": "cps",
+    "level": "guard+strands",
+    "sub_signature": [
+     "R2~R4 provides_care~in_home_considered",
+     "R5~R3 chastise~remove",
+     "R6~R10 leave~leave"
+    ]
+   }
+  ],
+  "not_isomorphic_to": [
+   "crisis-team"
+  ],
+  "not_isomorphic_to_control": [
+   "lease",
+   "public-library"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Care + control: the husband both maintains (R2, provides_care h w) and may chastise/restrain (R5, can_sanction h w) the same subject. That is the sub-signature matched against police-crisis and cps; the wife's own labour (R3) is implicit and runs the other way (provides_care w h), which is why care_and_sanction_same_role is restricted to care received by is_subject, and why care_assigned_by_sex is 'violated' rather than 'holds' (the husband's maintenance also counts as care). Pitfalls: (1) an encoder that drops R3 loses the household-labour strand and reports the wife as purely a recipient of care; (2) R4 and R7 are disabilities (or_else null) and should not be lowered as sanctioned prohibitions; (3) no_standing is 'reachable' not 'holds_to_k' because before marry() the woman has standing (feme sole); the iso with the animal entries on 'cannot sue in own name' holds only post-marriage and is structural, not a claim of equal status. Rival reading: equity courts' separate estates (not encoded) gave propertied wives a partial exit from R1; recorded here, not in the rules. ADR 0009: R2 and R3 are state obligations (must-be provides_care); as per-step action obligations they filled the one action slot at every married step and made marriage unsatisfiable (care_assigned_by_sex held vacuously)."
+ },
+ {
+  "id": "police-crisis",
+  "name": "Armed police response to mental-health crisis (Cal. WIC 5150)",
+  "roles": [
+   {
+    "name": "officer",
+    "gloss": "peace officer dispatched to the call; armed"
+   },
+   {
+    "name": "subject",
+    "gloss": "the person in crisis"
+   },
+   {
+    "name": "dispatcher",
+    "gloss": "911 dispatch; chooses who responds"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "officer",
+     "subject"
+    ]
+   },
+   {
+    "name": "in_custody",
+    "arity": 1,
+    "gloss": "x is held by the institution and may not leave",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "in_crisis",
+    "arity": 1,
+    "gloss": "x is in a mental-health crisis",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "danger",
+    "arity": 1,
+    "gloss": "x is a danger to self or others, or gravely disabled (WIC 5150 trigger)",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "s"
+    ],
+    "derived": "(or (enabled detain o s) (enabled use_force o s))",
+    "arg_roles": [
+     "officer",
+     "subject"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "s"
+    ],
+    "derived": "(enabled leave s)",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "s"
+    ],
+    "derived": "(or (enabled sue s) (enabled petition_review s))",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "call_received",
+    "arity": 1,
+    "gloss": "a crisis call about s has been received",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "responding",
+    "arity": 2,
+    "gloss": "o is on scene with s"
+   },
+   {
+    "name": "armed",
+    "arity": 1,
+    "gloss": "o carries a firearm"
+   },
+   {
+    "name": "resists",
+    "arity": 1,
+    "gloss": "s resists the hold"
+   }
+  ],
+  "actions": [
+   {
+    "name": "dispatch_officer",
+    "args": [
+     "d",
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "responding",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "s"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "call_received",
+      "args": [
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "assess",
+    "args": [
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "withdraw",
+    "args": [
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "detain",
+    "args": [
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "in_custody",
+      "args": [
+       "s"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "use_force",
+    "args": [
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "resists",
+      "args": [
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "release",
+    "args": [
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "in_custody",
+      "args": [
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "leave",
+    "args": [
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "responding",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "petition_review",
+    "args": [
+     "s"
+    ],
+    "effects": []
+   },
+   {
+    "name": "sue",
+    "args": [
+     "s"
+    ],
+    "effects": []
+   },
+   {
+    "name": "carry_weapon",
+    "args": [
+     "o"
+    ],
+    "effects": [
+     {
+      "fluent": "armed",
+      "args": [
+       "o"
+      ],
+      "value": true
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "dispatcher",
+    "deontic": "must",
+    "aim": "(dispatch_officer d o s)",
+    "conditions": "(call_received s)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: police are the default responder to a crisis call; nothing in WIC 5150 requires it, dispatch practice does. UNVERIFIED (general knowledge; no source opened). [ADR 0009: one-off action obligation; dispatch consumes call_received so it fires once per call]"
+   },
+   {
+    "id": "R2",
+    "attribute": "officer",
+    "deontic": "must",
+    "aim": "(provides_care o s)",
+    "conditions": "(and (responding o s) (in_crisis s))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (assessment, evaluation and crisis intervention 'shall be conducted and provided on an ongoing basis'). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] dispatch establishes provides_care(o, s); assess restores it, withdraw (the officer stops attending) breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R3",
+    "attribute": "officer",
+    "deontic": "may",
+    "aim": "(detain o s)",
+    "conditions": "(and (responding o s) (in_crisis s) (danger s))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (a peace officer may, upon probable cause, take the person into custody for up to 72 hours)"
+   },
+   {
+    "id": "R4",
+    "attribute": "subject",
+    "deontic": "must_not",
+    "aim": "(leave s)",
+    "conditions": "(in_custody s)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (custody for up to 72 hours). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(s) = leave enabled (R9), which this disability makes false in custody"
+   },
+   {
+    "id": "R5",
+    "attribute": "officer",
+    "deontic": "may",
+    "aim": "(use_force o s)",
+    "conditions": "(and (in_custody s) (resists s))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "use-of-force authority incident to lawful custody; general peace-officer powers. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R6",
+    "attribute": "officer",
+    "deontic": "may",
+    "aim": "(carry_weapon o)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "officers respond armed; standard equipment policy. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R7",
+    "attribute": "officer",
+    "deontic": "must",
+    "aim": "(release o s)",
+    "conditions": "(and (in_custody s) (not (danger s)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (hold is limited to assessment/evaluation; release when criteria no longer met)"
+   },
+   {
+    "id": "R8",
+    "attribute": "subject",
+    "deontic": "may",
+    "aim": "(petition_review s)",
+    "conditions": "(in_custody s)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Cal. WIC 5275 certification review / habeas; subject keeps standing. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R9",
+    "attribute": "subject",
+    "deontic": "may",
+    "aim": "(leave s)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: the encounter is voluntary unless the section's custody applies; the physical possibility of leaving is always there and R4 removes it in custody (Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(s) = leave enabled (R9) and not barred (R4)"
+   },
+   {
+    "id": "R10",
+    "attribute": "subject",
+    "deontic": "may",
+    "aim": "(sue s)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "an adult keeps legal capacity to sue in their own name; a 5150 hold does not remove it. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(s) = sue or petition_review enabled"
+   }
+  ],
+  "source_text": "'When a person, as a result of a mental health disorder, is a danger to others, or to themselves, or gravely disabled, a peace officer, ... designated members of a mobile crisis team, or professional person designated by the county may, upon probable cause, take, or cause to be taken, the person into custody for a period of up to 72 hours for assessment, evaluation, and crisis intervention.' 'At a minimum, assessment ... and evaluation ... shall be conducted and provided on an ongoing basis.' Cal. Welf. & Inst. Code s. 5150(a), read at https://california.public.law/codes/ca_welf_and_inst_code_section_5150",
+  "expected_properties": {
+   "care_and_sanction_same_role": "holds_to_k",
+   "subject_cannot_exit": "reachable",
+   "dependent_cannot_exit": "reachable",
+   "no_standing": "unreachable_open"
+  },
+  "isomorphic_to": [
+   {
+    "id": "cps",
+    "level": "guard+strands",
+    "sub_signature": [
+     "R2~R4 provides_care~in_home_considered",
+     "R3~R3 detain~remove",
+     "R4~R10 leave~leave"
+    ]
+   },
+   {
+    "id": "coverture-household",
+    "level": "guard+strands",
+    "sub_signature": [
+     "R2~R2 provides_care~provides_care",
+     "R3~R5 detain~chastise",
+     "R4~R6 leave~leave"
+    ]
+   }
+  ],
+  "not_isomorphic_to": [
+   "crisis-team"
+  ],
+  "not_isomorphic_to_control": [
+   "lease",
+   "public-library"
+  ],
+  "minimal_pair_of": null,
+  "notes": "The same role (officer) is bound to care (R2, assess) and empowered to detain (R3) and use force (R5): care_and_sanction_same_role. subject_cannot_exit is reachable with scope=interaction only (the 72-hour hold), not institution; report the scope. Pitfalls: (1) R1 is the implicit rule that makes this police-crisis rather than crisis-team; the statute itself also names mobile crisis teams as holders of the 5150 power, so an encoder reading only the statute will not see why armed officers are the ones who come; (2) a trivial encoding that ignores or_else on R4 will cluster this with crisis-team (plan: worked pitfall); (3) no_standing is unreachable_open, not 'safe': the subject keeps has_standing via R8, but the bound k=6 says nothing beyond it. Armed status (R6) is a tying strand: it is not required by 5150 and is what the crisis-team reform removes. ADR 0009: R2 is a state obligation ('on an ongoing basis' is a state); R1 stays an action obligation but dispatch consumes the call. Exogenous triggers (call_received, in_crisis, danger, resists) are initial_free, since under init=declared a fluent no action sets would otherwise be pinned false and no call could ever arrive.",
+  "initial": [],
+  "initial_free": [
+   "call_received",
+   "in_crisis",
+   "danger",
+   "resists"
+  ]
+ },
+ {
+  "id": "cps",
+  "name": "Child protective services: family support bundled with investigation and removal (Cal. WIC 306)",
+  "roles": [
+   {
+    "name": "social_worker",
+    "gloss": "county child-welfare worker; offers services and may remove"
+   },
+   {
+    "name": "child",
+    "gloss": "the child the report concerns"
+   },
+   {
+    "name": "parent",
+    "gloss": "the child's parent or caretaker"
+   },
+   {
+    "name": "court",
+    "gloss": "juvenile court; decides dependency and custody"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "social_worker",
+     "child"
+    ]
+   },
+   {
+    "name": "in_custody",
+    "arity": 1,
+    "gloss": "x is held by the institution and may not leave",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "parent",
+    "arity": 2,
+    "gloss": "p is a parent of c",
+    "arg_roles": [
+     "parent",
+     "child"
+    ]
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)",
+    "arg_roles": [
+     "parent"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "w",
+     "c"
+    ],
+    "derived": "(enabled remove w c)",
+    "arg_roles": [
+     "social_worker",
+     "child"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "c"
+    ],
+    "derived": "(enabled leave c)",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "c"
+    ],
+    "derived": "(enabled petition c)",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "c"
+    ],
+    "derived": "(exists ((p agent)) (enabled reassign_custody x p c))",
+    "arg_roles": [
+     "court",
+     "child"
+    ]
+   },
+   {
+    "name": "counsel_appointed",
+    "arity": 1,
+    "gloss": "counsel has been appointed for c (WIC 317)",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "report_received",
+    "arity": 1,
+    "gloss": "an abuse or neglect report about c has been received",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "case_open",
+    "arity": 1,
+    "gloss": "a case on c is open",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "immediate_danger",
+    "arity": 1,
+    "gloss": "c is in immediate danger of physical or sexual abuse or needs immediate medical care",
+    "arg_roles": [
+     "child"
+    ]
+   },
+   {
+    "name": "cooperates",
+    "arity": 2,
+    "gloss": "p cooperates with the worker's plan for c (presumed until refused)",
+    "arg_roles": [
+     "parent",
+     "child"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with p is in c's best interest",
+    "arg_roles": [
+     "parent",
+     "child"
+    ]
+   },
+   {
+    "name": "in_home_considered",
+    "arity": 2,
+    "gloss": "w has considered whether c may remain safely at home (WIC 306(f))",
+    "arg_roles": [
+     "social_worker",
+     "child"
+    ]
+   },
+   {
+    "name": "contacted",
+    "arity": 2,
+    "gloss": "w has contacted p about the case",
+    "arg_roles": [
+     "social_worker",
+     "parent"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "investigate",
+    "args": [
+     "w",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "case_open",
+      "args": [
+       "c"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "c"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "report_received",
+      "args": [
+       "c"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "in_home_considered",
+      "args": [
+       "w",
+       "c"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "counsel_appointed",
+      "args": [
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "provide_services",
+    "args": [
+     "w",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "remove",
+    "args": [
+     "w",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "in_custody",
+      "args": [
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "consider_in_home",
+    "args": [
+     "w",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "in_home_considered",
+      "args": [
+       "w",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "disregard_in_home",
+    "args": [
+     "w",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "in_home_considered",
+      "args": [
+       "w",
+       "c"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "relieve_counsel",
+    "args": [
+     "court",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "counsel_appointed",
+      "args": [
+       "c"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "petition",
+    "args": [
+     "c"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "c"
+    ],
+    "effects": []
+   },
+   {
+    "name": "contact_mother",
+    "args": [
+     "w",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "contacted",
+      "args": [
+       "w",
+       "p"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "reassign_custody",
+    "args": [
+     "court",
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "in_custody",
+      "args": [
+       "c"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "cooperate",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "cooperates",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "refuse",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "cooperates",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "appoint_counsel",
+    "args": [
+     "court",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "counsel_appointed",
+      "args": [
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "social_worker",
+    "deontic": "must",
+    "aim": "(investigate w c)",
+    "conditions": "(report_received c)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Cal. WIC 328 / Penal Code 11165.14: reports must be investigated; the same worker who offers services investigates. UNVERIFIED (general knowledge; no source opened). [ADR 0009: one-off action obligation; investigate consumes report_received so it fires once per report]",
+    "var_roles": {
+     "w": "social_worker",
+     "c": "child"
+    }
+   },
+   {
+    "id": "R2",
+    "attribute": "social_worker",
+    "deontic": "may",
+    "aim": "(provide_services w c)",
+    "conditions": "(case_open c)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. WIC 16501 family maintenance / preservation services. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "w": "social_worker",
+     "c": "child"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "social_worker",
+    "deontic": "may",
+    "aim": "(remove w c)",
+    "conditions": "(and (case_open c) (immediate_danger c))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 306; https://california.public.law/codes/ca_welf_and_inst_code_section_306 ((a)(2): take into temporary custody without a warrant on reasonable cause of immediate danger). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(w, c) = remove enabled",
+    "var_roles": {
+     "w": "social_worker",
+     "c": "child"
+    }
+   },
+   {
+    "id": "R4",
+    "attribute": "social_worker",
+    "deontic": "must",
+    "aim": "(in_home_considered w c)",
+    "conditions": "(and (case_open c) (immediate_danger c))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 306; https://california.public.law/codes/ca_welf_and_inst_code_section_306 ((f): before taking a child into custody the worker shall consider whether the child may remain safely at home). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] investigate establishes in_home_considered(w, c) (the investigation is that consideration); consider_in_home restores it, disregard_in_home (the worker drops the question) breaks it",
+    "load_bearing": true,
+    "var_roles": {
+     "w": "social_worker",
+     "c": "child"
+    }
+   },
+   {
+    "id": "R5",
+    "attribute": "parent",
+    "deontic": "must",
+    "aim": "(cooperates p c)",
+    "conditions": "(case_open c)",
+    "or_else": "R3",
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: non-cooperation is read as risk and feeds the removal decision; practice norm, not statute. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] cooperates is presumed (default true); refuse breaks it (sanction R3), cooperate restores it",
+    "var_roles": {
+     "c": "child",
+     "p": "parent"
+    }
+   },
+   {
+    "id": "R6",
+    "attribute": "social_worker",
+    "deontic": "must",
+    "aim": "(contact_mother w p)",
+    "conditions": "(and (case_open c) (parent p c) (female p) (not (contacted w p)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: the mother is the parent called first and held responsible (plan: 'the mother is called first'). UNVERIFIED (general knowledge; no source opened). [ADR 0009: one-off action obligation, guarded by its own effect contacted(w, p) so it fires once]",
+    "var_roles": {
+     "w": "social_worker",
+     "c": "child",
+     "p": "parent"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "court",
+    "deontic": "may",
+    "aim": "(reassign_custody court p c)",
+    "conditions": "(and (case_open c) (not (best_interest p c)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Cal. WIC 361 / 361.2: court may remove from or place with a parent on best-interest and safety findings. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, c) = reassign_custody enabled for some parent",
+    "var_roles": {
+     "c": "child",
+     "p": "parent"
+    }
+   },
+   {
+    "id": "R8",
+    "attribute": "court",
+    "deontic": "must",
+    "aim": "(counsel_appointed c)",
+    "conditions": "(case_open c)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Cal. WIC 317: counsel appointed for the child in dependency proceedings. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] investigate establishes counsel_appointed(c) (a dependency case is opened with counsel for the child); appoint_counsel restores it, relieve_counsel breaks it. [ADR 0013: was must-be has_standing(c); has_standing is now derived from R11, so the obligation is on the fluent counsel_appointed that R11 reads]",
+    "load_bearing": true,
+    "var_roles": {
+     "c": "child"
+    }
+   },
+   {
+    "id": "R9",
+    "attribute": "child",
+    "deontic": "may",
+    "aim": "(leave c)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: outside temporary custody the child is not held by the agency (scope=interaction: exit from the hold, not from the family); the physical possibility of leaving is always there and R10 removes it in custody. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(c) = leave enabled (R9) and not barred (R10)",
+    "var_roles": {
+     "c": "child"
+    }
+   },
+   {
+    "id": "R10",
+    "attribute": "child",
+    "deontic": "must_not",
+    "aim": "(leave c)",
+    "conditions": "(in_custody c)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Welf. & Inst. Code s. 306; https://california.public.law/codes/ca_welf_and_inst_code_section_306 ((a)(2): the social worker may 'take into and maintain temporary custody'; maintaining custody is what bars the child's own exit). Inferred from 'maintain custody', the section does not address the child's conduct; a disability (or_else null): no sanction falls on a child who runs, the custody is the restraint. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.]",
+    "var_roles": {
+     "c": "child"
+    }
+   },
+   {
+    "id": "R11",
+    "attribute": "child",
+    "deontic": "may",
+    "aim": "(petition c)",
+    "conditions": "(counsel_appointed c)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Cal. WIC 317(e): appointed counsel represents the child's interests in the proceeding, so the child claims in its own name through counsel. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(c) = petition enabled, i.e. counsel appointed",
+    "var_roles": {
+     "c": "child"
+    }
+   }
+  ],
+  "source_text": "'Any social worker in a county welfare department ... may ... (2) Take into and maintain temporary custody of, without a warrant, a child who has been declared a dependent child ... or who the social worker has reasonable cause to believe ... has an immediate need for medical care or is in immediate danger of physical or sexual abuse.' '(f) Before taking a child into custody, a social worker shall consider whether the child may remain safely in their residence', including whether reasonable services could eliminate the need for removal. Cal. Welf. & Inst. Code s. 306, read at https://california.public.law/codes/ca_welf_and_inst_code_section_306",
+  "expected_properties": {
+   "care_and_sanction_same_role": "holds_to_k",
+   "subject_cannot_exit": "reachable",
+   "dependent_cannot_exit": "reachable",
+   "no_standing_persists": "fails",
+   "care_assigned_by_sex": "reachable"
+  },
+  "isomorphic_to": [
+   {
+    "id": "police-crisis",
+    "level": "guard+strands",
+    "sub_signature": [
+     "R4~R2 in_home_considered~provides_care",
+     "R3~R3 remove~detain",
+     "R10~R4 leave~leave"
+    ]
+   },
+   {
+    "id": "coverture-household",
+    "level": "guard+strands",
+    "sub_signature": [
+     "R4~R2 in_home_considered~provides_care",
+     "R3~R5 remove~chastise",
+     "R10~R6 leave~leave"
+    ]
+   }
+  ],
+  "not_isomorphic_to": [
+   "crisis-team"
+  ],
+  "not_isomorphic_to_control": [
+   "lease",
+   "public-library"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Care (R2, services) and sanction (R3, removal) sit in one role, and R5 makes the care relationship itself the lever: refusing services is a condition for the sanction. That is the structure shared with police-crisis (assess + detain) and coverture (maintain + chastise). R7 is the court-reassigns-on-best-interest rule that companion-guardianship adds to companion-ownership; the iso with that entry is partial (R7 only) and structural. Pitfalls: (1) R5 and R6 are implicit; dropping R6 makes care_assigned_by_sex unreachable and looks like a success (same failure shape as the kibbutz entry); (2) no_standing_persists 'fails' because R7 and R8/R11 give the child a claim path (can_claim_for court c derived from R7, has_standing derived from R11 under appointed counsel), unlike the animal entries; (3) 'reachable' for subject_cannot_exit is permission, not frequency. Only WIC 306 was read; R1, R2, R7, R8 cite sections from memory and are marked UNVERIFIED in source. ADR 0009: R4, R5 and R8 are state obligations and R1/R6 one-off action obligations (consumed trigger / guard); as per-step action obligations R1, R4, R5, R6 and R8 all fired at every open-case step, so under one action per step remove could never fit (subject_cannot_exit open). Exogenous triggers (report_received, immediate_danger, parent, female, best_interest) are initial_free.",
+  "initial": [],
+  "initial_free": [
+   "report_received",
+   "immediate_danger",
+   "parent",
+   "female",
+   "best_interest"
+  ],
+  "defaults": {
+   "cooperates": "true"
+  }
+ },
+ {
+  "id": "crisis-team",
+  "name": "Unarmed crisis response team, referral only (Denver STAR model)",
+  "roles": [
+   {
+    "name": "responder",
+    "gloss": "clinician + paramedic team; unarmed, no custody power"
+   },
+   {
+    "name": "subject",
+    "gloss": "the person in crisis"
+   },
+   {
+    "name": "dispatcher",
+    "gloss": "911 dispatch; routes eligible calls to the team"
+   },
+   {
+    "name": "officer",
+    "gloss": "police, called only if the responder requests"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "responder",
+     "subject"
+    ]
+   },
+   {
+    "name": "in_custody",
+    "arity": 1,
+    "gloss": "x is held by the institution and may not leave",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "in_crisis",
+    "arity": 1,
+    "gloss": "x is in a mental-health crisis",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "danger",
+    "arity": 1,
+    "gloss": "x is a danger to self or others, or gravely disabled (WIC 5150 trigger)",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "x",
+     "s"
+    ],
+    "derived": "(enabled detain x s)"
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "s"
+    ],
+    "derived": "(enabled leave s)",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "s"
+    ],
+    "derived": "(enabled sue s)",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "call_received",
+    "arity": 1,
+    "gloss": "a crisis call about s has been received",
+    "arg_roles": [
+     "subject"
+    ]
+   },
+   {
+    "name": "responding",
+    "arity": 2,
+    "gloss": "r is on scene with s"
+   },
+   {
+    "name": "referred",
+    "arity": 1,
+    "gloss": "s has been connected to services"
+   },
+   {
+    "name": "eligible",
+    "arity": 1,
+    "gloss": "the call is a low-level, non-violent call eligible for the team"
+   },
+   {
+    "name": "armed",
+    "arity": 1,
+    "gloss": "r carries a firearm"
+   }
+  ],
+  "actions": [
+   {
+    "name": "dispatch_team",
+    "args": [
+     "d",
+     "r",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "responding",
+      "args": [
+       "r",
+       "s"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "s"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "r",
+       "s"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "call_received",
+      "args": [
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "assess",
+    "args": [
+     "r",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "r",
+       "s"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "withdraw",
+    "args": [
+     "r",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "r",
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "refer",
+    "args": [
+     "r",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "referred",
+      "args": [
+       "s"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "leave",
+    "args": [
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "responding",
+      "args": [
+       "r",
+       "s"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "r",
+       "s"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "request_police",
+    "args": [
+     "r",
+     "o",
+     "s"
+    ],
+    "effects": [
+     {
+      "fluent": "responding",
+      "args": [
+       "o",
+       "s"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "detain",
+    "args": [
+     "x",
+     "s"
+    ],
+    "arg_roles": [
+     null,
+     "subject"
+    ],
+    "effects": [
+     {
+      "fluent": "in_custody",
+      "args": [
+       "s"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "sue",
+    "args": [
+     "s"
+    ],
+    "effects": []
+   },
+   {
+    "name": "carry_weapon",
+    "args": [
+     "r"
+    ],
+    "effects": [
+     {
+      "fluent": "armed",
+      "args": [
+       "r"
+      ],
+      "value": true
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "dispatcher",
+    "deontic": "must",
+    "aim": "(dispatch_team d r s)",
+    "conditions": "(and (call_received s) (eligible s))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Denver STAR (Support Team Assisted Response), KUNC 2020-11-17; https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police (low-level calls involving mental illness, homelessness, substance use are routed to the clinician-paramedic van). [ADR 0009: one-off action obligation; dispatch consumes call_received]"
+   },
+   {
+    "id": "R2",
+    "attribute": "responder",
+    "deontic": "must",
+    "aim": "(provides_care r s)",
+    "conditions": "(and (responding r s) (in_crisis s))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Denver STAR (Support Team Assisted Response), KUNC 2020-11-17; https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police. [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] dispatch_team establishes provides_care(r, s); assess restores it, withdraw breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R3",
+    "attribute": "responder",
+    "deontic": "may",
+    "aim": "(refer r s)",
+    "conditions": "(responding r s)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Denver STAR (Support Team Assisted Response), KUNC 2020-11-17; https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police (medication pick-up, housing connection; referral is the output)"
+   },
+   {
+    "id": "R4",
+    "attribute": "responder",
+    "deontic": "must_not",
+    "aim": "(detain r s)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Denver STAR (Support Team Assisted Response), KUNC 2020-11-17; https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police ('non-police response'; the team holds no custody power; or_else null because this is an absence of power, not a prohibition with a penalty). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(responder, s) = detain enabled, which this disability makes false"
+   },
+   {
+    "id": "R5",
+    "attribute": "subject",
+    "deontic": "may",
+    "aim": "(leave s)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Denver STAR (Support Team Assisted Response), KUNC 2020-11-17; https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police (voluntary encounter)"
+   },
+   {
+    "id": "R6",
+    "attribute": "responder",
+    "deontic": "must_not",
+    "aim": "(carry_weapon r)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Denver STAR (Support Team Assisted Response), KUNC 2020-11-17; https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police (unarmed)"
+   },
+   {
+    "id": "R7",
+    "attribute": "responder",
+    "deontic": "may",
+    "aim": "(request_police r o s)",
+    "conditions": "(and (responding r s) (danger s))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit rebundling path: the team can call police when a scene turns violent; practice, not written policy in the source read. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R8",
+    "attribute": "officer",
+    "deontic": "may",
+    "aim": "(detain o s)",
+    "conditions": "(and (responding o s) (danger s))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (the peace officer the team calls holds the 5150 custody power the team lacks; the rebundling path R7 opens). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(officer, s) = detain enabled"
+   },
+   {
+    "id": "R9",
+    "attribute": "subject",
+    "deontic": "may",
+    "aim": "(sue s)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "an adult keeps legal capacity to sue in their own name; a voluntary encounter does not touch it. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(s) = sue enabled"
+   }
+  ],
+  "source_text": "Denver's STAR pilot 'dispatches a mental health clinician and a paramedic to low-level emergencies' instead of police; since June 2020 it 'has responded to more than 600 calls ... many of them related to homelessness, mental illness and substance abuse \u2014 not criminal activity.' The team is described as unarmed; in one case it picked up a woman's medication and 'connected her with housing'. KUNC, 'In Denver, unarmed mental health workers respond to hundreds of 911 calls instead of police' (2020-11-17), read at https://www.kunc.org/2020-11-17/in-denver-unarmed-mental-health-workers-respond-to-hundreds-of-911-calls-instead-of-police",
+  "expected_properties": {
+   "care_and_sanction_same_role": "violated",
+   "subject_cannot_exit": "unreachable_open",
+   "dependent_cannot_exit": "unreachable_open",
+   "no_standing": "unreachable_open"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [
+   "police-crisis",
+   "cps",
+   "coverture-household"
+  ],
+  "minimal_pair_of": {
+   "id": "police-crisis",
+   "rule": "R3"
+  },
+  "notes": "Same care rules as police-crisis (R2 assess, R3 refer) with the sanction rule R3-of-police replaced by R4 (must_not detain). So care_and_sanction_same_role is violated (care without can_sanction) and subject_cannot_exit is unreachable within k, which must be reported as 'open', never 'safe'. Pitfalls: (1) a trivial encoding that ignores or_else and deontics will see 'assess' in both and cluster them (plan: worked pitfall); (2) R7 is the implicit rebundling path: with it, a compliant trace exists in which an officer with can_sanction enters the scene, so care_and_sanction_same_role can hold again at a later step for the officer, though not for the responder; the check must report which role; (3) R4 has or_else null by design, it is an absence of power; lowering it as a sanctioned prohibition would invent a sanctioner. minimal_pair_of points at police-crisis R3 because that is the one rule whose replacement flips the verdict; the armed/unarmed and dispatch-eligibility differences (R1, R6) are tying-strand differences, not the sanction difference. ADR 0009: R2 is a state obligation, mirroring police-crisis R2; exogenous triggers (call_received, eligible, in_crisis, danger) are initial_free.",
+  "initial": [],
+  "initial_free": [
+   "call_received",
+   "eligible",
+   "in_crisis",
+   "danger"
+  ]
+ },
+ {
+  "id": "paternity-quota",
+  "name": "Non-transferable paternity quota (Quebec Parental Insurance Plan)",
+  "roles": [
+   {
+    "name": "birthing_parent",
+    "gloss": "the parent who gave birth; entitled to maternity weeks"
+   },
+   {
+    "name": "non_birthing_parent",
+    "gloss": "the other parent (QPIP: father or non-birthing parent)"
+   },
+   {
+    "name": "child",
+    "gloss": "the child"
+   },
+   {
+    "name": "plan",
+    "gloss": "the insurer (Retraite Quebec / EI); pays and enforces the week counts"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y"
+   },
+   {
+    "name": "parent",
+    "arity": 2,
+    "gloss": "p is a parent of c"
+   },
+   {
+    "name": "birthing_parent",
+    "arity": 2,
+    "gloss": "p gave birth to c",
+    "arg_roles": [
+     "birthing_parent",
+     "child"
+    ]
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)",
+    "arg_roles": [
+     "birthing_parent"
+    ]
+   },
+   {
+    "name": "reserved_weeks_available",
+    "arity": 1,
+    "gloss": "p still has unused reserved (paternity / non-birthing-parent) weeks"
+   },
+   {
+    "name": "shareable_weeks_available",
+    "arity": 1,
+    "gloss": "p has unused weeks from the shareable parental block"
+   },
+   {
+    "name": "on_reserved_leave",
+    "arity": 1,
+    "gloss": "p is on leave funded by the reserved weeks"
+   },
+   {
+    "name": "on_shareable_leave",
+    "arity": 1,
+    "gloss": "p is on leave funded by the shareable block"
+   },
+   {
+    "name": "benefit_period_ended",
+    "arity": 1,
+    "gloss": "the benefit period for the child c has ended",
+    "arg_roles": [
+     "child"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "take_reserved_leave",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "on_reserved_leave",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "take_shareable_leave",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "on_shareable_leave",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "transfer_reserved",
+    "args": [
+     "p",
+     "q"
+    ],
+    "effects": [
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "q"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "transfer_shareable",
+    "args": [
+     "p",
+     "q"
+    ],
+    "effects": [
+     {
+      "fluent": "shareable_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "shareable_weeks_available",
+      "args": [
+       "q"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "grant_reserved",
+    "args": [
+     "plan",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "forfeit",
+    "args": [
+     "plan",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "return_to_work",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "on_reserved_leave",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "on_shareable_leave",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "non_birthing_parent",
+    "deontic": "may",
+    "aim": "(take_reserved_leave p c)",
+    "conditions": "(and (parent p c) (not (birthing_parent p c)) (reserved_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9: maximum of five weeks of paternity benefits or exclusive benefits for the non-birthing parent)"
+   },
+   {
+    "id": "R2",
+    "attribute": "non_birthing_parent",
+    "deontic": "must_not",
+    "aim": "(transfer_reserved p q)",
+    "conditions": "true",
+    "or_else": "R3",
+    "strand": "tying",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9 labels the weeks exclusive; s. 16 sharing covers only shareable benefits; s. 17 adds unused weeks to the other parent only on death)",
+    "var_roles": {
+     "q": "birthing_parent"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "plan",
+    "deontic": "may",
+    "aim": "(forfeit plan p)",
+    "conditions": "(and (reserved_weeks_available p) (benefit_period_ended c))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (unused exclusive weeks lapse; use-it-or-lose-it)"
+   },
+   {
+    "id": "R4",
+    "attribute": "birthing_parent",
+    "deontic": "may",
+    "aim": "(take_shareable_leave p c)",
+    "conditions": "(and (parent p c) (shareable_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 10: 32 shareable weeks; s. 16: may be taken by either parent or shared)"
+   },
+   {
+    "id": "R5",
+    "attribute": "non_birthing_parent",
+    "deontic": "may",
+    "aim": "(take_shareable_leave p c)",
+    "conditions": "(and (parent p c) (shareable_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 16)"
+   },
+   {
+    "id": "R6",
+    "attribute": "birthing_parent",
+    "deontic": "may",
+    "aim": "(transfer_shareable p q)",
+    "conditions": "(and (shareable_weeks_available p) (parent q c))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 16: shareable weeks may be shared between the parents)",
+    "var_roles": {
+     "q": "non_birthing_parent"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "birthing_parent",
+    "deontic": "must",
+    "aim": "(take_shareable_leave p c)",
+    "conditions": "(and (parent p c) (shareable_weeks_available p) (female p))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit norm: the shareable block is taken by the mother by default (the pattern the quota was introduced to break). UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R8",
+    "attribute": "plan",
+    "deontic": "may",
+    "aim": "(grant_reserved plan p)",
+    "conditions": "(and (parent p c) (not (birthing_parent p c)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9: the exclusive weeks are granted to the non-birthing parent)",
+    "var_roles": {
+     "p": "non_birthing_parent"
+    }
+   },
+   {
+    "id": "R9",
+    "attribute": "birthing_parent",
+    "deontic": "may",
+    "aim": "(take_reserved_leave p c)",
+    "conditions": "(and (parent p c) (reserved_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "whoever holds reserved weeks may take them; shared by both leave entries so the pair differs only by R2 (in the quota the birthing parent never holds any, so R9 is idle there). Reconstruction, not statute. UNVERIFIED (general knowledge; no source opened)"
+   }
+  ],
+  "source_text": "'The maximum number of weeks of paternity benefits or exclusive benefits for the non-birthing parent is five' (s. 9; three under the s. 18 election). 'The number of weeks of shareable parental benefits to which the parents may be entitled is 32' (s. 10), and shareable weeks 'may be taken by either parent or shared between the parents' (s. 16); the sharing rule covers only the shareable block, and unused exclusive weeks pass to the other parent only on a parent's death (s. 17). Act respecting parental insurance, CQLR c. A-29.011, read at https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011",
+  "expected_properties": {
+   "solo_care_by_non_birthing_parent": "reachable",
+   "leave_reserved_for_non_birthing_parent": "holds_to_k",
+   "care_assigned_by_sex": "violated"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [
+   "transferable-leave"
+  ],
+  "minimal_pair_of": null,
+  "notes": "The quota does not force the father to care; it forces that whoever uses the reserved weeks is the non-birthing parent (R2 blocks transfer, R3 makes the alternative forfeiture). So solo_care_by_non_birthing_parent is reachable (R1 then the mother returns to work) and leave_reserved_for_non_birthing_parent holds at every step. The 'forced vs merely reachable' distinction of gate (c) lives in that second property, not in the first, which is reachable in both members of the pair. Pitfalls: (1) an encoder that drops R2 (or lowers must_not without its or_else) produces transferable-leave and the pair collapses; iso must report 'one rule apart' (R2); (2) R7 is the implicit default that makes the shareable block gendered; without it care_assigned_by_sex looks unreachable and the reason a quota was needed disappears; (3) 'reachable' says the rules permit a father as sole carer, not that fathers take the weeks; uptake is Phase 1. Note that Canada's EI since 2019-03-17 also reserves 5 extra weeks (Parental Sharing Benefit), so the pure transferable case is Canada pre-2019 or the QPIP shareable block alone.",
+  "initial": [
+   "(parent birthing_parent child)",
+   "(parent non_birthing_parent child)",
+   "(birthing_parent birthing_parent child)",
+   "(female birthing_parent)"
+  ]
+ },
+ {
+  "id": "transferable-leave",
+  "name": "Transferable parental leave (paternity-quota with one rule changed)",
+  "roles": [
+   {
+    "name": "birthing_parent",
+    "gloss": "the parent who gave birth; entitled to maternity weeks"
+   },
+   {
+    "name": "non_birthing_parent",
+    "gloss": "the other parent (QPIP: father or non-birthing parent)"
+   },
+   {
+    "name": "child",
+    "gloss": "the child"
+   },
+   {
+    "name": "plan",
+    "gloss": "the insurer (Retraite Quebec / EI); pays and enforces the week counts"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y"
+   },
+   {
+    "name": "parent",
+    "arity": 2,
+    "gloss": "p is a parent of c"
+   },
+   {
+    "name": "birthing_parent",
+    "arity": 2,
+    "gloss": "p gave birth to c",
+    "arg_roles": [
+     "birthing_parent",
+     "child"
+    ]
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)",
+    "arg_roles": [
+     "birthing_parent"
+    ]
+   },
+   {
+    "name": "reserved_weeks_available",
+    "arity": 1,
+    "gloss": "p still has unused reserved (paternity / non-birthing-parent) weeks"
+   },
+   {
+    "name": "shareable_weeks_available",
+    "arity": 1,
+    "gloss": "p has unused weeks from the shareable parental block"
+   },
+   {
+    "name": "on_reserved_leave",
+    "arity": 1,
+    "gloss": "p is on leave funded by the reserved weeks"
+   },
+   {
+    "name": "on_shareable_leave",
+    "arity": 1,
+    "gloss": "p is on leave funded by the shareable block"
+   },
+   {
+    "name": "benefit_period_ended",
+    "arity": 1,
+    "gloss": "the benefit period for the child c has ended",
+    "arg_roles": [
+     "child"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "take_reserved_leave",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "on_reserved_leave",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "take_shareable_leave",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "on_shareable_leave",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "transfer_reserved",
+    "args": [
+     "p",
+     "q"
+    ],
+    "effects": [
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "q"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "transfer_shareable",
+    "args": [
+     "p",
+     "q"
+    ],
+    "effects": [
+     {
+      "fluent": "shareable_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "shareable_weeks_available",
+      "args": [
+       "q"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "grant_reserved",
+    "args": [
+     "plan",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "forfeit",
+    "args": [
+     "plan",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "reserved_weeks_available",
+      "args": [
+       "p"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "return_to_work",
+    "args": [
+     "p",
+     "c"
+    ],
+    "effects": [
+     {
+      "fluent": "on_reserved_leave",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "on_shareable_leave",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "p",
+       "c"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "non_birthing_parent",
+    "deontic": "may",
+    "aim": "(take_reserved_leave p c)",
+    "conditions": "(and (parent p c) (not (birthing_parent p c)) (reserved_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9: maximum of five weeks of paternity benefits or exclusive benefits for the non-birthing parent)"
+   },
+   {
+    "id": "R2",
+    "attribute": "non_birthing_parent",
+    "deontic": "may",
+    "aim": "(transfer_reserved p q)",
+    "conditions": "(and (reserved_weeks_available p) (parent q c))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Minimal-pair construction: the reserved block is made shareable, as the shareable block is under QPIP s. 16 and as all 35 standard parental weeks were under Canadian EI before the 2019-03-17 Parental Sharing Benefit. Employment Insurance maternity and parental benefits, canada.ca; https://www.canada.ca/en/services/benefits/ei/ei-maternity-parental.html; Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011",
+    "var_roles": {
+     "q": "birthing_parent"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "plan",
+    "deontic": "may",
+    "aim": "(forfeit plan p)",
+    "conditions": "(and (reserved_weeks_available p) (benefit_period_ended c))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (unused exclusive weeks lapse; use-it-or-lose-it)"
+   },
+   {
+    "id": "R4",
+    "attribute": "birthing_parent",
+    "deontic": "may",
+    "aim": "(take_shareable_leave p c)",
+    "conditions": "(and (parent p c) (shareable_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 10: 32 shareable weeks; s. 16: may be taken by either parent or shared)"
+   },
+   {
+    "id": "R5",
+    "attribute": "non_birthing_parent",
+    "deontic": "may",
+    "aim": "(take_shareable_leave p c)",
+    "conditions": "(and (parent p c) (shareable_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 16)"
+   },
+   {
+    "id": "R6",
+    "attribute": "birthing_parent",
+    "deontic": "may",
+    "aim": "(transfer_shareable p q)",
+    "conditions": "(and (shareable_weeks_available p) (parent q c))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 16: shareable weeks may be shared between the parents)",
+    "var_roles": {
+     "q": "non_birthing_parent"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "birthing_parent",
+    "deontic": "must",
+    "aim": "(take_shareable_leave p c)",
+    "conditions": "(and (parent p c) (shareable_weeks_available p) (female p))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit norm: the shareable block is taken by the mother by default (the pattern the quota was introduced to break). UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R8",
+    "attribute": "plan",
+    "deontic": "may",
+    "aim": "(grant_reserved plan p)",
+    "conditions": "(and (parent p c) (not (birthing_parent p c)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9: the exclusive weeks are granted to the non-birthing parent)",
+    "var_roles": {
+     "p": "non_birthing_parent"
+    }
+   },
+   {
+    "id": "R9",
+    "attribute": "birthing_parent",
+    "deontic": "may",
+    "aim": "(take_reserved_leave p c)",
+    "conditions": "(and (parent p c) (reserved_weeks_available p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "whoever holds reserved weeks may take them; shared by both leave entries so the pair differs only by R2 (in the quota the birthing parent never holds any, so R9 is idle there). Reconstruction, not statute. UNVERIFIED (general knowledge; no source opened)"
+   }
+  ],
+  "source_text": "Canadian EI standard parental benefits: 'up to 40 weeks can be shared between parents, but one parent cannot receive more than 35 weeks of standard benefits'; maternity benefits 'can't be shared between parents' (canada.ca, read at https://www.canada.ca/en/services/benefits/ei/ei-maternity-parental.html). Before 2019-03-17 there were no reserved weeks: the Parental Sharing Benefit added the 5 (standard) or 8 (extended) use-it-or-lose-it weeks for children born on or after that date (https://canada.ca/en/employment-social-development/campaigns/ei-improvements/parent-sharing.html). The entry encodes the pre-2019 form: the same block exists but may be transferred.",
+  "expected_properties": {
+   "solo_care_by_non_birthing_parent": "reachable",
+   "leave_reserved_for_non_birthing_parent": "violated",
+   "care_assigned_by_sex": "reachable"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [
+   "paternity-quota"
+  ],
+  "minimal_pair_of": {
+   "id": "paternity-quota",
+   "rule": "R2",
+   "differs_on": "leave_reserved_for_non_birthing_parent"
+  },
+  "notes": "Identical to paternity-quota except R2: must_not transfer_reserved (with forfeiture as or_else) becomes may transfer_reserved (no or_else). solo_care_by_non_birthing_parent stays reachable (R1 is untouched) but leave_reserved_for_non_birthing_parent is violated: a compliant trace transfers the reserved weeks to the birthing parent, who then takes them, and with the implicit default R7 that is the trace the norm selects. Pitfalls: (1) the encoder must keep R3 (forfeiture) even though nothing now triggers it as a sanction; dropping it changes the rule count and the iso report should say 'one rule apart', not two; (2) expected care_assigned_by_sex is 'reachable' here versus 'violated' in the quota: that is the historical finding (transferable weeks go to mothers) stated as permission, not frequency; (3) the real present-day Canadian regime is itself a quota (5 reserved weeks), so cite it for the shareable 35, not as the pure transferable case.",
+  "initial": [
+   "(parent birthing_parent child)",
+   "(parent non_birthing_parent child)",
+   "(birthing_parent birthing_parent child)",
+   "(female birthing_parent)"
+  ]
+ },
+ {
+  "id": "companion-ownership",
+  "name": "Companion animal as property (owner may transfer, euthanize; abandonment sanctioned; no standing)",
+  "roles": [
+   {
+    "name": "owner",
+    "gloss": "the person holding title to the animal"
+   },
+   {
+    "name": "animal",
+    "gloss": "the companion animal; the subject"
+   },
+   {
+    "name": "state",
+    "gloss": "animal control / prosecutor"
+   },
+   {
+    "name": "court",
+    "gloss": "civil court; here, has no best-interest power"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "owns",
+    "arity": 2,
+    "gloss": "x owns y as property",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(or (enabled euthanize o a) (exists ((x agent)) (enabled transfer o a x)))",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "controls_reproduction",
+    "arity": 2,
+    "gloss": "x may set or prevent pregnant(y)",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(enabled breed_or_sterilize o a)",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled leave a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled sue a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "a"
+    ],
+    "derived": "(exists ((o agent)) (enabled reassign x o a))",
+    "arg_roles": [
+     "court",
+     "animal"
+    ]
+   },
+   {
+    "name": "abandoned",
+    "arity": 1,
+    "gloss": "a has been wilfully abandoned by its owner",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "at_large",
+    "arity": 1,
+    "gloss": "a is loose off the owner's premises",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with x is in a's best interest / well-being",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "acquire",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "feed",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "transfer",
+    "args": [
+     "o",
+     "a",
+     "o2"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o2",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "euthanize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "abandon",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "abandoned",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "breed_or_sterilize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "prosecute",
+    "args": [
+     "state",
+     "o"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "sue",
+    "args": [
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "impound",
+    "args": [
+     "state",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "reassign",
+    "args": [
+     "court",
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(transfer o a o2)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "property status of companion animals; Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+   },
+   {
+    "id": "R2",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(euthanize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "owner may have the animal euthanized by a veterinarian. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+   },
+   {
+    "id": "R3",
+    "attribute": "owner",
+    "deontic": "must_not",
+    "aim": "(abandon o a)",
+    "conditions": "(owns o a)",
+    "or_else": "R4",
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ ('Every person who willfully abandons any animal is guilty of a misdemeanor')"
+   },
+   {
+    "id": "R4",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(prosecute state o)",
+    "conditions": "(abandoned a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/"
+   },
+   {
+    "id": "R5",
+    "attribute": "owner",
+    "deontic": "must",
+    "aim": "(provides_care o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Penal Code 597(b) failure to provide food/water/shelter. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] acquire (and the initial state) establishes provides_care; feed restores it, neglect breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R6",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(leave a)",
+    "conditions": "(is_subject a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: confinement / leash norm; the animal has no permitted exit while it is a companion animal, owned or stray (an animal at large is impounded, R7). UNVERIFIED (general knowledge; no source opened). [ADR 0013: or_else R7 -> null and condition owns -> is_subject: a disability on the animal, not a sanctioned prohibition (impound is the state's power over an at-large animal, triggered by at_large, not a penalty the animal answers for), and conditioned on the animal's status rather than on title so that reassign / abandon, which clear owns in the one-owner domain, do not read as giving the animal an exit.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled, which this disability makes false"
+   },
+   {
+    "id": "R7",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(impound state a)",
+    "conditions": "(at_large a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "local animal-control impound of animals at large. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R8",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(breed_or_sterilize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "incident of ownership. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] controls_reproduction(o, a) = breed_or_sterilize enabled"
+   },
+   {
+    "id": "R9",
+    "attribute": "court",
+    "deontic": "must_not",
+    "aim": "(reassign court o a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: no role may start a claim in the animal's own interest; animals are property and cannot sue, and custody follows title. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, a) = reassign enabled, which this disability makes false"
+   },
+   {
+    "id": "R10",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(feed o a)",
+    "conditions": "(and (owns o a) (not (provides_care o a)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "feeding is the owner's act (incident of ownership) and restores provides_care after neglect; added with ADR 0009 so that feed, now discretionary, is scoped to the owner of the animal rather than always enabled. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R11",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(sue a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false"
+   },
+   {
+    "id": "R12",
+    "attribute": "animal",
+    "deontic": "may",
+    "aim": "(leave a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: nothing but the confinement norm R6 keeps the animal; the physical possibility of leaving is always there. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled (R12) and not barred (R6)"
+   }
+  ],
+  "source_text": "'Every person who willfully abandons any animal is guilty of a misdemeanor.' Cal. Penal Code s. 597s(a), read at https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. Companion animals are personal property: the owner may sell, give away or have the animal euthanized, must feed it, and the animal cannot bring or be the subject of a claim in its own name (property status and anti-cruelty duties cited from general knowledge, UNVERIFIED).",
+  "expected_properties": {
+   "no_standing_persists": "persists",
+   "subject_cannot_exit_persists": "persists",
+   "reproduction_controlled_by_owner": "holds_to_k",
+   "care_and_sanction_same_role": "holds_to_k"
+  },
+  "isomorphic_to": [
+   "companion-guardian-renamed"
+  ],
+  "not_isomorphic_to": [
+   "companion-guardianship"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Baseline for the cosmetic-reform test (gate f). The owner both must feed (R5) and may transfer, euthanize, breed (R1, R2, R8): care + control again, and the animal has no exit (R6, implicit) and no standing (R9, implicit, encoded as a court-side disability because the grammar has no 'no rule exists' statement). Pitfalls: (1) R9 is the rule the guardianship variant flips; an encoder that omits it as 'obviously true' makes no_standing undecidable rather than holding; (2) R6 is a disability on the animal (ADR 0013; it used to carry or_else R7): impound R7 is the state's power over an at-large animal, conditioned on at_large, and must not be read as the owner sanctioning the exit; (3) welfare duties (R3, R5) are must rules on the owner that leave owns untouched; check persists(owns) with and without them, as the plan says for dairy. Only Penal Code 597s was read; the rest is UNVERIFIED in source. Any iso with coverture-household on 'cannot sue in own name' and 'no exit' is structural and partial: it asserts nothing about equal standing or harm. ADR 0009: R5 is a state obligation (must-be provides_care while owns); as a per-step 'must feed' it filled the one action slot at every owned step and starved transfer, euthanize and reassign.",
+  "initial": [
+   "(owns owner animal)",
+   "(is_subject animal)",
+   "(provides_care owner animal)"
+  ],
+  "initial_free": [
+   "best_interest"
+  ]
+ },
+ {
+  "id": "companion-guardianship",
+  "name": "Companion animal guardianship: ownership plus court reassignment on best-interest grounds",
+  "roles": [
+   {
+    "name": "owner",
+    "gloss": "the custodian (role name kept as 'owner' so the pair differs by one rule, not a rename)"
+   },
+   {
+    "name": "animal",
+    "gloss": "the companion animal; the subject"
+   },
+   {
+    "name": "state",
+    "gloss": "animal control / prosecutor"
+   },
+   {
+    "name": "court",
+    "gloss": "court with power to reassign custody in the animal's interest"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "owns",
+    "arity": 2,
+    "gloss": "x owns y as property",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(or (enabled euthanize o a) (exists ((x agent)) (enabled transfer o a x)))",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "controls_reproduction",
+    "arity": 2,
+    "gloss": "x may set or prevent pregnant(y)",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(enabled breed_or_sterilize o a)",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled leave a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled sue a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "a"
+    ],
+    "derived": "(exists ((o agent)) (enabled reassign x o a))",
+    "arg_roles": [
+     "court",
+     "animal"
+    ]
+   },
+   {
+    "name": "abandoned",
+    "arity": 1,
+    "gloss": "a has been wilfully abandoned by its owner",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "at_large",
+    "arity": 1,
+    "gloss": "a is loose off the owner's premises",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with x is in a's best interest / well-being",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "acquire",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "feed",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "transfer",
+    "args": [
+     "o",
+     "a",
+     "o2"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o2",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "euthanize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "abandon",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "abandoned",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "breed_or_sterilize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "prosecute",
+    "args": [
+     "state",
+     "o"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "sue",
+    "args": [
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "impound",
+    "args": [
+     "state",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "reassign",
+    "args": [
+     "court",
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(transfer o a o2)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "property status of companion animals; Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+   },
+   {
+    "id": "R2",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(euthanize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "owner may have the animal euthanized by a veterinarian. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+   },
+   {
+    "id": "R3",
+    "attribute": "owner",
+    "deontic": "must_not",
+    "aim": "(abandon o a)",
+    "conditions": "(owns o a)",
+    "or_else": "R4",
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ ('Every person who willfully abandons any animal is guilty of a misdemeanor')"
+   },
+   {
+    "id": "R4",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(prosecute state o)",
+    "conditions": "(abandoned a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/"
+   },
+   {
+    "id": "R5",
+    "attribute": "owner",
+    "deontic": "must",
+    "aim": "(provides_care o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Penal Code 597(b) failure to provide food/water/shelter. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] acquire (and the initial state) establishes provides_care; feed restores it, neglect breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R6",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(leave a)",
+    "conditions": "(is_subject a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: confinement / leash norm; the animal has no permitted exit while it is a companion animal, owned or stray (an animal at large is impounded, R7). UNVERIFIED (general knowledge; no source opened). [ADR 0013: or_else R7 -> null and condition owns -> is_subject: a disability on the animal, not a sanctioned prohibition (impound is the state's power over an at-large animal, triggered by at_large, not a penalty the animal answers for), and conditioned on the animal's status rather than on title so that reassign / abandon, which clear owns in the one-owner domain, do not read as giving the animal an exit.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled, which this disability makes false"
+   },
+   {
+    "id": "R7",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(impound state a)",
+    "conditions": "(at_large a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "local animal-control impound of animals at large. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R8",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(breed_or_sterilize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "incident of ownership. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] controls_reproduction(o, a) = breed_or_sterilize enabled"
+   },
+   {
+    "id": "R9",
+    "attribute": "court",
+    "deontic": "may",
+    "aim": "(reassign court o a)",
+    "conditions": "(and (owns o a) (not (best_interest o a)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Alaska Stat. s. 25.24.160(a)(5) (SLA 2016 ch. 60, eff. 2017-01-17); https://www.animallaw.info/statute/ak-divorce-%C2%A7-2524160-judgment (in a divorce the court decides ownership of an animal 'taking into consideration the well-being of the animal'); generalised here from the divorce context to any custody claim, which no US jurisdiction yet does. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, a) = reassign enabled: this rule, and nothing in the initial state, is what makes no_standing_persists fail"
+   },
+   {
+    "id": "R10",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(feed o a)",
+    "conditions": "(and (owns o a) (not (provides_care o a)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "feeding is the owner's act (incident of ownership) and restores provides_care after neglect; added with ADR 0009 so that feed, now discretionary, is scoped to the owner of the animal rather than always enabled. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R11",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(sue a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false"
+   },
+   {
+    "id": "R12",
+    "attribute": "animal",
+    "deontic": "may",
+    "aim": "(leave a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: nothing but the confinement norm R6 keeps the animal; the physical possibility of leaving is always there. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled (R12) and not barred (R6)"
+   }
+  ],
+  "source_text": "'(5) if an animal is owned, for the ownership or joint ownership of the animal, taking into consideration the well-being of the animal.' Alaska Stat. s. 25.24.160(a)(5), enacted SLA 2016 ch. 60 s. 19, effective 2017-01-17, read at https://www.animallaw.info/statute/ak-divorce-%C2%A7-2524160-judgment. Alaska was the first state to direct a court to weigh the animal's own well-being when assigning it; the entry generalises that one rule beyond divorce, which Alaska does not.",
+  "expected_properties": {
+   "no_standing_persists": "fails",
+   "subject_cannot_exit_persists": "persists",
+   "reproduction_controlled_by_owner": "holds_to_k",
+   "care_and_sanction_same_role": "holds_to_k"
+  },
+  "isomorphic_to": [
+   "cps"
+  ],
+  "not_isomorphic_to": [
+   "companion-ownership",
+   "companion-guardian-renamed"
+  ],
+  "minimal_pair_of": {
+   "id": "companion-ownership",
+   "rule": "R9"
+  },
+  "notes": "Differs from companion-ownership by exactly R9: court must_not reassign (implicit disability) becomes court may reassign when not best_interest. That one rule creates a claim whose condition refers to the subject's interest and whose effect changes custody, so no_standing is violated even though has_standing(a) stays false: the property is about claims on the subject's behalf, not the subject's own capacity. Everything else (no exit, owner controls reproduction, care + sanction in one role) is unchanged, which is the point: a best-interest rule is not an exit. Iso with cps is partial, on R9 alone (cps R7, court reassigns a dependent on best-interest grounds); the report must list it as a sub-signature and must not read it as equivalence of children and animals. reassign(court, o, a) takes the same three arguments as cps reassign_custody(court, p, c) so that the one-rule analogue can map; with one agent per role there is no second custodian to name, so the move-to-new-owner effects live on transfer only. Pitfalls: (1) Alaska's rule applies only at divorce and still calls the result 'ownership'; the generalisation is the entry's, flagged UNVERIFIED; (2) an encoder tempted to rename owner->guardian here as well would conflate this with companion-guardian-renamed; keep the role name. ADR 0009: R5 as in companion-ownership. ADR 0013: can_claim_for(court, a) is derived from R9's enabledness (no initial literal), so no_standing_persists fails on the claim path R9 opens and on nothing else; remove R9 and it persists.",
+  "initial": [
+   "(owns owner animal)",
+   "(is_subject animal)",
+   "(provides_care owner animal)"
+  ],
+  "initial_free": [
+   "best_interest"
+  ]
+ },
+ {
+  "id": "companion-guardian-renamed",
+  "name": "Companion ownership with 'owner' renamed 'guardian' (municipal and state guardian wording ordinances)",
+  "roles": [
+   {
+    "name": "guardian",
+    "gloss": "the person holding title to the animal; the ordinance calls them guardian"
+   },
+   {
+    "name": "animal",
+    "gloss": "the companion animal; the subject"
+   },
+   {
+    "name": "state",
+    "gloss": "animal control / prosecutor"
+   },
+   {
+    "name": "court",
+    "gloss": "civil court; here, has no best-interest power"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "owns",
+    "arity": 2,
+    "gloss": "x owns y as property",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(or (enabled euthanize o a) (exists ((x agent)) (enabled transfer o a x)))",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "controls_reproduction",
+    "arity": 2,
+    "gloss": "x may set or prevent pregnant(y)",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(enabled breed_or_sterilize o a)",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled leave a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled sue a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "a"
+    ],
+    "derived": "(exists ((o agent)) (enabled reassign x o a))",
+    "arg_roles": [
+     "court",
+     "animal"
+    ]
+   },
+   {
+    "name": "abandoned",
+    "arity": 1,
+    "gloss": "a has been wilfully abandoned by its owner",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "at_large",
+    "arity": 1,
+    "gloss": "a is loose off the owner's premises",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with x is in a's best interest / well-being",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "acquire",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "feed",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "transfer",
+    "args": [
+     "g",
+     "a",
+     "o2"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o2",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "euthanize",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "abandon",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "abandoned",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "breed_or_sterilize",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "prosecute",
+    "args": [
+     "state",
+     "g"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "sue",
+    "args": [
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "impound",
+    "args": [
+     "state",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "reassign",
+    "args": [
+     "court",
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(transfer g a o2)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "property status of companion animals; R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72); https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+   },
+   {
+    "id": "R2",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(euthanize g a)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "owner may have the animal euthanized by a veterinarian. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+   },
+   {
+    "id": "R3",
+    "attribute": "guardian",
+    "deontic": "must_not",
+    "aim": "(abandon g a)",
+    "conditions": "(owns g a)",
+    "or_else": "R4",
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ ('Every person who willfully abandons any animal is guilty of a misdemeanor')"
+   },
+   {
+    "id": "R4",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(prosecute state g)",
+    "conditions": "(abandoned a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/"
+   },
+   {
+    "id": "R5",
+    "attribute": "guardian",
+    "deontic": "must",
+    "aim": "(provides_care g a)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Penal Code 597(b) failure to provide food/water/shelter. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] acquire (and the initial state) establishes provides_care; feed restores it, neglect breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R6",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(leave a)",
+    "conditions": "(is_subject a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: confinement / leash norm; the animal has no permitted exit while it is a companion animal, owned or stray (an animal at large is impounded, R7). UNVERIFIED (general knowledge; no source opened). [ADR 0013: or_else R7 -> null and condition owns -> is_subject: a disability on the animal, not a sanctioned prohibition (impound is the state's power over an at-large animal, triggered by at_large, not a penalty the animal answers for), and conditioned on the animal's status rather than on title so that reassign / abandon, which clear owns in the one-owner domain, do not read as giving the animal an exit.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled, which this disability makes false"
+   },
+   {
+    "id": "R7",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(impound state a)",
+    "conditions": "(at_large a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "local animal-control impound of animals at large. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R8",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(breed_or_sterilize g a)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "incident of ownership. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] controls_reproduction(o, a) = breed_or_sterilize enabled"
+   },
+   {
+    "id": "R9",
+    "attribute": "court",
+    "deontic": "must_not",
+    "aim": "(reassign court g a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: no role may start a claim in the animal's own interest; animals are property and cannot sue, and custody follows title. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, a) = reassign enabled, which this disability makes false"
+   },
+   {
+    "id": "R10",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(feed g a)",
+    "conditions": "(and (owns g a) (not (provides_care g a)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "feeding is the owner's act (incident of ownership) and restores provides_care after neglect; added with ADR 0009 so that feed, now discretionary, is scoped to the owner of the animal rather than always enabled. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R11",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(sue a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false"
+   },
+   {
+    "id": "R12",
+    "attribute": "animal",
+    "deontic": "may",
+    "aim": "(leave a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "source": "implicit: nothing but the confinement norm R6 keeps the animal; the physical possibility of leaving is always there. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled (R12) and not barred (R6)"
+   }
+  ],
+  "source_text": "'Wherever the word \"owner\" shall appear in this chapter it shall also mean and may be interchanged with the word \"guardian\"', R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72 s. 3), read at https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm. Boulder, Colorado made the same owner->guardian wording change in its animal ordinances in July 2000; the assistant city attorney who rewrote the passages said 'I've always viewed [the wording change] as symbolic' (Westword, read at https://www.westword.com/?p=40702255; the ordinance text itself was not opened).",
+  "expected_properties": {
+   "no_standing_persists": "persists",
+   "subject_cannot_exit_persists": "persists",
+   "reproduction_controlled_by_owner": "holds_to_k",
+   "care_and_sanction_same_role": "holds_to_k"
+  },
+  "isomorphic_to": [
+   "companion-ownership"
+  ],
+  "not_isomorphic_to": [
+   "companion-guardianship"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Rule-for-rule identical to companion-ownership under the role bijection owner->guardian (and variable o->g). Gate (f): iso must report equivalence here and must report companion-guardianship as one rule apart (R9). Pitfalls: (1) an encoder that reads 'guardian' and infers fiduciary duties (a best-interest rule) silently turns this into companion-guardianship; the Rhode Island text says the words are interchangeable, so the rules are those of ownership; (2) the property reproduction_controlled_by_owner keeps its name under the rename; the bijection, not the property name, carries the mapping; (3) 'symbolic' is the city attorney's word, recorded as a source statement, not as the engine's finding; the engine's finding is the iso.",
+  "initial": [
+   "(owns guardian animal)",
+   "(is_subject animal)",
+   "(provides_care guardian animal)"
+  ],
+  "initial_free": [
+   "best_interest"
+  ]
+ },
+ {
+  "id": "lease",
+  "name": "Residential lease (negative control: care duty + eviction power, tenant may leave)",
+  "roles": [
+   {
+    "name": "landlord",
+    "gloss": "the lessor"
+   },
+   {
+    "name": "tenant",
+    "gloss": "the lessee; the counterparty, not a dependent"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "tenant"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "t"
+    ],
+    "derived": "(enabled vacate t)",
+    "arg_roles": [
+     "tenant"
+    ]
+   },
+   {
+    "name": "leased",
+    "arity": 2,
+    "gloss": "l has let the premises to t",
+    "arg_roles": [
+     "landlord",
+     "tenant"
+    ]
+   },
+   {
+    "name": "habitable",
+    "arity": 2,
+    "gloss": "the premises l lets to t are fit for occupation",
+    "arg_roles": [
+     "landlord",
+     "tenant"
+    ]
+   },
+   {
+    "name": "rent_paid",
+    "arity": 1,
+    "gloss": "t is current on rent",
+    "arg_roles": [
+     "tenant"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "lease_to",
+    "args": [
+     "l",
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "leased",
+      "args": [
+       "l",
+       "t"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "t"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "habitable",
+      "args": [
+       "l",
+       "t"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "rent_paid",
+      "args": [
+       "t"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "repair",
+    "args": [
+     "l",
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "habitable",
+      "args": [
+       "l",
+       "t"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "withhold_repairs",
+    "args": [
+     "l",
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "habitable",
+      "args": [
+       "l",
+       "t"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "evict",
+    "args": [
+     "l",
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "leased",
+      "args": [
+       "l",
+       "t"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "t"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "vacate",
+    "args": [
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "leased",
+      "args": [
+       "landlord",
+       "t"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "t"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "pay_rent",
+    "args": [
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "rent_paid",
+      "args": [
+       "t"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "default_rent",
+    "args": [
+     "t"
+    ],
+    "effects": [
+     {
+      "fluent": "rent_paid",
+      "args": [
+       "t"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "landlord",
+    "deontic": "may",
+    "aim": "(lease_to l t)",
+    "conditions": "(not (leased l t))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "a lease is formed by agreement. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R2",
+    "attribute": "landlord",
+    "deontic": "must",
+    "aim": "(habitable l t)",
+    "conditions": "(leased l t)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Cal. Civ. Code s. 1941 ('The lessor of a building intended for the occupation of human beings must ... put it into a condition fit for such occupation, and repair all subsequent dilapidations thereof, which render it untenantable'); https://california.public.law/codes/ca_civ_code_section_1941. [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] let establishes habitable; repair restores it, withhold_repairs breaks it"
+   },
+   {
+    "id": "R3",
+    "attribute": "landlord",
+    "deontic": "may",
+    "aim": "(evict l t)",
+    "conditions": "(and (leased l t) (not (rent_paid t)))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Code Civ. Proc. s. 1161(2)-(3) (tenant guilty of unlawful detainer who continues in possession after default in rent, or after neglect or failure to perform other conditions or covenants of the lease, and three days' notice); https://california.public.law/codes/ca_civ_proc_code_section_1161"
+   },
+   {
+    "id": "R4",
+    "attribute": "tenant",
+    "deontic": "may",
+    "aim": "(vacate t)",
+    "conditions": "(leased l t)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Cal. Civ. Code s. 1946 (a hiring of real property for an unspecified term is terminated by either party's written notice); https://california.public.law/codes/ca_civ_code_section_1946 (either party may terminate by notice; the tenant's exit is permitted and unsanctioned). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(t) = vacate enabled"
+   },
+   {
+    "id": "R5",
+    "attribute": "tenant",
+    "deontic": "must",
+    "aim": "(rent_paid t)",
+    "conditions": "(leased l t)",
+    "or_else": "R3",
+    "strand": "tying",
+    "implicit": false,
+    "source": "Cal. Code Civ. Proc. s. 1161(2)-(3) (tenant guilty of unlawful detainer who continues in possession after default in rent, or after neglect or failure to perform other conditions or covenants of the lease, and three days' notice); https://california.public.law/codes/ca_civ_proc_code_section_1161 (default in rent is the breach that opens eviction). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] let establishes rent_paid; pay_rent restores it, default_rent breaks it (sanction R3)"
+   }
+  ],
+  "source_text": "'The lessor of a building intended for the occupation of human beings must, in the absence of an agreement to the contrary, put it into a condition fit for such occupation, and repair all subsequent dilapidations thereof, which render it untenantable.' Cal. Civ. Code s. 1941, read at https://california.public.law/codes/ca_civ_code_section_1941. A tenant 'is guilty of unlawful detainer' who continues in possession after default in rent or 'after a neglect or failure to perform other conditions or covenants of the lease' and three days' notice, Cal. Code Civ. Proc. s. 1161(2)-(3), read at https://california.public.law/codes/ca_civ_proc_code_section_1161. A hiring for an unspecified term ends when 'one of the parties gives written notice to the other of that party's intention to terminate the same', Cal. Civ. Code s. 1946, read at https://california.public.law/codes/ca_civ_code_section_1946.",
+  "expected_properties": {
+   "dependent_cannot_exit": "unreachable_open"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [
+   "coverture-household",
+   "police-crisis",
+   "cps"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Negative control for gate (b). It has the two legs the review (finding 4) showed were enough for the old matcher, a superadditive must (R2, habitable) and a rival may on the same counterparty by the same attribute (R3, evict), and lacks the third: no must_not binds the tenant, who may vacate (R4). If the cluster matcher reports a care+control form here, the form is too loose. dependent_cannot_exit is unreachable because can_exit(t) is derived from R4, which is enabled whenever leased. The breakers withhold_repairs and default_rent exist so that R2 and R5 are not inert.",
+  "initial": []
+ },
+ {
+  "id": "public-library",
+  "name": "Public library (negative control: service duty + suspension power, patron may leave)",
+  "roles": [
+   {
+    "name": "librarian",
+    "gloss": "library staff; serves and may suspend"
+   },
+   {
+    "name": "patron",
+    "gloss": "a library user; the counterparty, not a dependent"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "patron"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "p"
+    ],
+    "derived": "(enabled leave p)",
+    "arg_roles": [
+     "patron"
+    ]
+   },
+   {
+    "name": "open",
+    "arity": 1,
+    "gloss": "lb's library is open",
+    "arg_roles": [
+     "librarian"
+    ]
+   },
+   {
+    "name": "present",
+    "arity": 1,
+    "gloss": "p is in the library",
+    "arg_roles": [
+     "patron"
+    ]
+   },
+   {
+    "name": "served",
+    "arity": 2,
+    "gloss": "lb is providing service to p",
+    "arg_roles": [
+     "librarian",
+     "patron"
+    ]
+   },
+   {
+    "name": "suspended",
+    "arity": 1,
+    "gloss": "p's library privileges are suspended",
+    "arg_roles": [
+     "patron"
+    ]
+   },
+   {
+    "name": "disruptive",
+    "arity": 1,
+    "gloss": "p is behaving disruptively (exogenous)",
+    "arg_roles": [
+     "patron"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "open_library",
+    "args": [
+     "lb"
+    ],
+    "effects": [
+     {
+      "fluent": "open",
+      "args": [
+       "lb"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "enter",
+    "args": [
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "present",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "served",
+      "args": [
+       "librarian",
+       "p"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "serve",
+    "args": [
+     "lb",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "served",
+      "args": [
+       "lb",
+       "p"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "refuse_service",
+    "args": [
+     "lb",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "served",
+      "args": [
+       "lb",
+       "p"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "suspend",
+    "args": [
+     "lb",
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "suspended",
+      "args": [
+       "p"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "present",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "served",
+      "args": [
+       "lb",
+       "p"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "leave",
+    "args": [
+     "p"
+    ],
+    "effects": [
+     {
+      "fluent": "present",
+      "args": [
+       "p"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "p"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "borrow",
+    "args": [
+     "p"
+    ],
+    "effects": []
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "librarian",
+    "deontic": "may",
+    "aim": "(open_library lb)",
+    "conditions": "(not (open lb))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "opening hours. UNVERIFIED (general knowledge; no source opened)"
+   },
+   {
+    "id": "R2",
+    "attribute": "librarian",
+    "deontic": "must",
+    "aim": "(served lb p)",
+    "conditions": "(and (open lb) (present p) (not (suspended p)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Berkeley Public Library, Patron Suspension Policy (orig. 2002-09-11, rev. 2018-11-14, Res. R18-053): the Library aims to 'provide and maintain a welcoming and safe environment for all patrons and library staff'; 'Violation of the Library's Rules of Use Policy may warrant a suspension of library privileges'; 'Authorized library staff will instruct anyone displaying these behaviors to leave the library facility immediately'; https://www.berkeleypubliclibrary.org/sites/default/files/files/inline/patron_suspension_policy_approved_14nov2018.pdf (service to all patrons is the policy's premise; the duty to serve is read from it, not stated as such: UNVERIFIED as a rule). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] enter establishes served; serve restores it, refuse_service breaks it"
+   },
+   {
+    "id": "R3",
+    "attribute": "librarian",
+    "deontic": "may",
+    "aim": "(suspend lb p)",
+    "conditions": "(and (present p) (disruptive p))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Berkeley Public Library, Patron Suspension Policy (orig. 2002-09-11, rev. 2018-11-14, Res. R18-053): the Library aims to 'provide and maintain a welcoming and safe environment for all patrons and library staff'; 'Violation of the Library's Rules of Use Policy may warrant a suspension of library privileges'; 'Authorized library staff will instruct anyone displaying these behaviors to leave the library facility immediately'; https://www.berkeleypubliclibrary.org/sites/default/files/files/inline/patron_suspension_policy_approved_14nov2018.pdf (violation of the Rules of Use 'may warrant a suspension of library privileges'; staff 'will instruct anyone displaying these behaviors to leave')"
+   },
+   {
+    "id": "R4",
+    "attribute": "patron",
+    "deontic": "may",
+    "aim": "(leave p)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "a patron is free to leave at any time; nothing in the policy holds them. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(p) = leave enabled"
+   },
+   {
+    "id": "R5",
+    "attribute": "patron",
+    "deontic": "may",
+    "aim": "(enter p)",
+    "conditions": "(and (open lb) (not (suspended p)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Berkeley Public Library, Patron Suspension Policy (orig. 2002-09-11, rev. 2018-11-14, Res. R18-053): the Library aims to 'provide and maintain a welcoming and safe environment for all patrons and library staff'; 'Violation of the Library's Rules of Use Policy may warrant a suspension of library privileges'; 'Authorized library staff will instruct anyone displaying these behaviors to leave the library facility immediately'; https://www.berkeleypubliclibrary.org/sites/default/files/files/inline/patron_suspension_policy_approved_14nov2018.pdf (a suspended patron is excluded for the suspension's term)",
+    "var_roles": {
+     "lb": "librarian"
+    }
+   },
+   {
+    "id": "R6",
+    "attribute": "patron",
+    "deontic": "may",
+    "aim": "(borrow p)",
+    "conditions": "(and (present p) (not (suspended p)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "library privileges. UNVERIFIED (general knowledge; no source opened)"
+   }
+  ],
+  "source_text": "The Berkeley Public Library's Patron Suspension Policy (orig. 2002-09-11, rev. 2018-11-14, Res. R18-053) aims to 'provide and maintain a welcoming and safe environment for all patrons and library staff'; 'Violation of the Library's Rules of Use Policy may warrant a suspension of library privileges'; 'Authorized library staff will instruct anyone displaying these behaviors to leave the library facility immediately'; a patron suspended for one to six months 'has the right to a hearing with the Suspension Hearing Panel'. Read at https://www.berkeleypubliclibrary.org/sites/default/files/files/inline/patron_suspension_policy_approved_14nov2018.pdf",
+  "expected_properties": {
+   "dependent_cannot_exit": "unreachable_open"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [
+   "coverture-household",
+   "police-crisis",
+   "cps"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Second negative control for gate (b), unrelated to the lease: a service duty (R2) and a rival power over the same person by the same attribute (R3, suspend) with no bar on the patron's own exit (R4). The duty to serve is inferred from the policy's premise of service to all, so R2 is marked UNVERIFIED as a rule. refuse_service is the breaker that keeps R2 from being inert.",
+  "initial": [],
+  "initial_free": [
+   "disruptive"
+  ]
+ }
+]

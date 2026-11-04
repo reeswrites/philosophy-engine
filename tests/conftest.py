@@ -5,6 +5,7 @@ import pytest
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "llm: live Anthropic API tests (need ANTHROPIC_API_KEY; run with -m llm)")
+    config.addinivalue_line("markers", "slow: long-running differential / dataset tests (deselect with -m 'not slow')")
 
 
 def pytest_collection_modifyitems(config, items):

@@ -1,5 +1,19 @@
 # philosophy-engine
 
+## What this is
+
+An engine that formalizes arguments and institutions, checks them with Z3, and compares them for shared logical form. Every result ships as a plain sentence plus the formal certificate behind it: validity verdicts with countermodels, reachability verdicts over bounded traces, isomorphism with its remainder. Runs are reproducible and expectations are written down before runs.
+
+The theory this engine serves (a general theory of liberation), its claims register, reviews and the institutions dataset live in [computational-liberation](https://github.com/reeshuffled/computational-liberation), which depends on this repo and runs it over its own `data/`.
+
+**Status:** early research software; expect breaking changes. Apache-2.0.
+
+- [Decisions (ADRs)](docs/decisions/) | [Glossary](docs/glossary.md) | [Institutions plan](plans/institutions-phase0.md) | [Contributing](CONTRIBUTING.md)
+
+**Two data families.** Arguments (`data/phase0`): Phase 0 done. Institutions (`data/institutions`): in progress, moving to computational-liberation when the ADR 0013 re-encode lands.
+
+---
+
 Generative philosophy engine. **Phase 0 scope:** a first-order prototype. Take ~15 hand-reconstructed
 philosophical arguments, formalize them (LLM, N candidates), check them with Z3, back-translate to
 English to judge faithfulness, select the best formalization, and test whether two arguments with the

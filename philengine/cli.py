@@ -284,6 +284,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default=None); s.set_defaults(fn=cmd_dashboard)
     s = sub.add_parser("gate"); db(s, True); s.set_defaults(fn=cmd_gate)
     s = sub.add_parser("families", help="list <DATA_DIR>/*/arguments.json"); s.set_defaults(fn=cmd_families)
+    from .cli_rules import register as _register_rules  # institutions family: `phil rules check[-all]`
+    _register_rules(sub)
     return p
 
 

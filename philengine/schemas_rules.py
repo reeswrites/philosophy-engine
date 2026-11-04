@@ -1,0 +1,316 @@
+"""Pydantic models for the institutions family (plan: plans/institutions-phase0.md, "Rule format").
+
+Additive to schemas.py (which stays frozen): nothing here is imported by the argument pipeline.
+
+  InstitutionJSON   one institution: roles, fluents, actions (with effects), ADICO rules, expectations,
+                    optional initial state (`defaults`, `initial`, `initial_free`)
+  Rule              one ADICO statement (attribute, deontic, aim, conditions, or_else) + strand/implicit/source;
+                    aim_kind "action" (must-do / may / must_not do) or "state" (must-be / must-not-be a fluent),
+                    inferred from the aim's head when absent (ADR 0009)
+  Property          a named state formula with the step variable `t` free (properties.json)
+  TraceStep         one step of a counterexample trace (actions fired, fluents true)
+  RuleCheckReport   verdicts per property + traces + bound + z3 version + deontic conflicts
+
+Loaders: load_institutions(path), load_properties(path); validation failures raise RulesLoadError
+with a readable message (one line per error).
+
+Optional typing / initial-state fields (all additive; absent = the untyped, empty-init behaviour):
+  FluentDecl.arg_roles   one role per argument position; a tuple outside the roles is constant false
+  FluentDecl.derived     (ADR 0013) an S-expression defining the fluent from what the rules enable, over
+                         `(enabled ACTION arg ...)` and other fluents; `params` names the argument positions.
+                         A derived fluent has no frame axiom and may not appear in effects, initial, defaults,
+                         initial_free, or as a rule's aim (loader error). Grammar:
+                           E := (enabled ACTION t ...) | (FLUENT t ...) | FLUENT
+                              | (not E) | (and E ...) | (or E ...) | (=> E E) | (iff E E) | (= t t)
+                              | (forall ((x agent) ...) E) | (exists ((x agent) ...) E)
+                           t := a name in `params`, a role literal, or a quantified variable
+                         (enabled a x y) holds at t iff (a x y) is an action instance and some may/must rule on
+                         it has its condition true at t and no must_not disability (or_else null) on it does;
+                         an action no may/must rule names counts as enabled (warning).
+  Rule.load_bearing      dataset marks the rules a headline claim rests on; gate (a) fails if one is inert
+  ActionDecl.arg_roles   one role (or null) per parameter; `args` may also be given as [[name, role], ...]
+  Rule.var_roles         {variable: role} for aim / condition variables (overrides the prefix heuristic)
+  InstitutionJSON.defaults      {fluent: "true" | "false"} value at t=0 for every (typed) tuple
+  InstitutionJSON.initial       fluent literals true at t=0 ("employed(worker)", "(employed worker)", "flag")
+  InstitutionJSON.initial_free  fluents left unconstrained at t=0
+  With any of the three present the default init mode is "declared": everything not listed is false at t=0.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
+
+Deontic = Literal["must", "may", "must_not"]
+AimKind = Literal["action", "state"]  # ADR 0009: an aim is an action (must-do) or a fluent (must-be)
+Strand = Literal["rival", "superadditive", "tying"]
+# Verdict names, exactly as the plan's Checks table spells them. "open" is never "safe".
+PropertyVerdict = Literal["reachable", "open", "holds_to_k", "violated", "persists", "fails", "inconsistent", "error"]
+CheckKind = Literal["reachable", "invariant", "persists"]
+
+
+class RoleDecl(BaseModel):
+    name: str
+    gloss: str = ""
+
+
+class FluentDecl(BaseModel):
+    name: str
+    arity: int
+    gloss: str = ""
+    arg_roles: list[str] | None = None  # one role per argument position; None = untyped (any agent)
+    derived: str | None = None  # ADR 0013: S-expression over (enabled ACTION ...) and fluents; see module doc
+    params: list[str] | None = None  # names of the argument positions used inside `derived` (len == arity)
+
+
+class Effect(BaseModel):
+    fluent: str
+    args: list[str]  # names of the action's parameters (or literal role names)
+    value: bool
+
+
+class ActionDecl(BaseModel):
+    name: str
+    args: list[str]  # parameter names; a name equal to a role is a literal (fixed to that role's agent)
+    arg_roles: list[str | None] | None = None  # one role (or null) per parameter; None = heuristic typing
+    effects: list[Effect] = []
+    gloss: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _typed_args(cls, data):
+        """Accept `args: [["h", "husband"], "w", {"name": "c", "role": "child"}]`: split into args + arg_roles."""
+        if not isinstance(data, dict) or not isinstance(data.get("args"), list):
+            return data
+        args = data["args"]
+        if all(isinstance(a, str) for a in args):
+            return data
+        names, roles = [], list(data.get("arg_roles") or [None] * len(args))
+        roles += [None] * (len(args) - len(roles))
+        for i, a in enumerate(args):
+            if isinstance(a, str):
+                names.append(a)
+            elif isinstance(a, (list, tuple)) and len(a) == 2 and all(isinstance(x, str) for x in a):
+                names.append(a[0]); roles[i] = a[1]
+            elif isinstance(a, dict) and isinstance(a.get("name"), str):
+                names.append(a["name"]); roles[i] = a.get("role", roles[i])
+            else:
+                raise ValueError(f"args[{i}]: expected a name, [name, role] or {{name, role}}, got {a!r}")
+        return {**data, "args": names, "arg_roles": roles}
+
+
+class Rule(BaseModel):
+    id: str
+    attribute: str  # role it binds; binds the aim's first argument
+    deontic: Deontic
+    aim: str  # "(action v1 v2 ...)" or, for a state obligation, "(fluent v1 ...)" S-expression (ADR 0009)
+    aim_kind: AimKind | None = None  # None = infer: "action" if the head is a declared action, "state" if a fluent
+    conditions: str  # S-expression over fluents (step implicit), or bare "true"
+    or_else: str | None = None  # sanction rule id; null on must_not = disability (hard constraint)
+    strand: Strand
+    implicit: bool = False
+    source: str = ""
+    var_roles: dict[str, str] = {}  # {variable: role} for aim/condition variables; overrides the prefix heuristic
+    load_bearing: bool = False  # a headline claim rests on this rule: gate (a) fails if it is inert (must-be only)
+
+
+class IsoClaim(BaseModel):
+    """A precommitted isomorphism claim (ADR 0010): the level is fixed before the pair is run."""
+    id: str
+    level: str = "exact"  # "exact" | "guard" | "exact+strands" | "guard+strands"
+    sub_signature: list[str] = []  # "Ra~Rb [aim~aim]" pairs the match must contain (care+control cluster)
+
+    def cond_level(self) -> str:
+        return self.level.split("+")[0]
+
+    def with_strands(self) -> bool:
+        return "strands" in self.level.split("+")[1:]
+
+    def pairs(self) -> list[tuple[str, str]]:
+        out = []
+        for s in self.sub_signature:
+            head = s.split()[0]
+            if "~" not in head:
+                raise ValueError(f"sub_signature entry {s!r}: expected 'Ra~Rb ...'")
+            x, y = head.split("~", 1)
+            out.append((x, y))
+        return out
+
+
+class MinimalPair(BaseModel):
+    """`minimal_pair_of`: the other institution, the one rule that differs, and the preregistered property
+    whose verdict the pair is expected to differ on (gate (c))."""
+    id: str
+    rule: str | None = None
+    differs_on: str | None = None
+
+
+class InstitutionJSON(BaseModel):
+    id: str
+    name: str = ""
+    roles: list[RoleDecl]
+    fluents: list[FluentDecl]
+    actions: list[ActionDecl]
+    rules: list[Rule]
+    source_text: str = ""
+    expected_properties: dict[str, str] = {}
+    # a bare id, or {"id": other, "level": "guard+strands" | ..., "sub_signature": ["aim~aim", ...]} naming the
+    # abstraction level at which the iso is expected and the rule pairs it should map (care+control cluster)
+    isomorphic_to: list[str | dict] = []
+    not_isomorphic_to: list[str] = []
+    # negative controls (gate (b)): institutions that must NOT match this one's cluster at the precommitted level
+    not_isomorphic_to_control: list[str] = []
+    # {"id": other, "rule": "R3", "differs_on": "property"} or a bare id
+    minimal_pair_of: str | dict | None = None
+    notes: str = ""
+    # initial state (all optional; absent = init "empty", the pre-existing behaviour)
+    defaults: dict[str, Literal["true", "false"]] = {}  # fluent -> value at t=0 for every tuple (before `initial`)
+    initial: list[str] | None = None  # fluent literals true at t=0: "employed(worker)" / "(employed worker)" / "flag"
+    initial_free: list[str] = []  # fluents left unconstrained at t=0
+
+    @field_validator("defaults", mode="before")
+    @classmethod
+    def _bool_defaults(cls, v):
+        if isinstance(v, dict):
+            return {k: ("true" if x is True else "false" if x is False else x) for k, x in v.items()}
+        return v
+
+    def iso_targets(self) -> list[str]:
+        """Institution ids in isomorphic_to, whether given bare or as {"id": ..., "level": ..., ...}."""
+        return [x if isinstance(x, str) else str(x.get("id", "")) for x in self.isomorphic_to]
+
+    def iso_claims(self) -> list[IsoClaim]:
+        """isomorphic_to as IsoClaim objects (a bare id is a claim at level "exact")."""
+        return [IsoClaim(id=x) if isinstance(x, str) else IsoClaim.model_validate(x) for x in self.isomorphic_to]
+
+    def minimal_pair(self) -> MinimalPair | None:
+        if self.minimal_pair_of is None:
+            return None
+        if isinstance(self.minimal_pair_of, str):
+            return MinimalPair(id=self.minimal_pair_of)
+        return MinimalPair.model_validate(self.minimal_pair_of)
+
+    def derived_fluents(self) -> list[FluentDecl]:
+        return [f for f in self.fluents if f.derived is not None]
+
+    def declares_init(self) -> bool:
+        """True when any initial-state field is present (then the default init mode is "declared")."""
+        return self.initial is not None or bool(self.defaults) or bool(self.initial_free)
+
+
+class Property(BaseModel):
+    name: str
+    gloss: str = ""
+    formal: str  # state formula, `t` free; fluent applications carry t last
+    scope: str | None = None
+
+
+class TraceStep(BaseModel):
+    step: int
+    actions: list[str] = []  # "name(agent, agent)" fired at this step (effects land at step+1)
+    fluents: list[str] = []  # "fluent(agent, ...)" true at this step
+    property_holds: bool | None = None  # value of the checked property at this step (if applicable)
+
+
+class PropertyResult(BaseModel):
+    property: str
+    check: CheckKind
+    verdict: PropertyVerdict
+    trace: list[TraceStep] | None = None
+    reason: str | None = None  # z3 reason_unknown, lowering error, ...
+    z3_ms: int = 0
+    # vacuity (invariant / persists only): is the antecedent (the formula's implication premise, else the formula)
+    # true at some step of some compliant trace, and does any `is_*` fluent ever hold? None = not applicable
+    antecedent_reachable: bool | None = None
+    subject_exists: bool | None = None
+    vacuous: bool = False  # either flag is False
+
+
+class RuleStatus(BaseModel):
+    """Per-rule finding from run_all. kind "inert": a must-be / must-not-be rule whose breach (C and not F, or
+    C and F) no compliant trace of the other rules can reach within k: the rule constrains nothing."""
+    rule: str
+    kind: Literal["inert"]
+    load_bearing: bool = False
+    detail: str = ""
+
+
+class RuleCheckReport(BaseModel):
+    institution: str
+    bound_k: int
+    consistent: Literal["sat", "unsat", "unknown"]
+    conflicts: list[tuple[str, str]] = []  # (must rule id, must_not rule id) with overlapping conditions
+    results: list[PropertyResult] = []
+    inert: list[str] = []  # must-be rules nothing can break within k (RuleStatus details in rule_status)
+    rule_status: list[RuleStatus] = []
+    warnings: list[str] = []  # lowering caveats (undeclared fluents in a property, heuristic var typing, ...)
+    z3_version: str | None = None
+    z3_ms: int = 0
+    init: str = "empty"  # resolved mode: empty | free | declared
+    compliance: str = "strict"
+    step_mode: str = "one"  # one action per step, or many
+
+    def verdict(self, prop: str) -> PropertyVerdict | None:
+        for r in self.results:
+            if r.property == prop:
+                return r.verdict
+        return None
+
+
+class RulesLoadError(ValueError):
+    pass
+
+
+def _readable(e: ValidationError, where: str) -> str:
+    lines = [f"{where}: {e.error_count()} validation error(s)"]
+    for err in e.errors():
+        loc = ".".join(str(x) for x in err["loc"])
+        lines.append(f"  {loc}: {err['msg']}")
+    return "\n".join(lines)
+
+
+def load_institutions(path: str | Path) -> list[InstitutionJSON]:
+    raw = json.loads(Path(path).read_text())
+    if not isinstance(raw, list):
+        raise RulesLoadError(f"{path}: expected a JSON list of institutions")
+    out: list[InstitutionJSON] = []
+    errs: list[str] = []
+    for i, item in enumerate(raw):
+        try:
+            out.append(InstitutionJSON.model_validate(item))
+        except ValidationError as e:
+            errs.append(_readable(e, f"{path}[{i}] ({item.get('id', '?') if isinstance(item, dict) else '?'})"))
+    if errs:
+        raise RulesLoadError("\n".join(errs))
+    ids = [x.id for x in out]
+    if len(set(ids)) != len(ids):
+        raise RulesLoadError(f"{path}: duplicate institution ids in {ids}")
+    return out
+
+
+def load_properties(path: str | Path) -> dict[str, Property]:
+    raw = json.loads(Path(path).read_text())
+    if not isinstance(raw, list):
+        raise RulesLoadError(f"{path}: expected a JSON list of properties")
+    out: dict[str, Property] = {}
+    errs: list[str] = []
+    for i, item in enumerate(raw):
+        try:
+            p = Property.model_validate(item)
+        except ValidationError as e:
+            errs.append(_readable(e, f"{path}[{i}]"))
+            continue
+        if p.name in out:
+            errs.append(f"{path}: duplicate property {p.name!r}")
+        out[p.name] = p
+    if errs:
+        raise RulesLoadError("\n".join(errs))
+    return out
+
+
+def default_paths() -> tuple[Path, Path]:
+    from . import config
+    d = config.data_dir() / "institutions"
+    return d / "institutions.json", d / "properties.json"

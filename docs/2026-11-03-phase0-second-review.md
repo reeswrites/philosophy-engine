@@ -1,0 +1,15 @@
+# Second skeptical review of the institutions Phase 0 result (2026-11-03, after re-encode)
+
+Independent, read-only, fresh agent. Tested each first-review finding with temp copies.
+
+1. **Power by construction — PARTLY.** No derived fluent appears in any effect/initial/default (0 hits). But `rules_lower.enabled()` treats an action no may/must rule names as *always enabled*, so deleting police R3+R5 turns `care_and_sanction_same_role` from violated to holds_to_k; coverture with R5 deleted still holds. README sentence "Deleting police R3 and R5 now makes care_and_sanction_same_role violated" is false as run. **Fix:** an action no rule names is not enabled (the permissive floor belongs to subjects' exit, which is now explicit `may leave`), or document the experiment as "replace with disability".
+2. **Guardianship — PARTLY, same cause.** Loader correctly rejects an initial literal on a derived fluent. Removing R9 leaves `no_standing_persists: fails` because reassign becomes unregulated/always enabled. The pair's verdict difference does rest on R9 (disability vs may), but "remove R9" is not a clean falsifier until (1) is fixed.
+3. **Inert — FIXED.** 0 inert; removing breakers (withdraw, disregard_in_home, relieve_counsel) makes the detector flag R2 / R4, R8.
+4. **Negative controls — PARTLY.** lease and public-library match nothing at any level. A 6-rule `airline-flight` (crew must care when aboard; may restrain when disruptive; passenger must_not leave in flight) matches police, coverture and cps at guard+strands. Structurally defensible (in-flight custody), but retagging its care rule superadditive→tying removes every match: the hand strand tag remains load-bearing. Engine contributes deontic/target/exit-bar shape; encoder contributes strands.
+5. **Gate reads precommitted level — FIXED.** Changing a level or a precommitted pair in a temp copy fails criterion (b) and lists other-level matches as "not counted".
+6. **police/cps `care_and_sanction_same_role` mismatch — the property's shape is wrong,** not the expectation or encoding: it demands live sanction power at every step of care; the gloss says "bundled in one role". Probe `sanction_only_by_carer` (∀x y z. is_subject y ∧ can_sanction z y ∧ provides_care x y ⇒ z = x) gives holds_to_k on coverture/police/cps/companion-*, violated on crisis-team, no vacuity. **Recommend** replacing the formula, keeping expectations, logging it as a post-hoc property change.
+7. **Drift disclosure — adequate, borderline.** Two asks: gate (c) output must not call the swapped property "preregistered"; the original `solo_care` verdicts should appear as a gate finding.
+8. **Scope — step-1 work;** nothing opened except the two required controls. Park: strand-tag redesign. Note: the floor is now explicit `may leave when true` rules, not a default (claims register L8 changes shape).
+
+## Verdict
+(a) one-rule pairs told apart: **supported**. (b) cosmetic reform detected: **supported**. (c) care+control found by the rules rather than the encoder: **weakened** until `enabled` is fixed, the README sentence corrected, and the strand-tag dependence addressed or declared.

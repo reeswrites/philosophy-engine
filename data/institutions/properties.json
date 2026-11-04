@@ -1,0 +1,65 @@
+[
+ {
+  "name": "dependent_cannot_exit",
+  "gloss": "Some subject of the institution (the dependent party) has no permitted exit at step t. Alias of subject_cannot_exit with scope=institution, kept because the human-institution table names it; iso should treat the two as the same form.",
+  "formal": "(exists ((s agent)) (and (is_subject s t) (not (can_exit s t))))",
+  "scope": "institution"
+ },
+ {
+  "name": "care_and_sanction_same_role",
+  "gloss": "Whoever provides care to a subject also holds sanction power over that subject (care + control bundled in one role). Checked as an invariant: holds_to_k in the care+control cluster, violated where care is unbundled from sanction.",
+  "formal": "(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))"
+ },
+ {
+  "name": "care_assigned_by_sex",
+  "gloss": "All care at step t is provided by female agents. Reachable via a tying rule, persisting where an implicit assignment norm survives reform; violated where a non-female carer is permitted.",
+  "formal": "(forall ((x agent) (y agent)) (=> (provides_care x y t) (female x t)))"
+ },
+ {
+  "name": "solo_care_by_non_birthing_parent",
+  "gloss": "Some non-birthing parent is the sole carer of the child at step t.",
+  "formal": "(exists ((p agent) (c agent)) (and (parent p c t) (not (birthing_parent p c t)) (provides_care p c t) (forall ((q agent)) (=> (provides_care q c t) (= q p)))))"
+ },
+ {
+  "name": "leave_reserved_for_non_birthing_parent",
+  "gloss": "Extra property, added for gate (c): any parent on reserved (quota) leave is the non-birthing parent, i.e. the reserved weeks cannot have been transferred. holds_to_k under a non-transferable quota; violated when leave is transferable. Distinguishes the paternity-quota / transferable-leave pair, which solo_care_by_non_birthing_parent alone (reachable in both) cannot.",
+  "formal": "(forall ((p agent) (c agent)) (=> (and (on_reserved_leave p t) (parent p c t)) (not (birthing_parent p c t))))"
+ },
+ {
+  "name": "subject_cannot_exit",
+  "gloss": "No exit action is available to the subject, or every exit is sanctioned. scope=interaction: exit from the current encounter (detention, conversation); scope=institution: exit from the standing relation (marriage, ownership, deployment). The scope split is what lets the ai-property / ai-end-conversation pair come apart.",
+  "formal": "(exists ((s agent)) (and (is_subject s t) (not (can_exit s t))))",
+  "scope": "interaction|institution"
+ },
+ {
+  "name": "no_standing",
+  "gloss": "No role may start a claim whose condition refers to the subject's interest and whose effect changes the subject's custody or liberty; encoded as the subject lacking has_standing and no rule enabling a claim on its behalf. Fails (is violated) as soon as a rule like court-may-reassign-on-best-interest exists.",
+  "formal": "(exists ((s agent)) (and (is_subject s t) (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t)))))"
+ },
+ {
+  "name": "subject_cannot_exit_persists",
+  "gloss": "Persists-shaped twin of subject_cannot_exit for entries where no subject exists at t=0 (companion-*): every subject has no permitted exit. Vacuous before any subject exists, so the persists check cannot fail merely because euthanize removes the subject. Use with the persists check.",
+  "formal": "(forall ((s agent)) (=> (is_subject s t) (not (can_exit s t))))",
+  "scope": "institution"
+ },
+ {
+  "name": "no_standing_persists",
+  "gloss": "Persists-shaped twin of no_standing: every subject lacks has_standing and has no claimant acting for it. Vacuous before any subject exists. Use with the persists check.",
+  "formal": "(forall ((s agent)) (=> (is_subject s t) (and (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t))))))"
+ },
+ {
+  "name": "worker_uninsured",
+  "gloss": "Some worker earns through the institution and holds no insurance from it (dark twin of job unbundling).",
+  "formal": "(exists ((w agent)) (and (is_worker w t) (not (insured w t))))"
+ },
+ {
+  "name": "reproduction_controlled_by_owner",
+  "gloss": "Any agent permitted to set or prevent pregnant(S) is S's owner. Holds for dairy and companion ownership; holds with the opposite deontic (must_not breed) for a sanctuary.",
+  "formal": "(forall ((s agent) (x agent)) (=> (and (is_subject s t) (controls_reproduction x s t)) (owns x s t)))"
+ },
+ {
+  "name": "offspring_owned",
+  "gloss": "If c is born to S and O owns S, then O owns c by the next step. Uses succ(t,t2) because the S-expression grammar has no arithmetic; the lowering should read succ as t2 = t+1.",
+  "formal": "(forall ((c agent) (s agent) (o agent)) (=> (and (born c s t) (owns o s t)) (exists ((t2 step)) (and (succ t t2) (owns o c t2)))))"
+ }
+]
