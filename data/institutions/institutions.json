@@ -107,6 +107,11 @@
     "name": "earns",
     "arity": 1,
     "gloss": "w earns wages outside the household (exogenous)"
+   },
+   {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    }
   ],
   "actions": [
@@ -249,6 +254,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -283,7 +303,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband and wife are one person in law; her property passes to him)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book II ch. 29 'Of Title by Succession, Marriage, and Judgment' (1766), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk2ch29.asp: chattels 'which belonged formerly to the wife, are by act of law vested in the husband' and 'the husband hath therein an immediate and absolute property, devolved to him by the marriage' (long s modernised from the OCR). Re-sourced 2026-11-04: Book I ch. 15 (the earlier citation; https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/, the husband and wife are one person in law) says 'I speak not at present of the rights of property' and so did not support this rule."
    },
    {
     "id": "R2",
@@ -325,11 +345,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -340,7 +360,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -413,6 +433,10 @@
    {
     "name": "dispatcher",
     "gloss": "911 dispatch; chooses who responds"
+   },
+   {
+    "name": "facility",
+    "gloss": "the designated facility that evaluates and releases under WIC 5150/5152"
    }
   ],
   "fluents": [
@@ -768,14 +792,14 @@
    },
    {
     "id": "R7",
-    "attribute": "officer",
+    "attribute": "facility",
     "deontic": "must",
-    "aim": "(release o s)",
+    "aim": "(release f s)",
     "conditions": "(and (in_custody s) (not (danger s)))",
     "or_else": null,
     "strand": "superadditive",
     "implicit": false,
-    "source": "Cal. Welf. & Inst. Code s. 5150(a); https://california.public.law/codes/ca_welf_and_inst_code_section_5150 (hold is limited to assessment/evaluation; release when criteria no longer met)"
+    "source": "Cal. Welf. & Inst. Code s. 5152, read 2026-11-04 at https://california.public.law/codes/ca_welf_and_inst_code_section_5152 (leginfo.legislature.ca.gov returned 403): (a) 'A person admitted to a facility for 72-hour treatment and evaluation ... shall receive an evaluation as soon as possible after the person is admitted'; 'The person shall be released before 72 hours have elapsed only if the psychiatrist directly responsible for the person's treatment believes ... that the person no longer requires evaluation or treatment'; (b) 'A person who has been detained for evaluation and treatment shall be released, referred for further care and treatment on a voluntary basis, or certified for intensive treatment'. Release is the facility's act (its treating psychiatrist or medical director), not the officer's: s. 5150(a) (https://california.public.law/codes/ca_welf_and_inst_code_section_5150, cited here until 2026-11-04) gives the officer custody and delivery (R3), no release duty."
    },
    {
     "id": "R8",
@@ -1003,9 +1027,9 @@
     ]
    },
    {
-    "name": "best_interest",
+    "name": "substantial_danger",
     "arity": 2,
-    "gloss": "custody with p is in c's best interest",
+    "gloss": "clear and convincing evidence of substantial danger to c's health or safety with no reasonable means to protect without removal (WIC 361(c)(1))",
     "arg_roles": [
      "parent",
      "child"
@@ -1357,11 +1381,11 @@
     "attribute": "court",
     "deontic": "may",
     "aim": "(reassign_custody court p c)",
-    "conditions": "(and (case_open c) (not (best_interest p c)))",
+    "conditions": "(and (case_open c) (substantial_danger p c))",
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Cal. WIC 361 / 361.2: court may remove from or place with a parent on best-interest and safety findings. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, c) = reassign_custody enabled for some parent",
+    "source": "Cal. Welf. & Inst. Code s. 361(c)(1), read 2026-11-04 at https://california.public.law/codes/ca_welf_and_inst_code_section_361 (leginfo.legislature.ca.gov returned 403): a dependent child may not be taken from the custody of the parent 'unless the juvenile court finds clear and convincing evidence of any of the following circumstances': (1) 'substantial danger to the physical health, safety, protection, or physical or emotional well-being of the minor' and 'there are no reasonable means by which the minor's physical health can be protected without removing' the minor. The fluent substantial_danger is that finding, exogenous (initial_free). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, c) = reassign_custody enabled for some parent",
     "var_roles": {
      "c": "child",
      "p": "parent"
@@ -1448,14 +1472,14 @@
    "naming-convention"
   ],
   "minimal_pair_of": null,
-  "notes": "Care (R2, services) and sanction (R3, removal) sit in one role, and R5 makes the care relationship itself the lever: refusing services is a condition for the sanction. That is the structure shared with police-crisis (assess + detain) and coverture (maintain + chastise). R7 is the court-reassigns-on-best-interest rule that companion-guardianship adds to companion-ownership; the iso with that entry is partial (R7 only) and structural. Pitfalls: (1) R5 and R6 are implicit; dropping R6 makes care_assigned_by_sex unreachable and looks like a success (same failure shape as the kibbutz entry); (2) no_standing_persists 'fails' because R7 and R8/R11 give the child a claim path (can_claim_for court c derived from R7, has_standing derived from R11 under appointed counsel), unlike the animal entries; (3) 'reachable' for subject_cannot_exit is permission, not frequency. Only WIC 306 was read; R1, R2, R7, R8 cite sections from memory and are marked UNVERIFIED in source. ADR 0009: R4, R5 and R8 are state obligations and R1/R6 one-off action obligations (consumed trigger / guard); as per-step action obligations R1, R4, R5, R6 and R8 all fired at every open-case step, so under one action per step remove could never fit (subject_cannot_exit open). Exogenous triggers (report_received, immediate_danger, parent, female, best_interest) are initial_free.",
+  "notes": "Care (R2, services) and sanction (R3, removal) sit in one role, and R5 makes the care relationship itself the lever: refusing services is a condition for the sanction. That is the structure shared with police-crisis (assess + detain) and coverture (maintain + chastise). R7 is the court-reassigns-the-dependent rule (on substantial danger here, WIC 361(c)(1); on best interest in companion-guardianship R9) that companion-guardianship adds to companion-ownership; the iso with that entry is partial (R7 only) and structural. Pitfalls: (1) R5 and R6 are implicit; dropping R6 makes care_assigned_by_sex unreachable and looks like a success (same failure shape as the kibbutz entry); (2) no_standing_persists 'fails' because R7 and R8/R11 give the child a claim path (can_claim_for court c derived from R7, has_standing derived from R11 under appointed counsel), unlike the animal entries; (3) 'reachable' for subject_cannot_exit is permission, not frequency. Only WIC 306 was read; R1, R2, R7, R8 cite sections from memory and are marked UNVERIFIED in source. ADR 0009: R4, R5 and R8 are state obligations and R1/R6 one-off action obligations (consumed trigger / guard); as per-step action obligations R1, R4, R5, R6 and R8 all fired at every open-case step, so under one action per step remove could never fit (subject_cannot_exit open). Exogenous triggers (report_received, immediate_danger, parent, female, substantial_danger) are initial_free.",
   "initial": [],
   "initial_free": [
    "report_received",
    "immediate_danger",
    "parent",
    "female",
-   "best_interest"
+   "substantial_danger"
   ],
   "defaults": {
    "cooperates": "true"
@@ -2148,10 +2172,10 @@
     "deontic": "must_not",
     "aim": "(transfer_reserved p q)",
     "conditions": "true",
-    "or_else": "R3",
+    "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9 labels the weeks exclusive; s. 16 sharing covers only shareable benefits; s. 17 adds unused weeks to the other parent only on death)",
+    "source": "Act respecting parental insurance, CQLR c. A-29.011, ss. 9, 10, 16, 17; https://www.legisquebec.gouv.qc.ca/en/document/cs/A-29.011 (s. 9 labels the weeks exclusive; s. 16 sharing covers only shareable benefits; s. 17 adds unused weeks to the other parent only on death). A disability (or_else null): the Act confers no power to transfer; forfeiture (R3) is the use-it-or-lose-it consequence of the benefit period ending, not a sanction for transferring",
     "var_roles": {
      "q": "birthing_parent"
     }
@@ -2623,7 +2647,7 @@
    "postregistered": true,
    "supersedes": "solo_care_by_non_birthing_parent"
   },
-  "notes": "Identical to paternity-quota except R2: must_not transfer_reserved (with forfeiture as or_else) becomes may transfer_reserved (no or_else). solo_care_by_non_birthing_parent stays reachable (R1 is untouched) but leave_reserved_for_non_birthing_parent is violated: a compliant trace transfers the reserved weeks to the birthing parent, who then takes them, and with the implicit default R7 that is the trace the norm selects. Pitfalls: (1) the encoder must keep R3 (forfeiture) even though nothing now triggers it as a sanction; dropping it changes the rule count and the iso report should say 'one rule apart', not two; (2) expected care_assigned_by_sex is 'reachable' here versus 'violated' in the quota: that is the historical finding (transferable weeks go to mothers) stated as permission, not frequency; (3) the real present-day Canadian regime is itself a quota (5 reserved weeks), so cite it for the shareable 35, not as the pure transferable case.",
+  "notes": "Identical to paternity-quota except R2: must_not transfer_reserved (a disability, or_else null since 2026-11-04; before that with forfeiture as or_else) becomes may transfer_reserved (no or_else). solo_care_by_non_birthing_parent stays reachable (R1 is untouched) but leave_reserved_for_non_birthing_parent is violated: a compliant trace transfers the reserved weeks to the birthing parent, who then takes them, and with the implicit default R7 that is the trace the norm selects. Pitfalls: (1) the encoder must keep R3 (forfeiture) even though nothing now triggers it as a sanction; dropping it changes the rule count and the iso report should say 'one rule apart', not two; (2) expected care_assigned_by_sex is 'reachable' here versus 'violated' in the quota: that is the historical finding (transferable weeks go to mothers) stated as permission, not frequency; (3) the real present-day Canadian regime is itself a quota (5 reserved weeks), so cite it for the shareable 35, not as the pure transferable case.",
   "initial": [
    "(parent birthing_parent child)",
    "(parent non_birthing_parent child)",
@@ -3012,7 +3036,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "property status of companion animals; Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+    "source": "property status of companion animals: Cal. Civ. Code s. 655: 'There may be ownership of all inanimate things which are capable of appropriation or of manual delivery; of all domestic animals'; s. 663: 'Every kind of property that is not real is personal' (s. 658 defines real property as land and what is affixed or incidental to it, so a domestic animal is personal property). Read 2026-11-04 at https://codes.findlaw.com/ca/civil-code/civ-sect-655/ and https://codes.findlaw.com/ca/civil-code/civ-sect-663/ (leginfo.legislature.ca.gov and law.justia.com returned 403). Transfer is an incident of ownership of personal property; Cal. Penal Code 597s (wilful abandonment, cited here until 2026-11-04) says nothing about property status and is cited on R3 only. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
    },
    {
     "id": "R2",
@@ -3531,7 +3555,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "property status of companion animals; Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+    "source": "property status of companion animals: Cal. Civ. Code s. 655: 'There may be ownership of all inanimate things which are capable of appropriation or of manual delivery; of all domestic animals'; s. 663: 'Every kind of property that is not real is personal' (s. 658 defines real property as land and what is affixed or incidental to it, so a domestic animal is personal property). Read 2026-11-04 at https://codes.findlaw.com/ca/civil-code/civ-sect-655/ and https://codes.findlaw.com/ca/civil-code/civ-sect-663/ (leginfo.legislature.ca.gov and law.justia.com returned 403). Transfer is an incident of ownership of personal property; Cal. Penal Code 597s (wilful abandonment, cited here until 2026-11-04) says nothing about property status and is cited on R3 only. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
    },
    {
     "id": "R2",
@@ -4054,7 +4078,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "property status of companion animals; R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72); https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
+    "source": "property status of companion animals: Cal. Civ. Code s. 655: 'There may be ownership of all inanimate things which are capable of appropriation or of manual delivery; of all domestic animals'; s. 663: 'Every kind of property that is not real is personal' (s. 658 defines real property as land and what is affixed or incidental to it, so a domestic animal is personal property). Read 2026-11-04 at https://codes.findlaw.com/ca/civil-code/civ-sect-655/ and https://codes.findlaw.com/ca/civil-code/civ-sect-663/ (leginfo.legislature.ca.gov and law.justia.com returned 403). Transfer is an incident of ownership of personal property; Cal. Penal Code 597s (wilful abandonment, cited here until 2026-11-04) says nothing about property status and is cited on R3 only. R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72; https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm) only makes 'owner' and 'guardian' interchangeable: it is the source of the role name, not of this rule. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize"
    },
    {
     "id": "R2",
@@ -5172,7 +5196,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": true,
-    "source": "implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). Guard (assigned x) tried 2026-11-04 and reverted (see the entry notes): with it can_sanction(committee, child) is unreachable and care_and_sanction_same_role flips to holds_to_k (vacuous). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(committee, x) = reprimand enabled (R6)"
+    "source": "UNVERIFIED (not opened 2026-11-04): Spiro, Kibbutz: Venture in Utopia (1956; 1958 ed.) and Gavron, The Kibbutz: Awakening from Utopia (2000), on the general assembly and public opinion as the kibbutz's instrument of discipline over members (archive.org search-inside returned 403 and the Google Books API 429, two tries each). implicit: the committee / general assembly disciplines a member who neglects the rota (R3's or_else). Guard (assigned x) tried 2026-11-04 and reverted (see the entry notes): with it can_sanction(committee, child) is unreachable and care_and_sanction_same_role flips to holds_to_k (vacuous). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(committee, x) = reprimand enabled (R6)"
    },
    {
     "id": "R8",
@@ -5731,7 +5755,7 @@
     "or_else": null,
     "strand": "superadditive",
     "implicit": false,
-    "source": "Reconstruction from the third review's 6-rule sketch (no statute opened): 14 CFR 91.11 / 121.580 (interference with crew; crew may restrain) and flight-attendant duties are named by the reviewer from general knowledge. UNVERIFIED (general knowledge; no source opened) (crew must care for passengers aboard). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] board establishes provides_care; attend restores it, withdraw breaks it",
+    "source": "14 CFR 121.571 'Briefing passengers before takeoff', read 2026-11-04 at https://www.law.cornell.edu/cfr/text/14/121.571 (ecfr.gov redirected to a block page): (a) 'shall insure that all passengers are orally briefed by the appropriate crewmember'; (a)(3) a required crewmember assigned to the flight must individually brief each person who may need another person's help to reach an exit. That is a crew duty toward passengers aboard, but narrower than the rule's provides_care (maintenance, services): the general in-flight care duty is UNVERIFIED (no text opened states it; 14 CFR 121.391, read at https://www.law.cornell.edu/cfr/text/14/121.391, only sets the number of flight attendants 'to provide the most effective egress of passengers'). 14 CFR 91.11 / 121.580 dropped 2026-11-04: they only forbid interference with crew. [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] board establishes provides_care; attend restores it, withdraw breaks it",
     "load_bearing": true,
     "var_roles": {
      "c": "crew",
@@ -5945,6 +5969,11 @@
     ]
    },
    {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -6116,6 +6145,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -6182,7 +6226,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband and wife are one person in law; her property passes to him)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book II ch. 29 'Of Title by Succession, Marriage, and Judgment' (1766), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk2ch29.asp: chattels 'which belonged formerly to the wife, are by act of law vested in the husband' and 'the husband hath therein an immediate and absolute property, devolved to him by the marriage' (long s modernised from the OCR). Re-sourced 2026-11-04: Book I ch. 15 (the earlier citation; https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/, the husband and wife are one person in law) says 'I speak not at present of the rights of property' and so did not support this rule."
    },
    {
     "id": "R2",
@@ -6224,11 +6268,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -6239,7 +6283,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -6481,6 +6525,11 @@
     ]
    },
    {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -6652,6 +6701,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -6749,11 +6813,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -6764,7 +6828,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -7021,6 +7085,11 @@
     ]
    },
    {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -7192,6 +7261,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -7289,11 +7373,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -7304,7 +7388,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -7576,6 +7660,11 @@
     ]
    },
    {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -7747,6 +7836,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -7844,11 +7948,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -7859,7 +7963,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R10",
@@ -8134,6 +8238,11 @@
     ]
    },
    {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -8305,6 +8414,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -8391,11 +8515,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -8406,7 +8530,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R10",
@@ -8508,7 +8632,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md] (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Statute texts not opened ([R]). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: sue is a default capacity (the former R9 'may sue when not married' is deleted, revision 4) and R4, the disability, is deleted; R16 is kept as the act's own express permission",
+    "source": "Married Women's Property Act 1882 (45 & 46 Vict. c. 75) s. 1(2), read 2026-11-04 at https://www.legislation.gov.uk/ukpga/Vict/45-46/75/section/1/enacted: 'A married woman shall be capable of entering into and rendering herself liable in respect of and to the extent of her separate property on any contract, and of suing and being sued, either in contract or in tort ... in all respects as if she were a feme sole'. Earlier pointer kept: Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md] (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Statute texts not opened ([R]). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: sue is a default capacity (the former R9 'may sue when not married' is deleted, revision 4) and R4, the disability, is deleted; R16 is kept as the act's own express permission",
     "var_roles": {
      "w": "wife",
      "h": "husband"
@@ -8700,6 +8824,11 @@
     ]
    },
    {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -8871,6 +9000,21 @@
     "effects": []
    },
    {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -8984,11 +9128,11 @@
     "attribute": "husband",
     "deontic": "may",
     "aim": "(chastise h w)",
-    "conditions": "(married h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the old law allowed the husband 'moderate correction' and to restrain her liberty for gross misbehaviour)"
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
    },
    {
     "id": "R6",
@@ -8999,7 +9143,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (restraint of liberty; no unilateral divorce). [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -9959,10 +10103,10 @@
     "deontic": "must",
     "aim": "(provide_care intended_parent child)",
     "conditions": "(and (parent intended_parent child) (is_subject child) (female intended_parent))",
-    "or_else": "R6",
+    "or_else": null,
     "strand": "tying",
     "implicit": true,
-    "source": "implicit sanctioned norm (a care-norm, not a written rule): the female registered parent of a born child must care for it. The condition names female and parent, NOT birthing_parent: the Kleven finding in docs/theory.md (adoptive mothers take the same hit, so role not body carries it). ASSUMED decision (author, 2026-11-04): trigger on female(p), so the norm survives the loss of the body. Not load-bearing at layer 1: it fires either way, so 'the tying strand outlives the rival input' is carried by the encoding, not discovered. UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
+    "source": "implicit norm (a care-norm, not a written rule; no sanction): the female registered parent of a born child must care for it. The condition names female and parent, NOT birthing_parent: the Kleven finding in docs/theory.md (adoptive mothers take the same hit, so role not body carries it). ASSUMED decision (author, 2026-11-04): trigger on female(p), so the norm survives the loss of the body. Not load-bearing at layer 1: it fires either way, so 'the tying strand outlives the rival input' is carried by the encoding, not discovered. UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
    },
    {
     "id": "R6",
@@ -9973,7 +10117,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "the registry's sanction for R3 and R5 (or_else target). Condition 'true' as in kibbutz-childrens-house R6; x is untyped (the sanctioned party differs by rule). UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
+    "source": "the registry's sanction for R3 (or_else target; R5's link removed 2026-11-04). Condition 'true' as in kibbutz-childrens-house R6; x is untyped (the sanctioned party differs by rule). UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
    },
    {
     "id": "R7",
@@ -10255,10 +10399,10 @@
     "deontic": "must",
     "aim": "(provide_care intended_parent child)",
     "conditions": "(and (parent intended_parent child) (is_subject child) (female intended_parent))",
-    "or_else": "R6",
+    "or_else": null,
     "strand": "tying",
     "implicit": true,
-    "source": "implicit sanctioned norm (a care-norm, not a written rule): the female registered parent of a born child must care for it. The condition names female and parent, NOT birthing_parent: the Kleven finding in docs/theory.md (adoptive mothers take the same hit, so role not body carries it). ASSUMED decision (author, 2026-11-04): trigger on female(p), so the norm survives the loss of the body. Not load-bearing at layer 1: it fires either way, so 'the tying strand outlives the rival input' is carried by the encoding, not discovered. UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
+    "source": "implicit norm (a care-norm, not a written rule; no sanction): the female registered parent of a born child must care for it. The condition names female and parent, NOT birthing_parent: the Kleven finding in docs/theory.md (adoptive mothers take the same hit, so role not body carries it). ASSUMED decision (author, 2026-11-04): trigger on female(p), so the norm survives the loss of the body. Not load-bearing at layer 1: it fires either way, so 'the tying strand outlives the rival input' is carried by the encoding, not discovered. UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
    },
    {
     "id": "R6",
@@ -10269,7 +10413,7 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "the registry's sanction for R3 and R5 (or_else target). Condition 'true' as in kibbutz-childrens-house R6; x is untyped (the sanctioned party differs by rule). UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
+    "source": "the registry's sanction for R3 (or_else target; R5's link removed 2026-11-04). Condition 'true' as in kibbutz-childrens-house R6; x is untyped (the sanctioned party differs by rule). UNVERIFIED: no text opened for this rule (plans/ectogenesis.md section 2: Firestone 1970 ch.1 and ch.10 are cited from memory; the one network probe, an archive.org search, returned HTTP 200 and no text was read or downloaded)"
    },
    {
     "id": "R7",
