@@ -212,11 +212,18 @@ class Property(BaseModel):
     scope: str | None = None
     check: CheckKind | None = None  # explicit check kind; when absent ablation falls back to expectations / majority vote / suffix
     family: str = ""  # ablation load counts one flip per family per rule; defaults to the property's own name
+    # Required "unfreedom" on every kind: freedom property (plans/priority.md slice 1 revision 5): the encoder declares
+    # that the property's HOLDING is bad for the subject, which is how rules_ablate signs a flip (freedom_up/down).
+    # The shape is a reading of the formula z3 cannot decide, so it is an explicit declaration the loader enforces.
+    polarity: Literal["unfreedom"] | None = None
 
     @model_validator(mode="after")
     def _family_default(self):
         if not self.family:
             self.family = self.name
+        if self.kind == "freedom" and self.polarity != "unfreedom":
+            raise ValueError(f"property {self.name!r}: kind freedom requires polarity: unfreedom (its holding is bad for "
+                             "the subject; rules_ablate signs flips by it)")
         return self
 
 

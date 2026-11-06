@@ -39,7 +39,7 @@ rule id listed in `orphaned_or_else`. Under compliance=strict an orphan is ignor
 inflated. Under compliance=sanctioned the clearing hardens the rule (a soft must_not becomes a hard disability), which can
 inflate load; read sanctioned runs only with the orphaned_or_else column.
 
-Flip direction (freedom kind only): see UNFREEDOM. load_freedom = up + down + mixed + unsigned families.
+Flip direction (freedom kind only): read from Property.kind, see flip_direction. load_freedom = up + down + mixed + unsigned families.
 """
 from __future__ import annotations
 
@@ -52,21 +52,18 @@ from .schemas_rules import InstitutionJSON, Property, RuleCheckReport
 
 REAL = ("reachable", "open", "holds_to_k", "violated", "persists", "fails")
 
-# HAND INPUT, to be replaced by a `polarity` field on Property in slice 2. Every current freedom property states an
-# UNFREEDOM (its holding is bad for the subject), so a verdict moving from {reachable, holds_to_k, persists} (the
-# unfreedom is present) toward {open, violated, fails} (it is not) is freedom_up; the reverse is freedom_down.
-UNFREEDOM = frozenset({
-    "dependent_cannot_exit", "subject_cannot_exit", "subject_cannot_exit_persists", "no_standing", "no_standing_persists",
-    "financial_dependence", "financial_dependence_unpropertied", "cannot_contract", "worker_uninsured",
-    "binding_practised", "marriage_requires_binding", "care_assigned_by_sex", "reproduction_controlled_by_owner",
-    "offspring_owned", "female_parent_care_persists", "care_duty_on_women"})
+# Flip direction is read from the property (author decision 5, 2026-11-06; plans/priority.md slice 1 revision 5): a
+# `kind: freedom` property is UNFREEDOM-shaped (its holding is bad for the subject). The loader enforces that the encoder
+# declared it (`Property.polarity == "unfreedom"` is required on every freedom property), so a verdict moving from
+# {reachable, holds_to_k, persists} (the unfreedom is present) toward {open, violated, fails} (it is not) is freedom_up;
+# the reverse is freedom_down. Replaces the hand table UNFREEDOM.
 _UNFREEDOM_PRESENT = ("reachable", "holds_to_k", "persists")
 _UNFREEDOM_ABSENT = ("open", "violated", "fails")
 
 
-def flip_direction(name: str, before: str, after: str, unfreedom: frozenset | None = None) -> str:
-    """freedom_up | freedom_down | unsigned (property not in `unfreedom`, default the module UNFREEDOM table)."""
-    if name not in (UNFREEDOM if unfreedom is None else unfreedom):
+def flip_direction(prop: Property | None, before: str, after: str) -> str:
+    """freedom_up | freedom_down | unsigned (no property, a kind other than freedom, or a pair that does not cross)."""
+    if prop is None or prop.kind != "freedom":
         return "unsigned"
     if before in _UNFREEDOM_PRESENT and after in _UNFREEDOM_ABSENT:
         return "freedom_up"
@@ -225,7 +222,7 @@ def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
     """Every applicable property in `properties` (not just the entry's expected_properties) is read before and after.
     `workers` > 1 runs one job per (rule, variant) over a process pool (abm/parallel.py: spawn on macOS); the rows come
     back in the serial order, identical to workers=1."""
-    jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw, frozenset(UNFREEDOM))
+    jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw)
             for rule in inst.rules for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
     return run_map(_ablate_one, jobs, workers)
 
@@ -236,8 +233,7 @@ def _default_capacity(inst: InstitutionJSON, action: str) -> bool:
     return bool(decl and decl.default_capacity)
 
 def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, kinds: dict[str, str] | None,
-                rule_id: str, variant: str, run_kw: dict, unfreedom: frozenset | None = None) -> RuleAblation:
-    # `unfreedom` travels with the job: the polarity table is a hand input, and a spawned worker re-imports this module
+                rule_id: str, variant: str, run_kw: dict) -> RuleAblation:
     """One (rule, variant) row. Module-level and picklable-in/plain-out so a spawned worker can run it: it rebuilds the
     z3 lowering itself (base_report is memoised per process, so a persistent worker pays the base run once per entry/k)."""
     rule = next(r for r in inst.rules if r.id == rule_id)
@@ -267,11 +263,11 @@ def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, 
         if (aim_kind(rule, inst) == "action" and rule.conditions.strip() not in TRUE_WORDS
                 and head not in regulated_actions(inst2) and not _default_capacity(inst, head)):
             ab.offcondition_free = True
-    _fill(ab, inst2, properties, k, which, base, bv, unfreedom=unfreedom, **run_kw)
+    _fill(ab, inst2, properties, k, which, base, bv, **run_kw)
     return ab
 
 
-def _fill(ab, inst2, properties, k, which, base, bv, unfreedom=None, **run_kw) -> None:
+def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
     rep = rules_checks.run_all(inst2, properties, k=k, which=which, **run_kw)
     if rep.consistent == "unsat" and base.consistent != "unsat":
         ab.inconsistent_after = True
@@ -291,7 +287,7 @@ def _fill(ab, inst2, properties, k, which, base, bv, unfreedom=None, **run_kw) -
         fam = (properties[name].family if name in properties else name)
         if kind == "freedom":
             fam_all.add(fam)
-            d = ab.flip_directions[name] = flip_direction(name, before, after, unfreedom)
+            d = ab.flip_directions[name] = flip_direction(properties.get(name), before, after)
             if d == "freedom_up":
                 fam_up.add(fam)
             elif d == "freedom_down":
@@ -336,7 +332,7 @@ def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: t
                    kinds: dict[str, str] | None = None, workers: int | None = 1, **run_kw) -> list[MultiKAblation]:
     """`workers` > 1: all (k, rule, variant) jobs of this entry go through one run_map (one `parallel.pool(N)` around a
     loop of entries keeps the workers, and their base-report memo, alive across entries); results equal workers=1."""
-    jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw, frozenset(UNFREEDOM)) for k in ks for rule in inst.rules
+    jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw) for k in ks for rule in inst.rules
             for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
     rows = iter(run_map(_ablate_one, jobs, workers))
     per_k = {k: {} for k in ks}
