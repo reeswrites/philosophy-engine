@@ -12,7 +12,7 @@
   "name": "care_and_sanction_same_role",
   "family": "care_and_sanction_same_role",
   "kind": "structure",
-  "gloss": "Whoever provides care to a subject also holds sanction power over that subject (care + control bundled in one role). Checked as an invariant: holds_to_k in the care+control cluster, violated where care is unbundled from sanction. Formula shape since 2026-11-03 (see history): no agent other than the carer holds sanction power over the subject.",
+  "gloss": "Whoever provides care to a subject also holds sanction power over that subject (care + control bundled in one role). Checked as an invariant: holds_to_k in cps and coverture; violated in police-crisis read to WIC 5150, where a second role (the officer) holds concurrent control (L1 landing 2026-11-06), violated where care is unbundled from sanction. Formula shape since 2026-11-03 (see history): no agent other than the carer holds sanction power over the subject.",
   "formal": "(forall ((x agent) (y agent) (z agent)) (=> (and (is_subject y t) (can_sanction z y t) (provides_care x y t)) (= z x)))",
   "history": "2026-11-03, post hoc (second review, item 6): was (forall (x y) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t))), which demands live sanction power at every step of care; under derived power (ADR 0013) police-crisis and cps read violated because the derived power exists only while its exogenous trigger (danger, immediate_danger) holds. The trace: step 0 dispatch -> provides_care(officer, subject) with danger false, so can_sanction(officer, subject) false while care holds. Replaced with the reviewer's sanction_only_by_carer shape after seeing those verdicts; expectations unchanged."
  },
