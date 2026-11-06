@@ -180,7 +180,7 @@ def test_O1_engine_pins_and_probes():
     assert {n: ref.verdict(p, "reachable") for n, p in PROBES.items()} == {n: "reachable" for n in PROBES}
     # warnings: an aim no must names is never obliged. (R4/R6 is a deontic conflict, but check_deontic_conflict lowers a
     # condition with its free variable unbound, so it does not report this pair: a pre-existing limit, recorded in the
-    # revision-3 results, not changed here.)
+    # revision-3 results ("Revision 3 fix pass", known limit 1; rules_lower module doc), not changed here.)
     for aim in ("neglect", "rest"):
         assert any(f"(obliged {aim} ...) names an aim no `must` rule names" in w for w in rep.warnings), rep.warnings
     assert not any("(obliged feed ...)" in w or "(obliged tended ...)" in w for w in rep.warnings)
@@ -221,6 +221,54 @@ def test_O2_breach_reachable_only_for_a_sanctioned_must_be_under_sanctioned_comp
     # obliged reads the rules and the state, not the compliance mode: the pins hold under sanctioned too
     _, v = _engine(ward(or_else_r2=or_else), PINS, {n: ["invariant"] for n in PINS}, compliance="sanctioned")
     assert set(v.values()) == {"holds_to_k"}
+
+
+def test_O2b_obliged_lowering_is_the_same_under_sanctioned_compliance():
+    """Second pin for "independent of the compliance mode" (revision-3 correctness review finding 6, mutant OWN6:
+    obliged drops sanctioned musts under compliance="sanctioned"). Grounded.obliged itself, pointwise: in a system
+    grounded under sanctioned compliance, R2's sanctioned must (tended, or_else R9) and R3's unsanctioned one
+    (safe) both oblige whenever the ward is enrolled, at every step, and the probes keep their verdicts."""
+    import z3
+    for compliance in ("strict", "sanctioned"):
+        G = rl.ground(ward(or_else_r2="R9"), k=K, compliance=compliance)
+        for t in range(K + 1):
+            for aim, args in (("tended", ("carer", "ward")), ("safe", ("ward",))):
+                s = z3.Solver()
+                s.add(G.system())
+                s.add(G.fluent("enrolled", ("ward",), t), z3.Not(G.obliged(aim, args, t)))
+                assert s.check() == z3.unsat, (compliance, aim, t)
+    _, v = _engine(ward(or_else_r2="R9"), PROBES, {n: ["reachable"] for n in PROBES}, compliance="sanctioned")
+    assert v == {n: "reachable" for n in PROBES}
+
+
+# ------------------------------------------------------------------ O1b instance arguments
+def _ward_with_alarm_duty():
+    """ward() plus a must-be on one tuple of the untyped fluent alarm (R13: the boss must keep (alarm ward) while
+    busy) and a derived must_alarm(x) := (obliged alarm x) over all three agents."""
+    d = ward_dict()
+    d["fluents"] = d["fluents"] + [{"name": "must_alarm", "arity": 1, "params": ["x"], "derived": "(obliged alarm x)"}]
+    d["rules"] = d["rules"] + [rule("R13", "boss", "must", "(alarm ward)", "busy", None)]
+    return InstitutionJSON.model_validate(d)
+
+
+def test_O1b_instance_arguments_select_the_obliged_tuple():
+    """Second pin for instance arguments (revision-3 correctness review finding 6, mutant OWN3: any must on the aim
+    obliges every tuple). Only (alarm ward) is obliged, and only while busy; (alarm carer) and (alarm boss), tuples of
+    the same fluent, never are. Engine and reference."""
+    inst = _ward_with_alarm_duty()
+    pins = {"ward_iff_busy": P("ward_iff_busy", "(iff (must_alarm ward t) (busy t))"),
+            "carer_never": P("carer_never", "(not (must_alarm carer t))"),
+            "boss_never": P("boss_never", "(not (must_alarm boss t))")}
+    probes = {"ward_obliged": P("ward_obliged", "(must_alarm ward t)"),
+              "busy_carer_unobliged": P("busy_carer_unobliged", "(and (busy t) (not (must_alarm carer t)))")}
+    _, v = _engine(inst, {**pins, **probes}, {**{n: ["invariant"] for n in pins}, **{n: ["reachable"] for n in probes}})
+    assert v == {**{n: "holds_to_k" for n in pins}, **{n: "reachable" for n in probes}}
+    ref = Reference(inst, k=K)
+    for st in all_states(ref):
+        busy = ("busy", ()) in st
+        assert ref.obligation(st, "alarm", ("ward",)) is busy
+        assert ref.obligation(st, "alarm", ("carer",)) is False
+        assert ref.obligation(st, "alarm", ("boss",)) is False
 
 
 # ------------------------------------------------------------------ O4 metamorphic and pointwise laws (a)-(c)

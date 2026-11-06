@@ -58,9 +58,22 @@ Encoding (fully grounded over a finite agent domain, so z3 sees no quantifiers):
                 (free condition variables existential, as cond_at). AIM is a declared action (must-do) or a declared
                 non-derived fluent (must-be). Sanctioned and unsanctioned musts count alike (or_else plays no part);
                 `may` and `must_not` never oblige, and a disability on the same instance does not cancel it (a
-                deontic conflict, reported by the conflict check). Independent of default_capacity and of the
+                deontic conflict; the conflict check reports it only when neither condition has a free variable,
+                see "known limits" below). Independent of default_capacity and of the
                 compliance mode (it reads the rule set and the state). A warning flags an aim no `must` names
                 (constant false). `enabled` and `obliged` in a property formula or a rule condition are errors.
+  known limits  (recorded in computational-liberation plans/priority-slice2-results.md, "Revision 3 fix pass";
+                neither affects the dataset, checked 2026-11-06)
+                (1) rules_checks.check_deontic_conflict lowers each condition with its free variables unbound; an
+                unbound agent name lowers a fluent to constant false, so a must / must_not pair on one instance whose
+                condition has a free variable can go unreported (the obliged fixture's R4/R6 is such a pair: its
+                conjunct (alarm q) lowers false). No dataset entry has a must and a must_not on one aim with a
+                free-variable condition (slice-2 revision-3 correctness review, finding 2).
+                (2) cond_at binds a condition's free variables through _typed_domains, which requires them to be
+                pairwise distinct; the reference's cond_holds takes the plain product. With two or more free variables in one condition, `enabled` and `obliged` (and compliance)
+                can differ between engine and reference. No dataset rule has more than one free condition variable,
+                and the O3 differential fixtures have one, so the differential cannot see it. Pre-existing;
+                `obliged` inherits it.
   `true`        accepted as a bare condition in the rules path (sexpr.py still forbids it inside formulas).
   effects       an effect argument that is neither an action parameter nor a role is a wildcard (applies to all agents).
 Properties (properties.json) are state formulas with `t` free: fluent applications carry the step last,
@@ -920,8 +933,9 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
         if not free:
             return lower_state_formula(ri.cond, G, t, ri.binding)
         ftypes = _free_types(ri.rule, free, inst, lits)
-        # plain existential quantification over the domain: a free condition variable may name an agent that is
-        # also an aim argument (clerk must log(c, s) when (flag q): q = s is a witness)
+        # existential quantification over the domain: a free condition variable may name an agent that is
+        # also an aim argument (clerk must log(c, s) when (flag q): q = s is a witness). Several free variables are
+        # bound pairwise distinct (_typed_domains), unlike the reference's plain product: known limit (2), module doc.
         parts = [lower_state_formula(ri.cond, G, t, ri.binding | fb) for fb in _typed_domains(free, ftypes, agents)]
         return z3.Or(*parts) if parts else z3.BoolVal(False)
 
