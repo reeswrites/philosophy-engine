@@ -51,6 +51,29 @@ Encoding (fully grounded over a finite agent domain, so z3 sees no quantifiers):
                 defined by an equation, no frame axiom, no init, and cannot appear in effects / initial /
                 defaults / initial_free / a rule's aim (validation error); cycles through derived fluents or rule
                 conditions are errors. Power fluents (can_sanction, has_standing) are meant to be derived.
+  obliged       (ADR 0013 amendment "derived obligation fluents"; plans/priority-slice2.md revision 3, R3.2) inside a
+                derived definition only, like `enabled`: (obliged AIM x ...) at t is true iff (AIM x ...) is an
+                instance (an action instance, typed and attribute-scoped; or a fluent tuple inside arg_roles) and
+                some rule instance with deontic `must` on that aim and those args has its condition true at t
+                (free condition variables existential, as cond_at). AIM is a declared action (must-do) or a declared
+                non-derived fluent (must-be). Sanctioned and unsanctioned musts count alike (or_else plays no part);
+                `may` and `must_not` never oblige, and a disability on the same instance does not cancel it (a
+                deontic conflict; the conflict check reports it only when neither condition has a free variable,
+                see "known limits" below). Independent of default_capacity and of the
+                compliance mode (it reads the rule set and the state). A warning flags an aim no `must` names
+                (constant false). `enabled` and `obliged` in a property formula or a rule condition are errors.
+  known limits  (recorded in computational-liberation plans/priority-slice2-results.md, "Revision 3 fix pass";
+                neither affects the dataset, checked 2026-11-06)
+                (1) rules_checks.check_deontic_conflict lowers each condition with its free variables unbound; an
+                unbound agent name lowers a fluent to constant false, so a must / must_not pair on one instance whose
+                condition has a free variable can go unreported (the obliged fixture's R4/R6 is such a pair: its
+                conjunct (alarm q) lowers false). No dataset entry has a must and a must_not on one aim with a
+                free-variable condition (slice-2 revision-3 correctness review, finding 2).
+                (2) cond_at binds a condition's free variables through _typed_domains, which requires them to be
+                pairwise distinct; the reference's cond_holds takes the plain product. With two or more free variables in one condition, `enabled` and `obliged` (and compliance)
+                can differ between engine and reference. No dataset rule has more than one free condition variable,
+                and the O3 differential fixtures have one, so the differential cannot see it. Pre-existing;
+                `obliged` inherits it.
   `true`        accepted as a bare condition in the rules path (sexpr.py still forbids it inside formulas).
   effects       an effect argument that is neither an action parameter nor a role is a wildcard (applies to all agents).
 Properties (properties.json) are state formulas with `t` free: fluent applications carry the step last,
@@ -68,6 +91,7 @@ from .schemas_rules import ActionDecl, InstitutionJSON, Property, Rule, TraceSte
 
 DEFAULT_K = 6
 TRUE_WORDS = ("true",)
+PSEUDO = ("enabled", "obliged")  # pseudo-predicates over the rules, admitted only inside a derived definition (ADR 0013)
 
 
 class LowerError(ValueError):
@@ -213,7 +237,7 @@ def validate_institution(inst: InstitutionJSON) -> list[str]:
         errs.append("duplicate fluent names")
     derived = {f.name for f in inst.fluents if f.derived is not None}
     for f in inst.fluents:
-        if not sx.IDENT.match(f.name) or f.name in sx.RESERVED or f.name == "enabled":
+        if not sx.IDENT.match(f.name) or f.name in sx.RESERVED or f.name in PSEUDO:
             errs.append(f"invalid fluent name {f.name!r}")
         if f.arg_roles is not None:
             if len(f.arg_roles) != f.arity:
@@ -332,14 +356,14 @@ def _derived_asts(inst: InstitutionJSON) -> dict[str, object]:
 
 
 def _fluents_in(ast) -> set[str]:
-    """Fluent names applied in a formula (the `enabled` pseudo-predicate excluded)."""
+    """Fluent names applied in a formula (the `enabled` and `obliged` pseudo-predicates excluded)."""
     out: set[str] = set()
 
     def go(x):
         if isinstance(x, sx.Sym):
             out.add(x.name)
         elif isinstance(x, sx.App):
-            if x.pred != "enabled":
+            if x.pred not in PSEUDO:
                 out.add(x.pred)
         elif isinstance(x, sx.Not):
             go(x.arg)
@@ -376,21 +400,45 @@ def _enabled_actions(ast) -> set[str]:
     return out
 
 
+def _obliged_aims(ast) -> set[str]:
+    """Aims (actions or fluents) named by `(obliged AIM ...)` in a derived definition."""
+    out: set[str] = set()
+
+    def go(x):
+        if isinstance(x, sx.App):
+            if x.pred == "obliged" and x.args:
+                out.add(x.args[0].name)
+        elif isinstance(x, sx.Not):
+            go(x.arg)
+        elif isinstance(x, (sx.And, sx.Or)):
+            for y in x.args:
+                go(y)
+        elif isinstance(x, (sx.Implies, sx.Iff)):
+            go(x.left); go(x.right)
+        elif isinstance(x, sx.Quant):
+            go(x.body)
+
+    go(ast)
+    return out
+
+
 def derived_dependencies(inst: InstitutionJSON) -> dict[str, set[str]]:
-    """Derived fluent -> fluents its definition depends on, through its own expression and through the
-    conditions of every may/must/must_not rule on each action it asks `enabled` of."""
+    """Derived fluent -> fluents its definition depends on, through its own expression, through the conditions of
+    every may/must/must_not rule on each action it asks `enabled` of, and through the conditions of every `must`
+    rule on each aim it asks `obliged` of (R3.2: a cycle through a must condition is an error)."""
     asts = _derived_asts(inst)
     deps: dict[str, set[str]] = {}
     for name, ast in asts.items():
         d = _fluents_in(ast)
         acts = _enabled_actions(ast)
+        aims = _obliged_aims(ast)
         for r in inst.rules:
             try:
                 head = parse_aim(r.aim).pred
                 cond = parse_condition(r.conditions)
             except sx.ParseError:
                 continue
-            if head in acts and cond is not None:
+            if cond is not None and (head in acts or (head in aims and r.deontic == "must")):
                 d |= _fluents_in(cond)
         deps[name] = d
     return deps
@@ -444,7 +492,8 @@ def validate_derived(inst: InstitutionJSON) -> list[str]:
         except sx.ParseError as e:
             errs.append(f"{where}: parse error: {e}")
             continue
-        _check_derived_formula(ast, fl, acts, roles, set(params), errs, where)
+        _check_derived_formula(ast, fl, acts, roles, set(params), errs, where, derived={
+            x.name for x in inst.fluents if x.derived is not None})
     if not errs:
         try:
             derived_order(inst)
@@ -453,13 +502,35 @@ def validate_derived(inst: InstitutionJSON) -> list[str]:
     return errs
 
 
-def _check_derived_formula(ast, fl: dict, acts: dict, roles: set, params: set, errs: list, where: str):
+def _check_derived_formula(ast, fl: dict, acts: dict, roles: set, params: set, errs: list, where: str,
+                           derived: set | None = None):
+    derived = derived or set()
+
     def go(x, bound):
         if isinstance(x, sx.Sym):
             if x.name not in fl or fl[x.name] != 0:
                 errs.append(f"{where}: {x.name!r} is not a 0-ary fluent")
         elif isinstance(x, sx.App):
-            if x.pred == "enabled":
+            if x.pred == "obliged":  # R3.2: AIM is a declared action or a declared non-derived fluent
+                if not x.args:
+                    errs.append(f"{where}: (obliged AIM args...) needs an action or a fluent")
+                    return
+                aim = x.args[0].name
+                if aim in acts:
+                    n = len(acts[aim].args)
+                elif aim in derived:
+                    errs.append(f"{where}: (obliged {aim} ...): {aim!r} is a derived fluent; an obligation's aim is an "
+                                "action or a fluent effects can establish (as for a rule's aim)")
+                    return
+                elif aim in fl:
+                    n = fl[aim]
+                else:
+                    errs.append(f"{where}: (obliged {aim} ...): not a declared action or fluent")
+                    return
+                if n != len(x.args) - 1:
+                    errs.append(f"{where}: (obliged {aim} ...): {aim!r} takes {n} argument(s), got {len(x.args) - 1}")
+                terms = x.args[1:]
+            elif x.pred == "enabled":
                 if not x.args:
                     errs.append(f"{where}: (enabled ACTION args...) needs an action")
                     return
@@ -508,6 +579,10 @@ def _check_state_formula(ast, fl: dict, roles: set, errs: list, where: str, step
             if x.name not in fl or fl[x.name] != 0:
                 errs.append(f"{where}: {x.name!r} is not a 0-ary fluent")
         elif isinstance(x, sx.App):
+            if x.pred in PSEUDO:  # ADR 0013 / R3.2: only inside a derived fluent's definition
+                errs.append(f"{where}: ({x.pred} ...) is only available inside a derived fluent's definition; use the "
+                            f"derived fluent that wraps it")
+                return
             if x.pred == "succ" and step_arg:
                 if len(x.args) != 2:
                     errs.append(f"{where}: (succ t t2) takes 2 arguments")
@@ -621,6 +696,19 @@ class Grounded:
         self.assertions.append(self.derived_defs[-1])
         return v
 
+    def obliged(self, aim: str, args: tuple, t: int):
+        """(obliged aim args) at t (R3.2): (aim args) is an instance (an action instance, or a fluent tuple inside
+        arg_roles) and some `must` rule instance on it has its condition true at t; action and state aims alike.
+        `may` and `must_not` never oblige; or_else, default_capacity and the compliance mode play no part."""
+        args = tuple(args)
+        inst_ok = (args in self.action_instances[aim]) if aim in self.action_instances else (
+            args in self.fluent_tuples.get(aim, []))
+        if not inst_ok:
+            return z3.BoolVal(False)
+        on = [self.cond_at(ri, t) for ri in self.rule_instances
+              if ri.action == aim and ri.args == args and ri.rule.deontic == "must"]
+        return z3.Or(*on) if on else z3.BoolVal(False)
+
     def enabled(self, action: str, args: tuple, t: int):
         """(enabled action args) at t: some may/must rule instance's condition holds and no disability's does;
         constant false for a non-instance and for an action no may/must rule regulates (ADR 0013 amendment:
@@ -688,6 +776,8 @@ def lower_state_formula(ast, G: Grounded, t: int, env: dict | None = None):
         if isinstance(x, sx.App):
             if x.pred == "enabled":
                 return G.enabled(x.args[0].name, tuple(term(a) for a in x.args[1:]), t)
+            if x.pred == "obliged":
+                return G.obliged(x.args[0].name, tuple(term(a) for a in x.args[1:]), t)
             return G.fluent(x.pred, tuple(term(a) for a in x.args), t)
         if isinstance(x, sx.Not):
             return z3.Not(go(x.arg))
@@ -843,8 +933,9 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
         if not free:
             return lower_state_formula(ri.cond, G, t, ri.binding)
         ftypes = _free_types(ri.rule, free, inst, lits)
-        # plain existential quantification over the domain: a free condition variable may name an agent that is
-        # also an aim argument (clerk must log(c, s) when (flag q): q = s is a witness)
+        # existential quantification over the domain: a free condition variable may name an agent that is
+        # also an aim argument (clerk must log(c, s) when (flag q): q = s is a witness). Several free variables are
+        # bound pairwise distinct (_typed_domains), unlike the reference's plain product: known limit (2), module doc.
         parts = [lower_state_formula(ri.cond, G, t, ri.binding | fb) for fb in _typed_domains(free, ftypes, agents)]
         return z3.Or(*parts) if parts else z3.BoolVal(False)
 
@@ -860,6 +951,10 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
                 G.warnings.append(f"derived fluent {name}: (enabled {a} ...) names an action no may/must rule regulates; "
                                   f"it is never enabled ({tail}; declare `default_capacity: true` on the action if it is a "
                                   f"default capacity, enabled unless a disability bars it)")
+        musts = {parse_aim(r.aim).pred for r in inst.rules if r.deontic == "must"}
+        for a in sorted(_obliged_aims(G.derived[name]) - musts):
+            G.warnings.append(f"derived fluent {name}: (obliged {a} ...) names an aim no `must` rule names; it is never "
+                              f"obliged (constant false)")
         for tup in G.fluent_tuples[name]:
             for t in range(k + 1):
                 G.fluent(name, tup, t)

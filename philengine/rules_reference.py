@@ -37,6 +37,11 @@ Semantics implemented (each line is a reading of the plan; where the plan is sil
               must_not rule with or_else null on that instance has its condition true. Derived fluents
               never appear in effects or the initial state; a trace that lists one is checked against the
               evaluation rather than the state.
+  obliged     (plans/priority-slice2.md revision 3, R3.2; read from the plan's text, not from rules_lower) inside a
+              derived definition, (obliged AIM x ...) is true in a state iff (AIM, (x, ...)) is an action instance
+              or a state atom (a fluent tuple inside arg_roles), and some rule instance with deontic `must` whose aim
+              is exactly that has its condition true in the state. may and must_not never oblige; a disability
+              does not cancel it; or_else (sanctioned or not), default_capacity and compliance play no part.
 """
 from __future__ import annotations
 
@@ -284,6 +289,8 @@ class Reference:
             if isinstance(x, sx.App):
                 if x.pred == "enabled":
                     return self.power(state, x.args[0].name, tuple(term(a) for a in x.args[1:]))
+                if x.pred == "obliged":
+                    return self.obligation(state, x.args[0].name, tuple(term(a) for a in x.args[1:]))
                 return self.atom(state, x.pred, tuple(term(a) for a in x.args))
             if isinstance(x, sx.Not):
                 return not go(x.arg)
@@ -327,6 +334,16 @@ class Reference:
             return False  # a default-capacity action (ADR 0013 amendment 2026-11-05) skips this grant requirement
         return not any(ri.deontic == "must_not" and ri.rule_id in self.disabilities and self.cond_holds(ri, state)
                        for ri in self.rules_on.get(act, []))
+
+    def obligation(self, state: frozenset, aim: str, args: tuple) -> bool:
+        """(obliged aim args), R3.2: an instance of the aim (action instance or state atom) on which some `must` rule
+        instance's condition holds in `state`. Read from the rule instances directly (action rules and state rules
+        alike), never via the engine's lowering."""
+        target = (aim, tuple(args))
+        if target not in self.action_inst_set and target not in self.all_atoms:
+            return False
+        return any(ri.deontic == "must" and (ri.action, ri.args) == target and self.cond_holds(ri, state)
+                   for ri in self.rule_insts + self.state_rules)
 
     def cond_holds(self, ri: RuleInst, state: frozenset) -> bool:
         if ri.cond is None:

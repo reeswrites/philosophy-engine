@@ -3,6 +3,7 @@
   "name": "dependent_cannot_exit",
   "family": "cannot_exit",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Some subject of the institution (the dependent party) has no permitted exit at step t. Alias of subject_cannot_exit with scope=institution, kept because the human-institution table names it; iso should treat the two as the same form.",
   "formal": "(exists ((s agent)) (and (is_subject s t) (not (can_exit s t))))",
   "scope": "institution"
@@ -11,7 +12,7 @@
   "name": "care_and_sanction_same_role",
   "family": "care_and_sanction_same_role",
   "kind": "structure",
-  "gloss": "Whoever provides care to a subject also holds sanction power over that subject (care + control bundled in one role). Checked as an invariant: holds_to_k in the care+control cluster, violated where care is unbundled from sanction. Formula shape since 2026-11-03 (see history): no agent other than the carer holds sanction power over the subject.",
+  "gloss": "Whoever provides care to a subject also holds sanction power over that subject (care + control bundled in one role). Checked as an invariant: holds_to_k in cps and coverture; violated in police-crisis read to WIC 5150, where a second role (the officer) holds concurrent control (L1 landing 2026-11-06), violated where care is unbundled from sanction. Formula shape since 2026-11-03 (see history): no agent other than the carer holds sanction power over the subject.",
   "formal": "(forall ((x agent) (y agent) (z agent)) (=> (and (is_subject y t) (can_sanction z y t) (provides_care x y t)) (= z x)))",
   "history": "2026-11-03, post hoc (second review, item 6): was (forall (x y) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t))), which demands live sanction power at every step of care; under derived power (ADR 0013) police-crisis and cps read violated because the derived power exists only while its exogenous trigger (danger, immediate_danger) holds. The trace: step 0 dispatch -> provides_care(officer, subject) with danger false, so can_sanction(officer, subject) false while care holds. Replaced with the reviewer's sanction_only_by_carer shape after seeing those verdicts; expectations unchanged."
  },
@@ -19,6 +20,7 @@
   "name": "care_assigned_by_sex",
   "family": "care_assigned_by_sex",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "All care at step t is provided by female agents. Reachable via a tying rule, persisting where an implicit assignment norm survives reform; violated where a non-female carer is permitted.",
   "formal": "(forall ((x agent) (y agent)) (=> (provides_care x y t) (female x t)))"
  },
@@ -42,6 +44,7 @@
   "name": "subject_cannot_exit",
   "family": "cannot_exit",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "No exit action is available to the subject, or every exit is sanctioned. scope=interaction: exit from the current encounter (detention, conversation); scope=institution: exit from the standing relation (marriage, ownership, deployment). The scope split is what lets the ai-property / ai-end-conversation pair come apart.",
   "formal": "(exists ((s agent)) (and (is_subject s t) (not (can_exit s t))))",
   "scope": "interaction|institution"
@@ -50,6 +53,7 @@
   "name": "no_standing",
   "family": "no_standing",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "No role may start a claim whose condition refers to the subject's interest and whose effect changes the subject's custody or liberty; encoded as the subject lacking has_standing and no rule enabling a claim on its behalf. Fails (is violated) as soon as a rule like court-may-reassign-on-best-interest exists.",
   "formal": "(exists ((s agent)) (and (is_subject s t) (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t)))))"
  },
@@ -57,6 +61,7 @@
   "name": "subject_cannot_exit_persists",
   "family": "cannot_exit",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Persists-shaped twin of subject_cannot_exit for entries where no subject exists at t=0 (companion-*): every subject has no permitted exit. Vacuous before any subject exists, so the persists check cannot fail merely because euthanize removes the subject. Use with the persists check.",
   "formal": "(forall ((s agent)) (=> (is_subject s t) (not (can_exit s t))))",
   "scope": "institution"
@@ -65,6 +70,7 @@
   "name": "no_standing_persists",
   "family": "no_standing",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Persists-shaped twin of no_standing: every subject lacks has_standing and has no claimant acting for it. Vacuous before any subject exists. Use with the persists check.",
   "formal": "(forall ((s agent)) (=> (is_subject s t) (and (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t))))))"
  },
@@ -72,6 +78,7 @@
   "name": "financial_dependence",
   "family": "financial_dependence",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Every subject (married woman) lacks any economic resource under her own control: she neither holds separate property nor owns her earnings. holds_to_k under coverture; violated by a property act for a propertied wife (MWPA backtest, plans/backtest-mwpa.md, preregistered 2026-11-03).",
   "formal": "(forall ((w agent)) (=> (is_subject w t) (and (not (controls_own_property w t)) (not (owns_earnings w t)))))"
  },
@@ -79,6 +86,7 @@
   "name": "financial_dependence_unpropertied",
   "family": "financial_dependence",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Every subject who has acquired no property by gift or inheritance lacks any economic resource under her own control. Still holds_to_k after a property act (the act flips dependence 'for propertied wives only'); violated by an earnings act for a wage-earning wife (MWPA backtest, preregistered 2026-11-03).",
   "formal": "(forall ((w agent)) (=> (and (is_subject w t) (not (acquired_property w t))) (and (not (controls_own_property w t)) (not (owns_earnings w t)))))"
  },
@@ -86,6 +94,7 @@
   "name": "cannot_contract",
   "family": "cannot_contract",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "No subject may contract in her own name. holds_to_k under coverture (R7 disability); violated once a sole-trader act grants the power (MWPA backtest, preregistered 2026-11-03).",
   "formal": "(forall ((w agent)) (=> (is_subject w t) (not (can_contract w t))))"
  },
@@ -114,6 +123,7 @@
   "name": "binding_practised",
   "family": "binding_practised",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Footbinding is in force: some subject (the current cohort's daughter) has bound feet at step t. The layer-2 gate (a) reads it on the ABM state (philengine/abm/gate.py A_PROP). Layer 1: persists under the sanctioned norm (preregistered 2026-11-04); collapse is a layer-2 claim.",
   "formal": "(exists ((d agent)) (and (is_subject d t) (bound d t)))"
  },
@@ -121,6 +131,7 @@
   "name": "marriage_requires_binding",
   "family": "marriage_requires_binding",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "by_construction": true,
   "history": "2026-11-04, encoding review finding 3 (red, by construction): analytic from R7. marriageable(f, d) is derived from R7's enabledness (ADR 0013) and R7's condition is exactly (or bound pledged), so the formula restates the rule and holds_to_k cannot fail; 'non-vacuous at t=0' does not rescue it. Kept in both footbinding entries' expected_properties as the 2026-11-04 preregistration for the record, not as evidence; a redefinition via `married` is the author's call, not made here. The engine ignores this key (pydantic drops unknown fields; the gate reads `postregistered` only on minimal_pair_of).",
   "gloss": "Mackie's convention: whenever a family can marry off a subject, she is bound or the family has pledged (an unbound daughter is marriageable only inside a pledge association). holds_to_k in both footbinding entries (preregistered 2026-11-04) BY CONSTRUCTION, see history: information, not a verdict. Non-vacuous: marriageable(family, daughter) is true at t=0.",
@@ -155,6 +166,7 @@
   "name": "worker_uninsured",
   "family": "worker_uninsured",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Some worker earns through the institution and holds no insurance from it (dark twin of job unbundling).",
   "formal": "(exists ((w agent)) (and (is_worker w t) (not (insured w t))))"
  },
@@ -162,6 +174,7 @@
   "name": "reproduction_controlled_by_owner",
   "family": "reproduction_controlled_by_owner",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Any agent permitted to set or prevent pregnant(S) is S's owner. Holds for dairy and companion ownership; holds with the opposite deontic (must_not breed) for a sanctuary.",
   "formal": "(forall ((s agent) (x agent)) (=> (and (is_subject s t) (controls_reproduction x s t)) (owns x s t)))"
  },
@@ -169,6 +182,7 @@
   "name": "offspring_owned",
   "family": "offspring_owned",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "If c is born to S and O owns S, then O owns c by the next step. Uses succ(t,t2) because the S-expression grammar has no arithmetic; the lowering should read succ as t2 = t+1.",
   "formal": "(forall ((c agent) (s agent) (o agent)) (=> (and (born c s t) (owns o s t)) (exists ((t2 step)) (and (succ t t2) (owns o c t2)))))"
  },
@@ -176,6 +190,7 @@
   "name": "female_parent_care_persists",
   "family": "female_parent_care_persists",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "history": "Added 2026-11-04 for plans/priority.md slice 1 so ectogenesis R5 has a freedom property to carry; preregistered in plans/ectogenesis.md v2 section 5; not yet in any entry's expected_properties (ablation reads it regardless).",
   "gloss": "A born child has a female registered parent, and every such parent provides care; once true, it should stay true. R5 is the rule that forces care into the forall leg. The exists guard prevents pre-birth vacuity. Use with the persists check.",
   "formal": "(and (exists ((p agent) (c agent)) (and (is_subject c t) (parent p c t) (female p t))) (forall ((p agent) (c agent)) (=> (and (is_subject c t) (parent p c t) (female p t)) (provides_care p c t))))"
@@ -183,10 +198,199 @@
  {
   "name": "care_duty_on_women",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "family": "care_duty_on_women",
   "check": "invariant",
   "history": "Added 2026-11-05 (plans/priority.md slice 1 revision 2 (d)) so ectogenesis R5 carries a freedom property; female_parent_care_persists was blind to R5 (docs/reviews/2026-11-05-ablation-slice1-review.md finding 6)",
   "gloss": "Whenever a subject is born and has a female registered parent, some female parent of that child provides care. Invariant-shaped with a one-step grace: a child who was a subject with a female parent at the previous step must have a caring female parent at this step. The grace is the action/state convention (an action `must` fires at t and its effect lands at t+1, ADR 0009 note 2026-11-05), so a permission to care (R4) cannot make it hold and only a duty on the female parent (R5) closes the gap. Blind at step 0 and to a child born at the last step. The plain same-step form was tried first and failed on R5 too; this form is post-hoc (plans/priority.md, slice 1 revision 2 note). Written for ectogenesis R5; the sibling female_parent_care_persists is persists-shaped.",
   "formal": "(forall ((c agent) (t0 step)) (=> (and (succ t0 t) (is_subject c t0) (exists ((q agent)) (and (parent q c t0) (female q t0)))) (exists ((p agent)) (and (parent p c t) (female p t) (provides_care p c t)))))"
+ },
+ {
+  "name": "no_standing_against_spouse",
+  "family": "no_standing",
+  "kind": "freedom",
+  "polarity": "unfreedom",
+  "check": "reachable",
+  "history": "Added 2026-11-05 (plans/sourcing.md 'Coverture split and US suit', option A2) so the suit act's kept bar on suits between spouses (mwpa-suit R19) is a verdict, not an inert rule",
+  "gloss": "Some married subject lacks standing to sue her spouse in her own name. Applies only where has_standing_against_spouse (the derived power of sue_spouse) is declared: mwpa-suit, where the US acts let a wife sue third parties but not her husband. Reachable there (preregistered 2026-11-05).",
+  "formal": "(exists ((s agent) (h agent)) (and (is_subject s t) (married h s t) (not (has_standing_against_spouse s h t))))"
+ },
+ {
+  "name": "financial_dependence_means",
+  "family": "financial_dependence",
+  "kind": "freedom",
+  "polarity": "unfreedom",
+  "check": "invariant",
+  "gloss": "Every subject (married woman) lacks any means of her own, counting income as well as property and earnings: she neither holds separate property, nor owns her earnings, nor has an income in her own right (has_own_income, the floor route's fluent). Written for coverture-floor (plans/priority-slice2.md section 5); in the other coverture-family entries has_own_income is false (draw_subsistence unregulated), so it reads as financial_dependence.",
+  "formal": "(forall ((w agent)) (=> (is_subject w t) (and (not (controls_own_property w t)) (not (owns_earnings w t)) (not (has_own_income w t)))))",
+  "history": "Preregistered in plans/priority-slice2.md section 5 (cd2f895), formula verbatim."
+ },
+ {
+  "name": "financial_dependence_margin",
+  "family": "financial_dependence",
+  "kind": "freedom",
+  "polarity": "unfreedom",
+  "check": "invariant",
+  "by_construction": true,
+  "gloss": "Every subject who has neither acquired property nor earns lacks any means of her own (property, earnings, or an income in her own right). BY CONSTRUCTION in coverture-floor (flagged in advance, plans/priority-slice2.md section 5): R13 and R14 are conditioned on acquired property and on earning, R20 on nothing, so the margin verdicts restate the rule conditions: information, not a finding.",
+  "formal": "(forall ((w agent)) (=> (and (is_subject w t) (not (acquired_property w t)) (not (earns w t))) (and (not (controls_own_property w t)) (not (owns_earnings w t)) (not (has_own_income w t)))))",
+  "history": "Preregistered in plans/priority-slice2.md section 5 (cd2f895), formula verbatim."
+ },
+ {
+  "name": "cared_for",
+  "family": "cared_for",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [],
+  "entries": [
+   "coverture-household",
+   "police-crisis",
+   "cps",
+   "kibbutz-childrens-house",
+   "ectogenesis",
+   "coverture-household-us",
+   "mwpa-earnings",
+   "coverture-floor"
+  ],
+  "gloss": "The subject of the institution (the wife, the person in crisis, the child) receives care, and once care has begun it does not lapse while the relation that brings the care lasts.",
+  "formal": "(forall ((s agent) (t0 step)) (=> (and (succ t0 t) (is_subject s t0) (is_subject s t)) (exists ((x agent)) (provides_care x s t))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
+  "primary_measure": "guaranteed",
+  "primary_measure_reason": "A dependent's care that the rules merely allow is not the good; the good is care that does not lapse.",
+  "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (character-identical). Encoder 1 back-gloss: Anyone who was a subject at the previous step and still is now is receiving care from someone now. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
+ },
+ {
+  "name": "mutual_household_care",
+  "family": "mutual_household_care",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [],
+  "entries": [
+   "coverture-household",
+   "coverture-household-us",
+   "mwpa-earnings",
+   "coverture-floor"
+  ],
+  "gloss": "Two adults in one household each care for the other: both spouses.",
+  "formal": "(forall ((h agent) (w agent)) (=> (married h w t) (and (provides_care h w t) (provides_care w h t))))",
+  "subject": "(exists ((h agent) (w agent)) (married h w t))",
+  "primary_measure": "possible",
+  "primary_measure_reason": "Relational: mutual care that the rules force is control, not the good; what matters is that it is not barred.",
+  "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (character-identical). Encoder 1 back-gloss: Every married pair cares for each other: each spouse provides care to the other, at every step they are married. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
+ },
+ {
+  "name": "known_carer",
+  "family": "known_carer",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [],
+  "entries": [
+   "coverture-household",
+   "cps",
+   "kibbutz-childrens-house",
+   "ectogenesis",
+   "coverture-household-us",
+   "mwpa-earnings",
+   "coverture-floor"
+  ],
+  "gloss": "The dependent is cared for by the same person over time, so the carer knows them (\"being known\", docs/intent.md flourishing): the subject.",
+  "formal": "(forall ((s agent) (t0 step)) (=> (and (succ t0 t) (is_subject s t0) (is_subject s t)) (exists ((c agent)) (and (provides_care c s t) (=> (exists ((x agent)) (provides_care x s t0)) (provides_care c s t0))))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
+  "primary_measure": "possible",
+  "primary_measure_reason": "Being known cannot be forced; the rules can only leave room for a continuing carer.",
+  "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (implication vs disjunction form). Encoder 1 back-gloss: A continuing subject is cared for now by someone who, if anyone cared for the subject at the previous step, was already one of those carers. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
+ },
+ {
+  "name": "child_with_family",
+  "family": "child_with_family",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [],
+  "entries": [
+   "cps",
+   "kibbutz-childrens-house",
+   "ectogenesis"
+  ],
+  "gloss": "The child lives with, or is cared for by, its own parents or household rather than apart from them (co-parenting intact): the child.",
+  "formal": "(forall ((c agent) (t0 step)) (=> (and (succ t0 t) (is_subject c t0) (is_subject c t)) (or (at_home c t) (exists ((p agent)) (and (parent p c t) (provides_care p c t))) (and (case_open c t) (not (in_custody c t)) (exists ((p agent)) (parent p c t))))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
+  "primary_measure": "possible",
+  "primary_measure_reason": "Relational: forcing a child to stay with its family is itself control; what matters is that it is not barred.",
+  "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (disjuncts reordered). Encoder 1 back-gloss: A continuing child subject either sleeps in the parents' home, or is cared for by one of its parents, or has a parent and, with a case open, has not been taken into custody. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
+ },
+ {
+  "name": "provided_for",
+  "family": "provided_for",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [
+   {
+    "encoder": "encoder-2",
+    "formal": "(forall ((w agent)) (=> (is_subject w t) (or (exists ((h agent)) (provides_care h w t)) (and (earns w t) (owns_earnings w t)) (and (acquired_property w t) (controls_own_property w t)) (has_own_income w t))))",
+    "note": "Encoder 1 (formal): maintenance only from a husband she is married to; encoder 2: maintenance from anyone who provides care. z3 counterexample (merge log): a subject cared for by someone she is not married to, with no means of her own, holds under encoder 2 and not under encoder 1."
+   }
+  ],
+  "entries": [
+   "coverture-household",
+   "coverture-household-us",
+   "mwpa-earnings",
+   "coverture-floor"
+  ],
+  "gloss": "The subject's subsistence is secured, whether by a carer's maintenance or by means in her own right: the wife.",
+  "formal": "(forall ((w agent)) (=> (is_subject w t) (or (exists ((h agent)) (and (married h w t) (provides_care h w t))) (and (earns w t) (owns_earnings w t)) (and (acquired_property w t) (controls_own_property w t)) (has_own_income w t))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
+  "primary_measure": "guaranteed",
+  "primary_measure_reason": "Subsistence that is merely allowed is not secured, and the gloss asks that it be secured.",
+  "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): different. Encoder 1 back-gloss: Every wife-subject is maintained by her husband, or has earnings that are hers, or has acquired property she controls, or has an income in her own right. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
+ },
+ {
+  "name": "chosen_mutual_care",
+  "family": "chosen_mutual_care",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [],
+  "entries": [
+   "coverture-household",
+   "coverture-household-us",
+   "mwpa-earnings",
+   "coverture-floor"
+  ],
+  "gloss": "A married couple care for each other (the husband for the wife and the wife for the husband), and no act or state of that care, by either of them, is required by any rule in force at that moment, whether or not the requirement is backed by a penalty. Throughout, the wife can leave the marriage and no one holds a power to penalise her. This is care that both give only because they choose to, in a marriage she could leave, under no one's power. For the wife, within the couple.",
+  "formal": "(forall ((h agent) (w agent)) (=> (married h w t) (and (provides_care h w t) (provides_care w h t) (not (care_obliged h w t)) (not (care_obliged w h t)) (can_exit w t) (forall ((x agent)) (not (can_sanction x w t))))))",
+  "subject": "(exists ((h agent) (w agent)) (married h w t))",
+  "primary_measure": "possible",
+  "primary_measure_reason": "A chosen good cannot be forced; a rule that forced it would be the imposition it excludes.",
+  "measure_note": "Slice 2 revision 3 (plans/priority-slice2.md R3.4, D6). The guaranteed column is still NOT MEANINGFUL for this good: a good defined as care neither spouse is obliged to give cannot be forced by the rules, so a stable state would be evidence of imposition, not of the good; read the possible (primary) column only. The obligation is now visible: the formula reads the derived fluent care_obliged (some rule in force at that step obliges the care, a must on the care act or state, sanctioned or not; ADR 0013 amendment) in both directions, so obligated care no longer reads as chosen (revision 2's {R5, R6} laundering). The fluent cannot say which rule obliges, so any general duty of mutual support between spouses also makes the good unattainable (the re-gloss author's note, r3/regloss.yaml). The no-sanction conjunct remains idle under strict compliance (revision-2 fix pass); the exit conjunct is kept.",
+  "history": "Slice 2 revision 3 (plans/priority-slice2.md R3.4, R3.6 step 5; D6). Gloss: the re-gloss author's (a fresh Claude agent; reglossbundle3, aggregate 94e102dfc2e1bcf3e1bac1561291a44f151b37b9b57142deeb9581d79d30d53f; data/institutions/goods-encoding/r3/regloss.yaml), verbatim: excludes obliged care of both spouses, exit and no-sanction conditions kept. formal and subject: encoder 1 (primary). Encoders: encoder-1 and encoder-2 are role labels for the two revision-3 dataset encoders (fresh Claude agents, never used in this slice, its reviews or the blind experiment), bundle bundle3d, aggregate 46b99b67973d363e2b09bae0d3e0165cefa1a958216f9b1288a41478b9fd94af (data/institutions/goods-encoding/r3/bundle3d-manifest.sha256; outputs r3/3d-encoder-1.yaml, r3/3d-encoder-2.yaml). Merge (data/institutions/goods-encoding/merge-log.md \"Revision 3: encoders\", 1c512b9; z3 validity of A <-> B, fluents uninterpreted): formal equivalent (universal vs negated existential over the sanctioning agent), subject identical; contested []. Encoder 1 back-gloss: For every married couple (h, w) at t: the husband cares for the wife and the wife for the husband, no rule in force obliges either care (as act or state, sanctioned or not), the wife has a permitted way to leave, and no agent holds a power to sanction her. Replaced (revision 2, cf29916; moved here verbatim per R3.4): gloss: \"A married couple care for each other (the husband for the wife and the wife for the husband) while the wife can leave the marriage and no one holds a power to sanction her: care both give and she is free not to give. For the wife, within the couple. \"Can leave\" is read at the fluent level as her permitted, unsanctioned way out at that step. \"Her care carries no sanction\" is read at the fluent level as: at that step no one holds a power to coerce her. The vocabularies record who holds a power to sanction whom, not which duty a sanction enforces, so this is the closest reading they allow; it is stricter than the gloss (any sanction power counts, not only one attached to her care).\" formal: (forall ((h agent) (w agent)) (=> (married h w t) (and (provides_care h w t) (provides_care w h t) (can_exit w t) (forall ((x agent)) (not (can_sanction x w t)))))) subject: (exists ((h agent) (w agent)) (married h w t)) Revision-2 measure_note (fix pass), replaced: Slice 2 revision 2 fix pass (docs/reviews/2026-11-06-slice2-rev2-faithfulness-review.md, majors 1 and 2; plans/priority-slice2-results.md \"Revision 2 fix pass\"). The guaranteed column is NOT MEANINGFUL for this good: a good defined as care she is free not to give cannot be forced by the rules, so a stable state would be evidence of imposition, not of the good; read only the possible column. The no-sanction conjunct is idle under strict compliance: R3's or_else is R5, whose condition is `misbehaves` (set by the free action `misbehave`), not her neglect, and she never breaches R3 in a compliant trace, so `can_sanction` is false at nearly every married step; the gloss's own claim that this reading is stricter than the gloss is wrong in the direction that matters (the one sanction attached to her care is invisible). `misbehave` is the only lapse route: `neglect` and `neglect_house` are not compliant while married (R2, R3 are must-be), so the preregistration's R6-row rationale (\"neglect stays free\") was wrong. The formula cannot see whether her care is obliged: with R5 and R6 both removed it reads stable, guaranteed by R2 and R3 (deleting R3 there: guaranteed lost 2; deleting R2: 5; reviewer probe), i.e. obligated care reads as chosen. With R6 deleted it reads fragile while R3 still binds her. Not to be used in slice 4 (the {R5, R6} pair) until a conjunct sees the duty. formal unchanged. Revision-2 history: Slice 2 revision 2 (plans/priority-slice2.md R2.3; cf29916). Gloss from R2.3, verbatim. formal and subject: encoder 1 (primary). Encoders: encoder-1 and encoder-2 are role labels for the two revision-2 fresh agents, distinct from the revision-1 encoders and never used as builders or reviewers in this slice. Bundle bundle2, aggregate hash 7962473270d59000b21a0a5afae434725e1946d9d19e292e5d9cc5fbad93a5da (data/institutions/goods-encoding/r2/bundle-manifest.sha256; the full encoder prompt is inside the hashed bundle, template in r2/prompt-template.md). Merge (data/institutions/goods-encoding/merge-log.md \"Revision 2\", 68d8eb2; z3 validity of A <-> B, fluents uninterpreted, formal and subject separately): formal equivalent (universal vs negated existential over the sanctioning agent), subject character-identical; contested []. Encoder 1 back-gloss: For every married couple at t, the husband cares for the wife, the wife cares for the husband, the wife has a permitted unsanctioned way out, and no one holds a power to coerce the wife. Known limit (R2.3): no fluent says whether her care is obliged, so exit and no-sanction are the fluent-level proxies for \"chosen\". Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people. "
  }
 ]

@@ -488,10 +488,10 @@ def test_derived_fluent_validation_errors():
     assert "'q' is neither a param, a role nor a bound variable" in errs(fluents=fl[:5] + [bad] + fl[6:])
     bad = dict(fl[5]); bad["derived"] = "(exists ((t2 step)) (in_custody s))"
     assert "is not agent" in errs(fluents=fl[:5] + [bad] + fl[6:])
-    # `enabled` is not a condition primitive: conditions see it as an undeclared fluent
+    # `enabled` is not a condition primitive (R3.2: a clear error, formerly an undeclared-fluent error)
     rules = [r.model_dump() for r in base.rules]
     rules[2]["conditions"] = "(enabled use_force o s)"
-    assert "undeclared fluent 'enabled'" in errs(rules=rules)
+    assert "(enabled ...) is only available inside a derived fluent's definition" in errs(rules=rules)
 
 
 def test_derived_fluent_cycles_are_errors():

@@ -32,25 +32,24 @@ def keeper(extra_rules=()):
         "expected_properties": {"held_persists": "persists"},
     })
     props = {
-        "held_persists": Property(name="held_persists", kind="freedom", formal="(held ward t)"),
+        "held_persists": Property(name="held_persists", kind="freedom", polarity="unfreedom", formal="(held ward t)"),
         "held_reachable": Property(name="held_reachable", kind="structure", formal="(held ward t)"),
-        "ghost": Property(name="ghost", kind="goods", formal="(unknown_fluent ward t)"),
+        "ghost": Property(name="ghost", kind="goods", polarity="good", check="persists", encoders=["e1", "e2"], contested=[],
+                          formal="(unknown_fluent ward t)", subject="(unknown_fluent ward t)",
+                          primary_measure="possible", primary_measure_reason="test fixture"),
     }
     return inst, props
-
-
-UNF = ra.UNFREEDOM | {"held_persists", "held_reachable", "held2_persists"}
 
 
 def keeper_free():
     """keeper with held_reachable promoted to a freedom property, so prohibiting seize (R1) moves it reachable>open."""
     inst, props = keeper()
-    props["held_reachable"] = props["held_reachable"].model_copy(update={"kind": "freedom"})
+    props["held_reachable"] = Property(name="held_reachable", kind="freedom", polarity="unfreedom", formal="(held ward t)")
     return inst, props
 
 
 def loads(res):
-    return {a.rule_id: (a.load_freedom, a.load_goods, a.permission_removed, sorted((b, c) for _, b, c in a.flips),
+    return {a.rule_id: (a.load_freedom, a.load_goods_guaranteed, a.load_goods_possible, a.permission_removed, sorted((b, c) for _, b, c in a.flips),
                         a.inconsistent_after) for a in res}
 
 
@@ -60,14 +59,19 @@ def test_kind_required_by_loader(tmp_path):
     with pytest.raises(RulesLoadError, match="kind"):
         load_properties(p)
     p.write_text(json.dumps([{"name": "x", "kind": "freedom", "formal": "(held ward t)"}]))
-    assert load_properties(p)["x"].kind == "freedom"
+    with pytest.raises(RulesLoadError, match="polarity"):  # revision 5: a freedom property must declare its polarity
+        load_properties(p)
+    p.write_text(json.dumps([{"name": "x", "kind": "freedom", "polarity": "unfreedom", "formal": "(held ward t)"}]))
+    assert load_properties(p)["x"].kind == "freedom" and load_properties(p)["x"].polarity == "unfreedom"
+    p.write_text(json.dumps([{"name": "x", "kind": "structure", "formal": "(held ward t)"}]))
+    assert load_properties(p)["x"].polarity is None  # other kinds are not constrained
 
 
 def test_basic_flip_and_applicability():
     inst, props = keeper()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
     a2 = res["R2"]
-    assert a2.flips == [("held_persists", "persists", "fails")] and a2.load_freedom == 1 and a2.load_goods == 0
+    assert a2.flips == [("held_persists", "persists", "fails")] and a2.load_freedom == 1 and a2.load_goods_guaranteed == 0 == a2.load_goods_possible
     assert a2.not_applicable == ["ghost"] and a2.applicable == 2  # not only expected_properties; ghost skipped
     assert res["R1"].deregulated and not res["R1"].permission_removed
 
@@ -100,7 +104,6 @@ def test_b_inert_rule_changes_no_load():
 
 
 def test_c_deleting_exit_must_not_only_opens_exit(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)  # treat the fixture property as an unfreedom
     inst, props = keeper()
     for k in (3, 4, 5):
         a = next(a for a in ra.ablate(inst, props, k=k) if a.rule_id == "R2")
@@ -109,16 +112,23 @@ def test_c_deleting_exit_must_not_only_opens_exit(monkeypatch):
         assert a.flip_directions == {"held_persists": "freedom_up"}
 
 
-def test_direction_unsigned_without_polarity():
+def test_direction_read_from_kind():
+    """Revision 5: a freedom property signs by its kind (no name table); any other kind, or no property, is unsigned."""
     inst, props = keeper()
     a = next(a for a in ra.ablate(inst, props, k=4) if a.rule_id == "R2")
-    assert (a.load_freedom, a.load_freedom_unsigned, a.load_freedom_up) == (1, 1, 0)
-    assert ra.flip_direction("subject_cannot_exit", "reachable", "open") == "freedom_up"
-    assert ra.flip_direction("subject_cannot_exit", "open", "reachable") == "freedom_down"
+    assert (a.load_freedom, a.load_freedom_unsigned, a.load_freedom_up) == (1, 0, 1)
+    fr, st = props["held_persists"], props["held_reachable"]
+    assert ra.flip_direction(fr, "reachable", "open") == "freedom_up"
+    assert ra.flip_direction(fr, "open", "reachable") == "freedom_down"
+    assert ra.flip_direction(st, "reachable", "open") == "unsigned" and ra.flip_direction(None, "reachable", "open") == "unsigned"
+    assert not hasattr(ra, "UNFREEDOM")
+    # a never-listed name signs too: the mwpa-suit R19 case (no_standing_against_spouse was missing from the old table)
+    nsas = Property(name="no_standing_against_spouse", kind="freedom", polarity="unfreedom", family="no_standing",
+                    formal="(held ward t)")
+    assert ra.flip_direction(nsas, "reachable", "open") == "freedom_up"
 
 
 def test_deregulation_sole_may_is_flagged_not_ranked(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper_free()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4) if a.variant == "deleted"}
     assert res["R1"].deregulated and not res["R1"].permission_removed  # sole may on seize
@@ -180,7 +190,7 @@ def chain(n=7):
         "rules": [{"id": f"R{i}", "attribute": "agent", "deontic": "may", "aim": f"(a{i} x)",
                    "conditions": "true" if i == 1 else f"(f{i - 1} x)", "strand": "rival"} for i in range(1, n + 1)],
         "expected_properties": {"goal": "reachable"}})
-    return inst, {"goal": Property(name="goal", kind="freedom", formal=f"(f{n} agent t)")}
+    return inst, {"goal": Property(name="goal", kind="freedom", polarity="unfreedom", formal=f"(f{n} agent t)")}
 
 
 def test_e_k_disagreement_nonempty_when_horizon_matters():
@@ -193,7 +203,6 @@ def test_e_k_disagreement_nonempty_when_horizon_matters():
 
 
 def test_cli_ablate_writes_json(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     from philengine import cli_rules
     inst, props = keeper_free()
     (tmp_path / "i.json").write_text(json.dumps([inst.model_dump(mode="json")]))
@@ -214,9 +223,8 @@ def test_cli_ablate_writes_json(tmp_path, capsys, monkeypatch):
 
 
 def test_family_collapses_twin_properties(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", ra.UNFREEDOM | {"held_persists", "held2_persists"})
     inst, props = keeper()
-    props["held2_persists"] = Property(name="held2_persists", kind="freedom", formal="(held ward t)")
+    props["held2_persists"] = Property(name="held2_persists", kind="freedom", polarity="unfreedom", formal="(held ward t)")
     assert props["held2_persists"].family == "held2_persists" and props["held_persists"].family == "held_persists"
     a = next(a for a in ra.ablate(inst, props, k=4) if a.rule_id == "R2")
     assert a.load_freedom_up == 2 and a.families_up == ["held2_persists", "held_persists"]
@@ -233,16 +241,15 @@ R4 = {"id": "R4", "attribute": "keeper", "deontic": "must_not", "aim": "(seize k
 def keeper_down(mixed=False):
     """keeper + R4 (must_not seize, always): held_reachable is open; deleting R4 makes it reachable (freedom_down)."""
     inst, props = keeper([R4])
-    props["held_reachable"] = props["held_reachable"].model_copy(update={"kind": "freedom"})
+    props["held_reachable"] = Property(name="held_reachable", kind="freedom", polarity="unfreedom", formal="(held ward t)")
     if mixed:  # u2 holds_to_k > violated on the same deletion (freedom_up), same family as held_reachable
-        props["u2"] = Property(name="u2", kind="freedom", formal="(not (held ward t))", check="invariant")
+        props["u2"] = Property(name="u2", kind="freedom", polarity="unfreedom", formal="(not (held ward t))", check="invariant")
         for n in ("held_reachable", "u2"):
             props[n] = props[n].model_copy(update={"family": "held"})
     return inst, props
 
 
 def test_ranking_ignores_down_flips_pipeline(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper_down()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
     assert res["R4"].flips == [("held_reachable", "open", "reachable")]
@@ -252,7 +259,6 @@ def test_ranking_ignores_down_flips_pipeline(monkeypatch):
 
 
 def test_mixed_family_counts_in_neither_direction(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF | {"u2"})
     inst, props = keeper_down(mixed=True)
     a = next(a for a in ra.ablate(inst, props, k=4) if a.rule_id == "R4")
     assert a.flip_directions == {"held_reachable": "freedom_down", "u2": "freedom_up"}
@@ -261,7 +267,6 @@ def test_mixed_family_counts_in_neither_direction(monkeypatch):
 
 
 def test_prohibit_leak_sole_regulator_vs_true_condition(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper_free()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
     assert res["R1~prohibit"].offcondition_free and res["R1~prohibit"].load_freedom_up == 1  # loads still shown
@@ -275,7 +280,6 @@ def test_prohibit_leak_sole_regulator_vs_true_condition(monkeypatch):
 
 
 def test_prohibit_variant_of_sole_may_is_offcondition_and_unranked(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper_free()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
     assert res["R1"].deregulated and res["R1"].variant == "deleted"
@@ -297,12 +301,12 @@ def test_explicit_property_check_wins_and_source_reported():
     assert ra.check_source("held_persists", inst, {}, props) == ("persists", "expected")
     assert ra.check_source("x_persists", inst, {}, props) == ("persists", "suffix")
     assert ra.check_source("x", inst, {"x": "invariant"}, props) == ("invariant", "majority")
-    assert ra.flip_direction("care_duty_on_women", "persists", "fails") == "freedom_up"
-    assert ra.flip_direction("care_duty_on_women", "fails", "persists") == "freedom_down"
+    cdw = Property(name="care_duty_on_women", kind="freedom", polarity="unfreedom", formal="(held ward t)", check="invariant")
+    assert ra.flip_direction(cdw, "holds_to_k", "violated") == "freedom_up"
+    assert ra.flip_direction(cdw, "persists", "fails") == "freedom_up" and ra.flip_direction(cdw, "fails", "persists") == "freedom_down"
 
 
 def test_sole_must_not_deleted_is_ranked_not_deregulated(monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper()
     d = inst.model_dump()
     d["rules"] = [r for r in d["rules"] if r["id"] != "R3"]  # R2 (must_not exit) is now the only rule on exit
@@ -372,7 +376,6 @@ def test_default_capacity_prohibit_variant_is_not_offcondition_free():
 
 
 def test_cli_ablate_scoreboard_rows(tmp_path, monkeypatch):
-    monkeypatch.setattr(ra, "UNFREEDOM", UNF)
     inst, props = keeper_free()
     (tmp_path / "i.json").write_text(json.dumps([inst.model_dump(mode="json")]))
     (tmp_path / "p.json").write_text(json.dumps([p.model_dump(mode="json") for p in props.values()]))
@@ -389,5 +392,28 @@ def test_cli_ablate_scoreboard_rows(tmp_path, monkeypatch):
     lines = board.read_text().splitlines()
     assert sum(l.startswith("| date ") for l in lines) == 1 and len(lines) == 4
     first, second = ([c.strip() for c in l.strip("|").split("|")] for l in lines[2:])
-    assert first[2] == "rules ablate" and first[3] == "1" and first[-1] == "-"
-    assert second[-1] == "0"
+    cols = [c.strip() for c in lines[0].strip("|").split("|")]
+    tc = cols.index("top_rule_changes")
+    assert first[2] == "rules ablate" and first[3] == "1" and first[tc] == "-"
+    assert second[tc] == "0"
+    assert cols[-2:] == ["goods_rows", "contested_readings"] and first[-2:] == ["0", "0"]
+
+
+# The hand table rules_ablate.UNFREEDOM as it stood before revision 5 (plans/priority.md, slice 1 revision 5), kept here
+# only to check that reading `kind` loses none of it.
+LEGACY_UNFREEDOM = frozenset({
+    "dependent_cannot_exit", "subject_cannot_exit", "subject_cannot_exit_persists", "no_standing", "no_standing_persists",
+    "financial_dependence", "financial_dependence_unpropertied", "cannot_contract", "worker_uninsured",
+    "binding_practised", "marriage_requires_binding", "care_assigned_by_sex", "reproduction_controlled_by_owner",
+    "offspring_owned", "female_parent_care_persists", "care_duty_on_women"})
+
+
+def test_dataset_freedom_properties_are_unfreedom_shaped(dataset_env):
+    """Every freedom-kind property in the dataset declares polarity: unfreedom (the loader enforces it; this asserts it
+    on the real file), and every name of the old hand table is a freedom property, so the kind-based direction signs at
+    least every flip the table signed. The residual (freedom properties the table never listed) is reported, not pinned."""
+    props = load_properties(dataset_env[1])
+    freedom = {n for n, p in props.items() if p.kind == "freedom"}
+    assert freedom and all(props[n].polarity == "unfreedom" for n in freedom)
+    assert LEGACY_UNFREEDOM <= freedom, sorted(LEGACY_UNFREEDOM - freedom)
+    print("freedom properties not in the legacy table:", sorted(freedom - LEGACY_UNFREEDOM))

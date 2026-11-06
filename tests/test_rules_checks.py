@@ -245,18 +245,23 @@ def _without(inst: InstitutionJSON, *rids: str) -> InstitutionJSON:
 
 
 def test_deleting_police_sanction_rules_removes_the_bundled_power():
-    """With `enabled` false for an action no may/must rule names, deleting police R3 (may detain) and R5 (may
-    use_force) removes can_sanction: the old shape of care_and_sanction_same_role (care implies power) goes from
-    holds to violated, and the current shape (no one but the carer sanctions) from a non-vacuous holds_to_k to a
-    vacuous one (its antecedent, some sanction power, is unreachable)."""
+    """With `enabled` false for an action no may/must rule names, deleting every police sanction rule removes
+    can_sanction. Since the L1 restatement (computational-liberation, police-crisis re-encoded to WIC 5150: the
+    facility cares during the hold, R2, and holds, R11; the officer detains, R3, and may use force, R5) the officer is
+    a non-carer holding power, so the current shape of care_and_sanction_same_role (no one but the carer sanctions) is
+    violated in the base; deleting the officer's powers (R3, R5) leaves the facility as the one role that cares and
+    holds, so it holds non-vacuously; deleting R11 as well makes its antecedent (some sanction power) unreachable, so it
+    holds only vacuously. Before the re-encode the officer was the carer and deleting R3, R5 alone did this."""
     inst, props = _dataset_inst("police-crisis")
     old = Property(name="old_shape", kind="structure", formal="(forall ((x agent) (y agent)) (=> (and (provides_care x y t) (is_subject y t)) (can_sanction x y t)))")
     cur = props["care_and_sanction_same_role"]
     ps = {"old_shape": old, cur.name: cur}
     which = {n: ["invariant"] for n in ps}
     before = {r.property: r for r in rc.run_all(inst, ps, k=6, which=which).results}
-    after = {r.property: r for r in rc.run_all(_without(inst, "R3", "R5"), ps, k=6, which=which).results}
-    assert before[cur.name].verdict == "holds_to_k" and not before[cur.name].vacuous
+    officer = {r.property: r for r in rc.run_all(_without(inst, "R3", "R5"), ps, k=6, which=which).results}
+    after = {r.property: r for r in rc.run_all(_without(inst, "R3", "R5", "R11"), ps, k=6, which=which).results}
+    assert before[cur.name].verdict == "violated" and not before[cur.name].vacuous
+    assert officer[cur.name].verdict == "holds_to_k" and not officer[cur.name].vacuous
     assert after[cur.name].verdict == "holds_to_k" and after[cur.name].vacuous and after[cur.name].antecedent_reachable is False
     assert before["old_shape"].verdict == "violated"  # power only while danger holds; care persists
     assert after["old_shape"].verdict == "violated"  # and never holds_to_k by an always-enabled unregulated action

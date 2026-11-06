@@ -266,6 +266,10 @@ def inst_derived():
 
 
 TINY = [inst_hire, inst_disability, inst_or_else, inst_or_else_bound, inst_initial, inst_two_mays, inst_state_rule, inst_derived]
+# derived obligation fluents (plans/priority-slice2.md revision 3, R3.2, test O3): differential at k in {2, 3}
+from .test_rules_obliged import inst_obliged_action, inst_obliged_household  # noqa: E402
+
+OBLIGED = [inst_obliged_household, inst_obliged_action]
 
 
 def test_reference_derived_fluents_pinned():
@@ -371,6 +375,12 @@ def test_enablement_polarity_classifier():
     assert enablement_polarity(inst, "(in_custody subject t)") == frozenset()  # no enablement: both laws apply
     inst2, props2 = inst_hire()
     assert all(is_monotone_in_enablement(inst2, p.formal) for p in props2.values())
+    # R3.2 O4 (e): `obliged` reads no `enabled`, so it is neutral (directly and through a derived fluent)
+    inst3, props3 = inst_obliged_household()
+    assert enablement_polarity(inst3, props3["mutual_obliged"].formal) == frozenset()
+    assert enablement_polarity(inst3, "(not (care_obliged wife husband t))") == frozenset()
+    assert enablement_polarity(inst3, "(obliged provides_care wife husband)") == frozenset()
+    assert enablement_polarity(inst3, props3["chosen"].formal) == {1}  # only can_exit := (enabled leave w) counts
 
 
 def engine_verdicts(inst, props, k, step_mode="one", which=None):
@@ -402,6 +412,15 @@ def test_differential_reference_vs_engine(make, step_mode, k):
             assert not problems, f"{inst.id} {r.property}/{r.check}: {problems}"
 
 
+@pytest.mark.parametrize("make", OBLIGED, ids=[f.__name__ for f in OBLIGED])
+@pytest.mark.parametrize("step_mode", ["one", "many"])
+@pytest.mark.parametrize("k", [2, 3])
+def test_differential_reference_vs_engine_obliged(make, step_mode, k):
+    """R3.2 O3: properties reading a derived obliged fluent, every check kind; engine traces replay under the reference
+    (which recomputes every derived obliged fluent from the rules, Reference.obligation)."""
+    test_differential_reference_vs_engine(make, step_mode, k)
+
+
 def test_reference_sanity_expected_values():
     """A few verdicts pinned by hand so a wrong reference cannot silently agree with a wrong engine."""
     inst, props = inst_disability()
@@ -426,8 +445,20 @@ def rename(inst: InstitutionJSON, props: dict, mapping: dict[str, str]):
 
     def sub(text):
         return pat.sub(lambda m: mapping[m.group(1)], text)
+    inverse = {v: k for k, v in mapping.items()}
+
+    def keep_field_keys(x, fields):
+        """A renamed identifier can equal a schema field name (role `subject` vs Property.subject): restore keys."""
+        if isinstance(x, dict):
+            return {(inverse[k] if k in inverse and inverse[k] in fields else k): keep_field_keys(v, fields)
+                    for k, v in x.items()}
+        if isinstance(x, list):
+            return [keep_field_keys(v, fields) for v in x]
+        return x
     inst2 = InstitutionJSON.model_validate(json.loads(sub(json.dumps(inst.model_dump()))))
-    props2 = {sub(n): Property.model_validate(json.loads(sub(json.dumps(p.model_dump())))) for n, p in props.items()}
+    pfields = set(Property.model_fields) | {"encoder", "formal", "note", "subject"}
+    props2 = {sub(n): Property.model_validate(keep_field_keys(json.loads(sub(json.dumps(p.model_dump()))), pfields))
+              for n, p in props.items()}
     return inst2, props2
 
 
@@ -438,7 +469,7 @@ def _rename_map(inst: InstitutionJSON, suffix: bool):
     return {n: f"zz{i}_{n[::-1]}" for i, n in enumerate(names)}
 
 
-@pytest.mark.parametrize("make", TINY, ids=[f.__name__ for f in TINY])
+@pytest.mark.parametrize("make", TINY + OBLIGED, ids=[f.__name__ for f in TINY + OBLIGED])
 def test_rename_preserves_verdicts_tiny(make):
     inst, props = make()
     _, before = engine_verdicts(inst, props, 3)

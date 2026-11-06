@@ -64,3 +64,34 @@ entries with a default-capacity action (seven coverture-chain entries), and `abm
 action no may/must rule names is never available" is out of date. (2) The reviewer noted the original name was a
 Hohfeldian misnomer (contracting is a power; the mechanism is a default capacity of that kind of agent, removed only by
 an express disability). Both decided 2026-11-04; see above.
+
+## Amendment 2026-11-06: derived obligation fluents
+
+computational-liberation plans/priority-slice2.md "Revision 3", R3.2 (author decision 2, engine half). A derived
+fluent's definition may read a second pseudo-predicate, `(obliged AIM a1 ... an)`, admitted exactly where `(enabled ...)`
+is: inside a `derived` definition, never in a property formula or a rule condition (both are load errors with a clear
+message; before this amendment `enabled` in a property was an undeclared-fluent warning lowered as false). `AIM` is a
+declared action (an action obligation, must-do) or a declared non-derived fluent (a state obligation, must-be, ADR 0009);
+its arity must match, and a derived fluent as `AIM` is an error, as it is as a rule's aim. `(obliged AIM args)` is true at
+step t iff `(AIM args)` is an instance (an action instance, typed and attribute-scoped; a fluent tuple inside
+`arg_roles`) and some rule instance with deontic `must` on that aim and those args has its condition true at t, free
+condition variables existential as for enablement; otherwise false, including for a non-instance.
+
+- Sanctioned and unsanctioned musts count alike: `or_else` plays no part (a duty binds whether or not a sanction backs
+  it; whether one does is visible through derived sanction powers). No `obliged_sanctioned` form.
+- `may` and `must_not` never oblige; a disability on the same instance does not cancel the obligation (a must and a
+  disability on one instance is a deontic conflict; under strict compliance the traces where both conditions hold are
+  pruned).
+- Independent of `default_capacity` (which changes only `enabled`) and of the compliance mode (obliged reads the rule
+  set and the state, not whether the trace complied). Under strict compliance `obliged F and not F` is unreachable for
+  every must-be; under `sanctioned` it is reachable for a sanctioned must-be (a breach) and not for an unsanctioned one.
+- Defined at every step 0..k, for state and action aims alike. Deleting a `must` makes its instances unobliged;
+  `~prohibit` ablation variants touch only `may` rules and never change it.
+- Cycles: a derived fluent depends on the conditions of every `must` rule on each aim it asks `obliged` of, so a cycle
+  through a must condition is an error. A warning flags an aim no `must` names (constant false), as for an unregulated
+  `enabled`.
+
+Both lowerings implement it independently: `rules_lower.Grounded.obliged` and `rules_reference.Reference.obligation`
+(rule instances read directly, must only). The dataset exposes it per entry through one derived fluent, `care_obliged`,
+not through a property-level pseudo-predicate (reasons: plans/priority-slice2.md R3.2). Tests:
+tests/test_rules_obliged.py (O1, O2, O4 a-c, O6), tests/test_rules_meta.py (O3 differential, O4 d-e).

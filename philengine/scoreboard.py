@@ -12,7 +12,7 @@ from pathlib import Path
 
 RULES_COLUMNS = ("date", "engine", "command", "rows", "verdict_changes", "z3_unknowns", "wall_s", "inconsistent")
 ABLATE_COLUMNS = ("date", "engine", "command", "entries", "rows", "uncounted", "inconsistent_after",
-                  "k_disagreements", "top_rule_changes")
+                  "k_disagreements", "top_rule_changes", "goods_rows", "contested_readings")
 KINDS = {"rules": RULES_COLUMNS, "ablate": ABLATE_COLUMNS}
 
 
