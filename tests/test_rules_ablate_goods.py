@@ -18,9 +18,11 @@ TRIVIAL = "(forall ((s agent)) (=> (is_subject s t) (is_subject s t)))"  # holds
 HOME = "(forall ((s agent)) (=> (is_subject s t) (at_home s t)))"
 
 
-def good(name, formal, contested=(), subject=SUBJ, encoders=("e1", "e2"), **kw):
+def good(name, formal, contested=(), subject=SUBJ, encoders=("e1", "e2"), primary_measure="possible",
+         primary_measure_reason="test fixture", **kw):
     return Property(name=name, kind="goods", polarity="good", check="persists", encoders=list(encoders),
-                    contested=list(contested), formal=formal, subject=subject, **kw)
+                    contested=list(contested), formal=formal, subject=subject, primary_measure=primary_measure,
+                    primary_measure_reason=primary_measure_reason, **kw)
 
 
 ROLES = [{"name": "carer"}, {"name": "subj"}]
@@ -314,7 +316,7 @@ def test_4h_subject_with_a_free_step_variable_is_a_clean_load_error(tmp_path):
 def test_4d_loader_rejects_missing_subject_undeclared_subject_fluent_and_unimplied_subject(tmp_path):
     with pytest.raises(ValueError, match="subject"):
         Property(name="x", kind="goods", polarity="good", check="persists", encoders=["a", "b"], contested=[],
-                 formal=CARED)
+                 formal=CARED, primary_measure="possible", primary_measure_reason="r")
     with pytest.raises(ValueError, match="does not imply"):
         good("x", CARED, subject="(exists ((s agent)) (at_home s t))")
     with pytest.raises(ValueError, match="does not imply"):  # an alternative's premise is checked against its subject
@@ -461,7 +463,8 @@ def test_null_strand_is_accepted_and_required():
         InstitutionJSON.model_validate(d)
 
 
-GOODS_BASE = {"kind": "goods", "polarity": "good", "check": "persists", "subject": "(held ward t)"}
+GOODS_BASE = {"kind": "goods", "polarity": "good", "check": "persists", "subject": "(held ward t)",
+              "primary_measure": "possible", "primary_measure_reason": "r"}
 
 
 @pytest.mark.parametrize("item,match", [
@@ -534,9 +537,12 @@ def test_cli_ablate_readings_table(tmp_path):
         "| entry | rule | ranked | tag | k | up | G lost [e1] | G gained [e1] | G reading [e1] | G agreement [e1] | "
         "G lost [e2] | G gained [e2] | G reading [e2] | G agreement [e2] | P lost [e1] | P gained [e1] | "
         "P reading [e1] | P agreement [e1] | P lost [e2] | P gained [e2] | P reading [e2] | P agreement [e2] | "
+        "primary lost [e1] | primary gained [e1] | primary reading [e1] | primary agreement [e1] | "
+        "primary lost [e2] | primary gained [e2] | primary reading [e2] | primary agreement [e2] | "
         "goods changes |")
     assert ("| t-care | R2 | yes | superadditive | 4 | 0 | 1 | 0 | guarantee-carrying | agree | 1 | 0 | "
-            "guarantee-carrying | agree | 0 | 0 | unread | unread | 0 | 0 | unread | unread | cared: stable>fragile |") in txt
+            "guarantee-carrying | agree | 0 | 0 | unread | unread | 0 | 0 | unread | unread | "
+            "0 | 0 | unread | unread | 0 | 0 | unread | unread | cared: stable>fragile |") in txt  # possible-primary
     assert "cared: stable>n/a" in txt  # R1~prohibit: an n/a move is printed
 
 
@@ -546,3 +552,198 @@ def test_dataset_goods_have_two_encoders_contested_and_subject(dataset_env):
         if p.kind == "goods":
             assert len(set(p.encoders)) >= 2 and p.contested is not None and p.polarity == "good", n
             assert p.subject, n
+
+
+# ------------------------------------------------------------------ R3.1 primary column (plans/priority-slice2.md
+# revision 3; kills MP1 the primary reads the other measure, MP2 pooling, MP3 an alternative reads a default measure)
+def _two_measures(inst_props, rid, k=4):
+    m = ra.ablate_multi_k(*inst_props, ks=(k,))
+    return m, row([x.by_k[k] for x in m], rid)
+
+
+def test_P1_primary_reads_each_good_under_its_own_measure_only():
+    inst, _ = care()
+    props = {"cared_g": good("cared_g", CARED, primary_measure="guaranteed"),
+             "cared_p": good("cared_p", CARED, primary_measure="possible")}
+    _, a = _two_measures((inst, props), "R2")  # both stable > fragile: guarantee lost, possibility kept
+    assert a.goods_states == {"cared_g": ["stable", "fragile"], "cared_p": ["stable", "fragile"]}
+    assert (a.load_goods_guaranteed, a.load_goods_possible) == (2, 0)
+    assert (a.load_goods_primary, a.goods_families_primary_lost) == (1, ["cared_g"])
+    assert a.goods_primary_measures == {"cared_g": "guaranteed", "cared_p": "possible"}
+    assert a.reading("primary") == "carrying (guaranteed)"
+    assert ra.strand_agreement(a.strand, a.reading("primary")) == "agree"  # superadditive
+    # a guaranteed-primary good going fragile > absent: possible lost 1, primary lost 0
+    inst2, _ = care2()
+    _, b = _two_measures((inst2, {"cared": good("cared", CARED, primary_measure="guaranteed")}), "R2~prohibit")
+    assert b.goods_states["cared"] == ["fragile", "absent"]
+    assert (b.load_goods_possible, b.load_goods_guaranteed, b.load_goods_primary) == (1, 0, 0)
+    assert b.reading("primary") == "unread" and b.reading("possible") == "constitutive"
+    # the same row read with a possible-primary good: primary lost 1, carrying (possible)
+    _, c = _two_measures((inst2, {"cared": good("cared", CARED, primary_measure="possible")}), "R2~prohibit")
+    assert (c.load_goods_primary, c.reading("primary")) == (1, "carrying (possible)")
+    # gains: primary gained reads the primary measure too (barred: absent > fragile is a possible gain only)
+    inst3, _ = barred()
+    _, d = _two_measures((inst3, {"home": good("home", HOME, primary_measure="guaranteed")}), "R3")
+    assert d.goods_states["home"] == ["absent", "fragile"]
+    assert (d.load_goods_possible_gained, d.load_goods_primary_gained) == (1, 0)
+    _, e = _two_measures((inst3, {"home": good("home", HOME, primary_measure="possible")}), "R3")
+    assert (e.load_goods_primary_gained, e.goods_families_primary_gained) == (1, ["home"])
+
+
+def test_P1b_primary_reading_words():
+    fm = {"a": "guaranteed", "b": "possible"}
+    assert ra.primary_reading(1, [], fm) == "tying"
+    assert ra.primary_reading(0, ["a"], fm) == "carrying (guaranteed)"
+    assert ra.primary_reading(0, ["b"], fm) == "carrying (possible)"
+    assert ra.primary_reading(0, ["a", "b"], fm) == "carrying (both)"
+    assert ra.primary_reading(1, ["a"], fm) == "hard case (primary)"
+    assert ra.primary_reading(0, [], fm) == "unread"
+    assert ra.strand_agreement("superadditive", "carrying (both)") == "agree"
+    assert ra.strand_agreement("tying", "carrying (possible)") == "mismatch"
+    assert ra.strand_agreement("tying", "hard case (primary)") == "mismatch"
+    assert ra.strand_agreement("rival", "carrying (guaranteed)") == "no_row"
+
+
+def test_P2_alternative_inherits_the_primarys_measure():
+    inst, _ = care()
+    props = {"cared": good("cared", TRIVIAL, primary_measure="guaranteed", contested=[{"encoder": "e2", "formal": CARED}])}
+    assert ra.expand_contested(props)["cared@e2"].primary_measure is None  # carries none of its own
+    assert ra.primary_measure_of("cared@e2", ra.expand_contested(props)) == "guaranteed"
+    m, a = _two_measures((inst, props), "R2")  # alternative stable > fragile, primary stable > stable
+    assert a.goods_alt_states["cared@e2"] == ["stable", "fragile"]
+    assert a.load_goods_by_encoder["e2"]["primary"]["lost"] == 1 and a.load_goods_by_encoder["e1"]["primary"]["lost"] == 0
+    assert a.load_goods_primary == 0  # never pooled into the primary load
+    assert a.reading_by_encoder("primary") == {"e1": "unread", "e2": "carrying (guaranteed)"}
+    summ = ra.summarize({"t": m}, (4,))["entries"]["t"]
+    assert summ["contested_readings"] == ["R2"]  # also by the guaranteed column here
+    # the same alternative under a possible-primary good: stable > fragile keeps the possibility, primary lost 0
+    props["cared"] = props["cared"].model_copy(update={"primary_measure": "possible"})
+    _, b = _two_measures((inst, props), "R2")
+    assert b.load_goods_by_encoder["e2"]["primary"]["lost"] == 0
+    # an alternative carrying its own measure is rejected
+    for k in ("primary_measure", "primary_measure_reason"):
+        with pytest.raises(ValueError, match="not allowed on an alternative"):
+            good("x", TRIVIAL, contested=[{"encoder": "e2", "formal": CARED, k: "guaranteed"}])
+
+
+def test_P2b_primary_reading_difference_by_encoder_is_a_contested_reading():
+    # both measure columns agree between the encoders (each loses one guarantee, no possibility); only the primary
+    # column differs: e1 loses the guarantee of a guaranteed-primary good, e2 that of a possible-primary good
+    inst, _ = care()
+    props = {"g1": good("g1", CARED, primary_measure="guaranteed", contested=[{"encoder": "e2", "formal": TRIVIAL}]),
+             "g2": good("g2", TRIVIAL, primary_measure="possible", contested=[{"encoder": "e2", "formal": CARED}])}
+    m, a = _two_measures((inst, props), "R2")
+    for ms in ("guaranteed", "possible"):
+        assert len(set(a.reading_by_encoder(ms).values())) == 1
+    assert a.reading_by_encoder("primary") == {"e1": "carrying (guaranteed)", "e2": "unread"}
+    assert ra.summarize({"t": m}, (4,))["entries"]["t"]["contested_readings"] == ["R2"]
+
+
+def _write_props(tmp_path, items):
+    p = tmp_path / "p.json"
+    p.write_text(json.dumps(items))
+    return p
+
+
+GOOD_ITEM = {"kind": "goods", "polarity": "good", "check": "persists", "subject": "(held ward t)", "encoders": ["a", "b"],
+             "contested": [], "formal": "(held ward t)", "primary_measure": "possible", "primary_measure_reason": "r"}
+
+
+@pytest.mark.parametrize("change,match", [
+    ({"primary_measure": None}, "requires primary_measure"),
+    ({"primary_measure_reason": None}, "non-empty primary_measure_reason"),
+    ({"primary_measure_reason": "  "}, "non-empty primary_measure_reason"),
+    ({"primary_measure_reason": "one\ntwo"}, "one line"),
+    ({"primary_measure_reason": "x" * 201}, "at most 200"),
+    ({"primary_measure": "both"}, "primary_measure"),
+])
+def test_P3_loader_rejects_goods_without_a_valid_measure(tmp_path, change, match):
+    item = {"name": "x", **GOOD_ITEM, **change}
+    item = {k: v for k, v in item.items() if v is not None}
+    with pytest.raises(RulesLoadError, match=match):
+        load_properties(_write_props(tmp_path, [item]))
+
+
+@pytest.mark.parametrize("key", ["primary_measure", "primary_measure_reason"])
+@pytest.mark.parametrize("kind", ["freedom", "structure"])
+def test_P3_loader_rejects_the_keys_on_a_non_goods_property(tmp_path, key, kind):
+    item = {"name": "x", "kind": kind, "formal": "(held ward t)", key: "possible"}
+    if kind == "freedom":
+        item["polarity"] = "unfreedom"
+    with pytest.raises(RulesLoadError, match="only for kind goods"):
+        load_properties(_write_props(tmp_path, [item]))
+
+
+def test_P3_loader_rejects_a_family_with_two_measures(tmp_path):
+    a = {"name": "x", **GOOD_ITEM, "family": "f"}
+    b = {"name": "y", **GOOD_ITEM, "family": "f", "primary_measure": "guaranteed"}
+    with pytest.raises(RulesLoadError, match="goods family 'f': members differ in primary_measure"):
+        load_properties(_write_props(tmp_path, [a, b]))
+    b["primary_measure"] = "possible"
+    assert set(load_properties(_write_props(tmp_path, [a, b]))) == {"x", "y"}
+    assert load_properties(_write_props(tmp_path, [{"name": "x", **GOOD_ITEM, "primary_measure_reason": "x" * 200}]))
+
+
+PRIMARY_KEYS = ("load_goods_primary", "load_goods_primary_gained", "goods_families_primary_lost",
+                "goods_families_primary_gained", "goods_families_primary_mixed", "goods_primary_measures")
+
+
+def _without_primary(m):
+    d = m.to_dict()
+    for a in d["by_k"].values():
+        for k in PRIMARY_KEYS:
+            a.pop(k)
+        for e in a["load_goods_by_encoder"].values():
+            e.pop("primary")
+    for x in d["loads"].values():
+        for k in ("load_goods_primary", "load_goods_primary_gained"):
+            x.pop(k)
+        for v in x["load_goods_by_encoder"].values():
+            v.pop("primary")
+        x["reading"].pop("primary")
+        x["reading_by_encoder"].pop("primary")
+    return d
+
+
+@pytest.mark.parametrize("make", [care, care2, barred, all_states])
+def test_P4_flipping_every_primary_measure_changes_no_measure_field(make):
+    inst, props = make()
+    flip = {"possible": "guaranteed", "guaranteed": "possible"}
+    flipped = {n: p.model_copy(update={"primary_measure": flip[p.primary_measure]}) for n, p in props.items()}
+    a = ra.ablate_multi_k(inst, props, ks=(3, 4))
+    b = ra.ablate_multi_k(inst, flipped, ks=(3, 4))
+    assert [_without_primary(m) for m in a] == [_without_primary(m) for m in b]
+    sa, sb = (ra.summarize({"t": x}, (3, 4))["entries"]["t"] for x in (a, b))
+    keep = ("top_rules", "constitutive", "hard_cases", "guarantee_carrying", "hard_cases_guaranteed",
+            "goods_not_applicable_rows", "constitutive_labels")
+    assert {k: sa[k] for k in keep} == {k: sb[k] for k in keep}
+    assert ra.scoreboard_stats({"t": a}, (3, 4)) == ra.scoreboard_stats({"t": b}, (3, 4))
+
+
+def test_P5_summary_primary_lists_and_readings_table():
+    inst, _ = care()
+    props = {"cared": good("cared", CARED, primary_measure="guaranteed")}
+    m = ra.ablate_multi_k(inst, props, ks=(4,))
+    summ = ra.summarize({"t": m}, (4,))["entries"]["t"]
+    assert summ["primary_carrying"] == ["R2"] and summ["hard_cases_primary"] == []
+    assert summ["top_goods_rules"] == ["R2"] and summ["top_load_goods_primary"] == 1
+    assert summ["guarantee_carrying"] == ["R2"] and summ["constitutive"] == []  # measure lists unchanged
+    d = next(x for x in m if x.rule_id == "R2").to_dict()["loads"]["4"]
+    assert d["load_goods_primary"] == 1 and d["reading"]["primary"] == "carrying (guaranteed)"
+    assert d["load_goods_by_encoder"]["e1"]["primary"] == 1
+    txt = ra.readings_table({"t": m}, (4,))
+    hdr = txt.splitlines()[0]
+    assert hdr.endswith("| P agreement [e2] | primary lost [e1] | primary gained [e1] | primary reading [e1] | "
+                        "primary agreement [e1] | primary lost [e2] | primary gained [e2] | primary reading [e2] | "
+                        "primary agreement [e2] | goods changes |")
+    line = next(x for x in txt.splitlines() if "| R2 |" in x)
+    assert "| 1 | 0 | carrying (guaranteed) | agree | 1 | 0 | carrying (guaranteed) | agree | cared: stable>fragile |" in line
+    # possible-primary: no goods ranking (nothing lost in its sense)
+    m2 = ra.ablate_multi_k(inst, {"cared": good("cared", CARED, primary_measure="possible")}, ks=(4,))
+    s2 = ra.summarize({"t": m2}, (4,))["entries"]["t"]
+    assert s2["top_goods_rules"] == [] and s2["top_load_goods_primary"] == 0 and s2["primary_carrying"] == []
+    # the care-act label prints beside the primary reading
+    inst2, _ = care2()
+    m3 = ra.ablate_multi_k(inst2, {"cared": good("cared", CARED, primary_measure="possible")}, ks=(4,))
+    line = next(x for x in ra.readings_table({"t": m3}, (4,)).splitlines() if "| R2~prohibit |" in x)
+    assert "| carrying (possible) (prohibition of the care act) | agree |" in line

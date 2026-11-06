@@ -17,16 +17,23 @@ with a readable message (one line per error).
 Optional typing / initial-state fields (all additive; absent = the untyped, empty-init behaviour):
   FluentDecl.arg_roles   one role per argument position; a tuple outside the roles is constant false
   FluentDecl.derived     (ADR 0013) an S-expression defining the fluent from what the rules enable, over
-                         `(enabled ACTION arg ...)` and other fluents; `params` names the argument positions.
-                         A derived fluent has no frame axiom and may not appear in effects, initial, defaults,
-                         initial_free, or as a rule's aim (loader error). Grammar:
-                           E := (enabled ACTION t ...) | (FLUENT t ...) | FLUENT
+                         `(enabled ACTION arg ...)`, `(obliged AIM arg ...)` and other fluents; `params` names the
+                         argument positions. A derived fluent has no frame axiom and may not appear in effects, initial,
+                         defaults, initial_free, or as a rule's aim (loader error). Grammar:
+                           E := (enabled ACTION t ...) | (obliged AIM t ...) | (FLUENT t ...) | FLUENT
                               | (not E) | (and E ...) | (or E ...) | (=> E E) | (iff E E) | (= t t)
                               | (forall ((x agent) ...) E) | (exists ((x agent) ...) E)
                            t := a name in `params`, a role literal, or a quantified variable
                          (enabled a x y) holds at t iff (a x y) is an action instance and some may/must rule on
                          it has its condition true at t and no must_not disability (or_else null) on it does;
                          an action no may/must rule names counts as enabled (warning).
+                         (obliged AIM x y) (ADR 0013 amendment 2026-11-06; plans/priority-slice2.md R3.2) holds at t
+                         iff (AIM x y) is an instance (action instance, or fluent tuple inside arg_roles) and some
+                         `must` rule instance on it has its condition true at t; AIM is a declared action or a
+                         non-derived fluent; or_else, may, must_not, default_capacity and compliance play no part.
+                         Neither pseudo-predicate is allowed in a property formula or a rule condition.
+  Property.primary_measure  kind goods (R3.1): guaranteed | possible, with a one-line primary_measure_reason; the
+                         ablation's primary column reads the good under it (rules_ablate)
   Rule.load_bearing      dataset marks the rules a headline claim rests on; gate (a) fails if one is inert
   ActionDecl.arg_roles   one role (or null) per parameter; `args` may also be given as [[name, role], ...]
   Rule.var_roles         {variable: role} for aim / condition variables (overrides the prefix heuristic)
@@ -204,16 +211,29 @@ class InstitutionJSON(BaseModel):
 
 
 PropertyKind = Literal["freedom", "goods", "structure", "failure_mode"]  # priority.md decision 1
+PRIMARY_REASON_MAX = 200  # plans/priority-slice2.md R3.1: primary_measure_reason is one line of at most 200 characters
 
 
 class ContestedAlternative(BaseModel):
     """A second encoder's formula for a goods property that is not logically equivalent to the primary `formal`
     (plans/priority-slice2.md section 2, merge step 5). Evaluated beside the primary in every ablation run, in its own
-    columns; never pooled with, averaged into, or chosen over the primary."""
+    columns; never pooled with, averaged into, or chosen over the primary. It inherits the property's
+    `primary_measure` and may not carry its own (revision 3, R3.1: the measure is a value call about the good, not
+    about a formula)."""
     encoder: str
     formal: str
     note: str = ""
     subject: str | None = None  # revision 2 (R2.1): its own bearer formula; None = the primary's `subject`
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_own_measure(cls, data):
+        if isinstance(data, dict):
+            own = [k for k in ("primary_measure", "primary_measure_reason") if k in data]
+            if own:
+                raise ValueError(f"contested alternative of {data.get('encoder', '?')!r}: {', '.join(own)} is not "
+                                 "allowed on an alternative; it inherits the property's primary_measure (R3.1)")
+        return data
 
 
 class Property(BaseModel):
@@ -243,6 +263,12 @@ class Property(BaseModel):
     # imply it (rules_goods.premise_implies_subject, fluents uninterpreted); per entry it may name only declared
     # fluents (rules_ablate.goods_subject_errors). rules_checks.goods_queries reads the four goods states from it.
     subject: str | None = None
+    # kind goods only, required there (plans/priority-slice2.md revision 3, R3.1; author decision 1, a value call):
+    # the measure under which the good is read in the ablation's third column, `primary`. A one-line reason (no
+    # newline, at most 200 characters). All goods in one family share it (load_properties); a contested alternative
+    # inherits it. `measure_note` stays free text the engine ignores.
+    primary_measure: Literal["guaranteed", "possible"] | None = None
+    primary_measure_reason: str | None = None
 
     @model_validator(mode="after")
     def _family_default(self):
@@ -290,6 +316,22 @@ class Property(BaseModel):
                     raise ValueError(f"property {self.name!r}: the implication premise of the {what} does not imply "
                                      f"its subject ({'z3 unknown' if ok is None else 'counterexample exists'}; "
                                      "fluents uninterpreted)")
+        if self.kind == "goods":
+            if self.primary_measure is None:
+                raise ValueError(f"property {self.name!r}: kind goods requires primary_measure (guaranteed | possible; "
+                                 "plans/priority-slice2.md R3.1)")
+            r = self.primary_measure_reason
+            if r is None or not r.strip():
+                raise ValueError(f"property {self.name!r}: kind goods requires a non-empty primary_measure_reason")
+            if "\n" in r or "\r" in r:
+                raise ValueError(f"property {self.name!r}: primary_measure_reason must be one line (no newline)")
+            if len(r) > PRIMARY_REASON_MAX:
+                raise ValueError(f"property {self.name!r}: primary_measure_reason has {len(r)} characters; at most "
+                                 f"{PRIMARY_REASON_MAX}")
+        else:
+            own = [k for k in ("primary_measure", "primary_measure_reason") if getattr(self, k) is not None]
+            if own:
+                raise ValueError(f"property {self.name!r}: {', '.join(own)} is only for kind goods")
         if self.contested:
             from . import sexpr
             for alt in self.contested:
@@ -426,9 +468,21 @@ def load_properties(path: str | Path) -> dict[str, Property]:
         if p.name in out:
             errs.append(f"{path}: duplicate property {p.name!r}")
         out[p.name] = p
+    errs += family_measure_errors(out)
     if errs:
         raise RulesLoadError("\n".join(errs))
     return out
+
+
+def family_measure_errors(props: dict[str, Property]) -> list[str]:
+    """R3.1: all goods in one `family` share `primary_measure` (a load error otherwise)."""
+    fam: dict[str, dict[str, list[str]]] = {}
+    for p in props.values():
+        if p.kind == "goods":
+            fam.setdefault(p.family, {}).setdefault(str(p.primary_measure), []).append(p.name)
+    return [f"goods family {f!r}: members differ in primary_measure ("
+            + "; ".join(f"{m}: {', '.join(sorted(ns))}" for m, ns in sorted(by.items())) + ")"
+            for f, by in sorted(fam.items()) if len(by) > 1]
 
 
 def default_paths() -> tuple[Path, Path]:

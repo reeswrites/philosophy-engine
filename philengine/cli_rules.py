@@ -335,7 +335,7 @@ def cmd_ablate(a) -> int:
     full = {}
     results = {}
     kinds = rules_ablate.check_kinds(all_insts)
-    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "goods G lost-gained+ / P lost-gained+", "reading G / P", "note", "orphaned_or_else", "k-disagree", "flips")
+    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "goods G lost-gained+ / P lost-gained+ / Pr lost-gained+", "reading G / P / Pr", "note", "orphaned_or_else", "k-disagree", "flips")
 
     def row(m):
         first = m.by_k[ks[0]]
@@ -343,12 +343,13 @@ def cmd_ablate(a) -> int:
         ud = "/".join(f"{m.by_k[k].load_freedom_up}+{m.by_k[k].load_freedom_down}" for k in ks)
         mx = "/".join(str(m.by_k[k].load_freedom_mixed) for k in ks)
         lg = "/".join(f"G{m.by_k[k].load_goods_guaranteed}-{m.by_k[k].load_goods_guaranteed_gained}+"
-                      f" P{m.by_k[k].load_goods_possible}-{m.by_k[k].load_goods_possible_gained}+" for k in ks)
+                      f" P{m.by_k[k].load_goods_possible}-{m.by_k[k].load_goods_possible_gained}+"
+                      f" Pr{m.by_k[k].load_goods_primary}-{m.by_k[k].load_goods_primary_gained}+" for k in ks)
 
         def rd_of(ms):
             rbe = first.reading_by_encoder(ms)
             return first.reading(ms) if len(set(rbe.values())) <= 1 else "; ".join(f"{e}: {r}" for e, r in rbe.items())
-        rd = f"G {rd_of('guaranteed')} / P {rd_of('possible')}"
+        rd = f"G {rd_of('guaranteed')} / P {rd_of('possible')} / Pr {rd_of('primary')}"
         if first.inconsistent_after:
             summ = "inconsistent after deletion (no compliant trace)"
         else:
@@ -473,7 +474,7 @@ def register(sub) -> None:
     s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_iso)
-    s = rs.add_parser("ablate", help="delete each rule, report which property verdicts flip (load_freedom; goods guaranteed / possible)")
+    s = rs.add_parser("ablate", help="delete each rule, report which property verdicts flip (load_freedom; goods guaranteed / possible / primary)")
     for flag in ("--institutions", "--properties"):
         s.add_argument(flag, default=None)
     s.add_argument("--init", choices=["empty", "free", "declared"], default=None)

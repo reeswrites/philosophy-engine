@@ -35,7 +35,8 @@ def keeper(extra_rules=()):
         "held_persists": Property(name="held_persists", kind="freedom", polarity="unfreedom", formal="(held ward t)"),
         "held_reachable": Property(name="held_reachable", kind="structure", formal="(held ward t)"),
         "ghost": Property(name="ghost", kind="goods", polarity="good", check="persists", encoders=["e1", "e2"], contested=[],
-                          formal="(unknown_fluent ward t)", subject="(unknown_fluent ward t)"),
+                          formal="(unknown_fluent ward t)", subject="(unknown_fluent ward t)",
+                          primary_measure="possible", primary_measure_reason="test fixture"),
     }
     return inst, props
 
