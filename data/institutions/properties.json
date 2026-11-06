@@ -259,6 +259,7 @@
   ],
   "gloss": "The subject of the institution (the wife, the person in crisis, the child) receives care, and once care has begun it does not lapse while the relation that brings the care lasts.",
   "formal": "(forall ((s agent) (t0 step)) (=> (and (succ t0 t) (is_subject s t0) (is_subject s t)) (exists ((x agent)) (provides_care x s t))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
   "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (character-identical). Encoder 1 back-gloss: Anyone who was a subject at the previous step and still is now is receiving care from someone now. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
  },
  {
@@ -280,6 +281,7 @@
   ],
   "gloss": "Two adults in one household each care for the other: both spouses.",
   "formal": "(forall ((h agent) (w agent)) (=> (married h w t) (and (provides_care h w t) (provides_care w h t))))",
+  "subject": "(exists ((h agent) (w agent)) (married h w t))",
   "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (character-identical). Encoder 1 back-gloss: Every married pair cares for each other: each spouse provides care to the other, at every step they are married. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
  },
  {
@@ -304,6 +306,7 @@
   ],
   "gloss": "The dependent is cared for by the same person over time, so the carer knows them (\"being known\", docs/intent.md flourishing): the subject.",
   "formal": "(forall ((s agent) (t0 step)) (=> (and (succ t0 t) (is_subject s t0) (is_subject s t)) (exists ((c agent)) (and (provides_care c s t) (=> (exists ((x agent)) (provides_care x s t0)) (provides_care c s t0))))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
   "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (implication vs disjunction form). Encoder 1 back-gloss: A continuing subject is cared for now by someone who, if anyone cared for the subject at the previous step, was already one of those carers. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
  },
  {
@@ -324,6 +327,7 @@
   ],
   "gloss": "The child lives with, or is cared for by, its own parents or household rather than apart from them (co-parenting intact): the child.",
   "formal": "(forall ((c agent) (t0 step)) (=> (and (succ t0 t) (is_subject c t0) (is_subject c t)) (or (at_home c t) (exists ((p agent)) (and (parent p c t) (provides_care p c t))) (and (case_open c t) (not (in_custody c t)) (exists ((p agent)) (parent p c t))))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
   "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): equivalent (disjuncts reordered). Encoder 1 back-gloss: A continuing child subject either sleeps in the parents' home, or is cared for by one of its parents, or has a parent and, with a case open, has not been taken into custody. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
  },
  {
@@ -351,6 +355,7 @@
   ],
   "gloss": "The subject's subsistence is secured, whether by a carer's maintenance or by means in her own right: the wife.",
   "formal": "(forall ((w agent)) (=> (is_subject w t) (or (exists ((h agent)) (and (married h w t) (provides_care h w t))) (and (earns w t) (owns_earnings w t)) (and (acquired_property w t) (controls_own_property w t)) (has_own_income w t))))",
+  "subject": "(exists ((s agent)) (is_subject s t))",
   "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): different. Encoder 1 back-gloss: Every wife-subject is maintained by her husband, or has earnings that are hers, or has acquired property she controls, or has an income in her own right. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
  }
 ]
