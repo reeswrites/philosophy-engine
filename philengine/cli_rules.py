@@ -8,7 +8,7 @@
   (check-all and diff also take --scoreboard PATH: append one markdown table row per run, see scoreboard.py)
   phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
-  phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
+  phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--readings PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
   phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
 Prints a compact table: institution, property, check, expected, got, match, flags, k, init; `flags` is `vacuous`
@@ -328,26 +328,30 @@ def cmd_ablate(a) -> int:
     full = {}
     results = {}
     kinds = rules_ablate.check_kinds(all_insts)
-    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "load_goods", "note", "orphaned_or_else", "k-disagree", "flips")
+    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "goods lost/gained", "reading", "note", "orphaned_or_else", "k-disagree", "flips")
 
     def row(m):
         first = m.by_k[ks[0]]
         lf = "/".join(str(m.by_k[k].load_freedom) for k in ks)
         ud = "/".join(f"{m.by_k[k].load_freedom_up}+{m.by_k[k].load_freedom_down}" for k in ks)
         mx = "/".join(str(m.by_k[k].load_freedom_mixed) for k in ks)
-        lg = "/".join(str(m.by_k[k].load_goods) for k in ks)
+        lg = "/".join(f"{m.by_k[k].load_goods}-{m.by_k[k].load_goods_gained}+" for k in ks)
+        rbe = first.reading_by_encoder()
+        rd = first.reading() if len(set(rbe.values())) <= 1 else "; ".join(f"{e}: {r}" for e, r in rbe.items())
         if first.inconsistent_after:
             summ = "inconsistent after deletion (no compliant trace)"
         else:
-            summ = ", ".join(f"{n}:{b}>{c}[{first.flip_directions.get(n, '')}]" if first.flip_directions.get(n) else f"{n}:{b}>{c}"
-                             for n, b, c in first.flips) or "-"
+            summ = ", ".join([f"{n}:{b}>{c}[{first.flip_directions.get(n, '')}]" if first.flip_directions.get(n) else f"{n}:{b}>{c}"
+                              for n, b, c in first.flips]
+                             + [f"{n}:{v[0]}>{v[1]}[goods]" for n, v in {**first.goods_states, **first.goods_alt_states}.items()
+                                if v[0] != v[1]]) or "-"
         note = ("deregulated (action becomes unregulated: always enabled, derived power zeroed)" if first.deregulated
                 else "prohibit leaks off-condition (sole regulator): not ranked" if first.offcondition_free
                 else "prohibited" if first.variant == "prohibited"
                 else "permission removed" if first.permission_removed else "-")
         if first.load_freedom_down > 0 and first.load_freedom_up == 0 and not (first.deregulated or first.offcondition_free):
             note = "load-bearing protection" if note == "-" else note + "; load-bearing protection"
-        return (m.rule_id, first.deontic, first.strand, lf, ud, mx, lg, note,
+        return (m.rule_id, first.deontic, first.strand, lf, ud, mx, lg, rd, note,
                 ",".join(first.orphaned_or_else) or "-", ",".join(m.k_disagreement) or "-", summ)
 
     def table(rows):
@@ -379,6 +383,10 @@ def cmd_ablate(a) -> int:
                 print("-- deregulated, not ranked (deleted rule was the action's last may/must, or the prohibit of a sole-regulator may leaks off-condition; loads shown, excluded from ranking)")
                 table(dereg)
             print()
+    if a.readings:
+        from pathlib import Path
+        Path(a.readings).write_text(rules_ablate.readings_table(results, ks, insts))
+        print(f"wrote {a.readings}")
     if a.summary:
         from pathlib import Path
         Path(a.summary).write_text(json.dumps(rules_ablate.summarize(results, ks), indent=1))
@@ -469,6 +477,9 @@ def register(sub) -> None:
                    help="write the per-entry ranking summary (top ranked rules, ties, inconsistent/uncounted counts) to PATH")
     s.add_argument("--scoreboard", default=None, metavar="PATH", help="append one row (entries, rows, uncounted, ...) to this markdown scoreboard")
     s.add_argument("--prev", default=None, metavar="PATH", help="a previous --summary JSON; fills top_rule_changes in the scoreboard row")
+    s.add_argument("--readings", default=None, metavar="PATH",
+                   help="write the readings table (markdown): per rule row with a reading or a goods change, per k: up, "
+                        "goods lost/gained per encoder, reading per encoder, strand agreement (plans/priority-slice2.md 4.2)")
     s = rs.add_parser("gate", help="Phase 0 gate (a)-(f); exit 0 = PASS"); common(s)
     s.add_argument("--verbose", action="store_true", help="print the per-pair iso reports behind each criterion")
     s.set_defaults(fn=cmd_gate)

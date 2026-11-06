@@ -40,6 +40,18 @@ inflated. Under compliance=sanctioned the clearing hardens the rule (a soft must
 inflate load; read sanctioned runs only with the orphaned_or_else column.
 
 Flip direction (freedom kind only): read from Property.kind, see flip_direction. load_freedom = up + down + mixed + unsigned families.
+
+Goods (plans/priority-slice2.md section 6; kind goods, polarity good, check persists): each goods property has a STATE per
+run, goods_state: stable (persists, not vacuous) > fragile (fails) > absent (persists, vacuous). A move down that order
+is `lost`, up is `gained`; counted per family (load_goods = families lost, load_goods_gained = families gained; a family
+with one member lost and another gained is goods_families_mixed and counts in neither). Any other verdict, an error, a z3
+unknown, or a persists whose vacuity z3 could not decide (ASSUMED: unknown vacuity is not read as non-vacuous) is
+uncounted. A state change is read even when the verdict string does not change (persists -> persists, vacuity changed).
+Each `contested` alternative is evaluated as its own property `<name>@<encoder>` (expand_contested) and reported only in
+goods_alt_states and load_goods_by_encoder, never in load_goods. load_goods_by_encoder[e] is the goods load with encoder
+e's formula wherever e wrote a contested alternative and the primary elsewhere (ASSUMED: an encoder whose formula was
+merged as equivalent is read through the primary); the primary encoder's entry equals load_goods.
+Reading (section 4): tying (up > 0, lost = 0) | constitutive (lost > 0, up = 0) | hard case (both) | unread (neither).
 """
 from __future__ import annotations
 
@@ -72,6 +84,84 @@ def flip_direction(prop: Property | None, before: str, after: str) -> str:
     return "unsigned"
 
 
+GOODS_ORDER = {"absent": 0, "fragile": 1, "stable": 2}
+ALT_SEP = "@"
+
+
+def goods_state(res) -> str | None:
+    """stable | fragile | absent | None (uncounted) for one goods PropertyResult (section 6)."""
+    if res is None:
+        return None
+    v = effective_verdict(res)
+    if v == "fails":
+        return "fragile"
+    if v == "persists":
+        if res.vacuous:
+            return "absent"
+        if res.antecedent_reachable is None:
+            return None  # vacuity undecided (z3 unknown): neither stable nor absent can be read
+        return "stable"
+    return None
+
+
+def alternative_name(name: str, encoder: str) -> str:
+    return f"{name}{ALT_SEP}{encoder}"
+
+
+def expand_contested(properties: dict[str, Property]) -> dict[str, Property]:
+    """properties plus one goods property `<name>@<encoder>` per contested alternative (formal = the alternative's;
+    same family, check, entries). Idempotent."""
+    out = dict(properties)
+    for n, p in properties.items():
+        if ALT_SEP in n:
+            continue
+        for alt in p.contested or ():
+            an = alternative_name(n, alt.encoder)
+            if an not in out:
+                out[an] = p.model_copy(update={"name": an, "formal": alt.formal, "contested": []})
+    return out
+
+
+def _alt_split(name: str) -> tuple[str, str | None]:
+    if ALT_SEP in name:
+        b, e = name.split(ALT_SEP, 1)
+        return b, e
+    return name, None
+
+
+def goods_encoders(properties: dict[str, Property]) -> list[str]:
+    """Encoders named by the goods properties, primary-first order of first appearance."""
+    out: list[str] = []
+    for p in properties.values():
+        if p.kind == "goods" and ALT_SEP not in p.name:
+            for e in p.encoders:
+                if e not in out:
+                    out.append(e)
+    return out
+
+
+def reading(up: int, lost: int) -> str:
+    """Section 4: tying | constitutive | hard case | unread."""
+    if up > 0 and lost == 0:
+        return "tying"
+    if lost > 0 and up == 0:
+        return "constitutive"
+    if up > 0 and lost > 0:
+        return "hard case"
+    return "unread"
+
+
+def strand_agreement(tag: str, rd: str) -> str:
+    """agree | mismatch | no_row (rival tag: the table has no rival reading) | unread (no reading)."""
+    if rd == "unread":
+        return "unread"
+    if tag == "rival":
+        return "no_row"
+    if (tag, rd) in (("tying", "tying"), ("superadditive", "constitutive")):
+        return "agree"
+    return "mismatch"
+
+
 @dataclass
 class RuleAblation:
     rule_id: str
@@ -90,7 +180,14 @@ class RuleAblation:
     load_freedom_mixed: int = 0
     sole_rule: bool = False  # informational: the deleted rule was the only rule naming its action (ranked normally)
     offcondition_free: bool = False  # prohibit of a sole-regulator may with a non-true condition: leaks off-condition
-    load_goods: int = 0
+    load_goods: int = 0  # goods families lost (moved down stable > fragile > absent); primary formulas only
+    load_goods_gained: int = 0  # goods families gained (shown, never counted in load_goods)
+    goods_families_lost: list[str] = field(default_factory=list)
+    goods_families_gained: list[str] = field(default_factory=list)
+    goods_families_mixed: list[str] = field(default_factory=list)
+    goods_states: dict[str, list] = field(default_factory=dict)  # primary goods property -> [before, after] (every applicable one)
+    goods_alt_states: dict[str, list] = field(default_factory=dict)  # `<name>@<encoder>` -> [before, after]
+    load_goods_by_encoder: dict[str, dict] = field(default_factory=dict)  # encoder -> {lost, gained, families_lost, families_gained}
     deregulated: bool = False  # deleted may/must was the last regulator of its action: not ranked
     flip_directions: dict[str, str] = field(default_factory=dict)  # freedom flips: property -> freedom_up/down/unsigned
     check_kinds: dict[str, str] = field(default_factory=dict)  # property -> check kind actually run
@@ -107,6 +204,12 @@ class RuleAblation:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+    def reading(self) -> str:
+        return reading(self.load_freedom_up, self.load_goods)
+
+    def reading_by_encoder(self) -> dict[str, str]:
+        return {e: reading(self.load_freedom_up, d["lost"]) for e, d in self.load_goods_by_encoder.items()}
 
 
 def effective_verdict(res) -> str | None:
@@ -191,7 +294,7 @@ def applicable_which(inst: InstitutionJSON, properties: dict[str, Property],
     for n, p in properties.items():
         if n not in inst.expected_properties:
             errs, warns = validate_property(p, inst)
-            if errs or any("undeclared fluent" in w for w in warns):
+            if errs or (inst.id not in p.entries and any("undeclared fluent" in w for w in warns)):
                 na.append(n)
                 continue
         which[n] = [check_for_property(n, inst, kinds, properties)]
@@ -222,6 +325,7 @@ def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
     """Every applicable property in `properties` (not just the entry's expected_properties) is read before and after.
     `workers` > 1 runs one job per (rule, variant) over a process pool (abm/parallel.py: spawn on macOS); the rows come
     back in the serial order, identical to workers=1."""
+    properties = expand_contested(properties)
     jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw)
             for rule in inst.rules for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
     return run_map(_ablate_one, jobs, workers)
@@ -273,9 +377,21 @@ def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
         ab.inconsistent_after = True
         return
     av = _verdicts(rep)
-    fam_all, fam_up, fam_down, goods = set(), set(), set(), set()
+    fam_all, fam_up, fam_down = set(), set(), set()
+    gstates: dict[str, tuple[str, str]] = {}  # every goods property (primary and alternatives) with both states read
     for name, b in bv.items():
         a = av.get(name)
+        p = properties.get(name)
+        if p is not None and p.kind == "goods":
+            sb, sa = goods_state(b), goods_state(a)
+            if sb is None or sa is None:
+                ab.uncounted.append(name)
+                continue
+            gstates[name] = (sb, sa)
+            before, after = effective_verdict(b), effective_verdict(a)
+            if before != after and ALT_SEP not in name:
+                ab.flips.append((name, before, after))
+            continue
         before, after = effective_verdict(b), (effective_verdict(a) if a else None)
         if before is None or after is None:
             ab.uncounted.append(name)
@@ -283,17 +399,15 @@ def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
         if before == after:
             continue
         ab.flips.append((name, before, after))
-        kind = properties[name].kind if name in properties else "structure"
-        fam = (properties[name].family if name in properties else name)
+        kind = p.kind if p is not None else "structure"
+        fam = (p.family if p is not None else name)
         if kind == "freedom":
             fam_all.add(fam)
-            d = ab.flip_directions[name] = flip_direction(properties.get(name), before, after)
+            d = ab.flip_directions[name] = flip_direction(p, before, after)
             if d == "freedom_up":
                 fam_up.add(fam)
             elif d == "freedom_down":
                 fam_down.add(fam)
-        elif kind == "goods":
-            goods.add(fam)
         elif kind == "structure":
             ab.structure_flips.append(name)
         else:
@@ -304,7 +418,35 @@ def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
     ab.load_freedom, ab.load_freedom_up, ab.load_freedom_down = len(fam_all), len(fam_up), len(fam_down)
     ab.load_freedom_mixed = len(mixed)
     ab.load_freedom_unsigned = len(fam_all - fam_up - fam_down - mixed)
-    ab.load_goods = len(goods)
+    # goods: primary load, then one load per encoder (its alternative where it wrote one, the primary elsewhere)
+    ab.goods_states = {n: list(v) for n, v in sorted(gstates.items()) if ALT_SEP not in n}
+    ab.goods_alt_states = {n: list(v) for n, v in sorted(gstates.items()) if ALT_SEP in n}
+    lost, gained, gmixed = _goods_families({n: v for n, v in gstates.items() if ALT_SEP not in n}, properties)
+    ab.goods_families_lost, ab.goods_families_gained, ab.goods_families_mixed = lost, gained, gmixed
+    ab.load_goods, ab.load_goods_gained = len(lost), len(gained)
+    encs = goods_encoders(properties)
+    primaries = [n for n in bv if ALT_SEP not in n and n in properties and properties[n].kind == "goods"]
+    for i, e in enumerate(encs):
+        view = {}
+        for n in primaries:
+            alt = alternative_name(n, e)
+            key = alt if (i > 0 and alt in bv) else n
+            if key in gstates:
+                view[n] = gstates[key]
+        l, g, _ = _goods_families(view, properties)
+        ab.load_goods_by_encoder[e] = {"lost": len(l), "gained": len(g), "families_lost": l, "families_gained": g}
+
+
+def _goods_families(states: dict[str, tuple[str, str]], properties: dict[str, Property]) -> tuple[list, list, list]:
+    lost, gained = set(), set()
+    for n, (sb, sa) in states.items():
+        fam = properties[n].family
+        if GOODS_ORDER[sa] < GOODS_ORDER[sb]:
+            lost.add(fam)
+        elif GOODS_ORDER[sa] > GOODS_ORDER[sb]:
+            gained.add(fam)
+    mixed = lost & gained
+    return sorted(lost - mixed), sorted(gained - mixed), sorted(mixed)
 
 
 @dataclass
@@ -323,7 +465,10 @@ class MultiKAblation:
     def to_dict(self) -> dict:
         return {"rule_id": self.rule_id, "k_disagreement": self.k_disagreement,
                 "loads": {str(k): {"load_freedom": a[0], "load_goods": a[1],
-                                   "load_freedom_up": self.by_k[k].load_freedom_up, "load_freedom_down": self.by_k[k].load_freedom_down}
+                                   "load_freedom_up": self.by_k[k].load_freedom_up, "load_freedom_down": self.by_k[k].load_freedom_down,
+                                   "load_goods_gained": self.by_k[k].load_goods_gained,
+                                   "load_goods_by_encoder": {e: d["lost"] for e, d in self.by_k[k].load_goods_by_encoder.items()},
+                                   "reading": self.by_k[k].reading(), "reading_by_encoder": self.by_k[k].reading_by_encoder()}
                           for k, a in self.loads().items()},
                 "by_k": {str(k): a.to_dict() for k, a in self.by_k.items()}}
 
@@ -332,6 +477,7 @@ def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: t
                    kinds: dict[str, str] | None = None, workers: int | None = 1, **run_kw) -> list[MultiKAblation]:
     """`workers` > 1: all (k, rule, variant) jobs of this entry go through one run_map (one `parallel.pool(N)` around a
     loop of entries keeps the workers, and their base-report memo, alive across entries); results equal workers=1."""
+    properties = expand_contested(properties)
     jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw) for k in ks for rule in inst.rules
             for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
     rows = iter(run_map(_ablate_one, jobs, workers))
@@ -350,6 +496,18 @@ def ablate_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: t
             seen = {next(((f[1], f[2]) for f in a.flips if f[0] == n), None) for a in by_k.values()}
             if len(seen) > 1:
                 dis.append(n)
+        # goods: a state change (lost / gained) that differs by k, also when the verdict string is unchanged
+        gnames = set()
+        for a in by_k.values():
+            gnames |= {n for n, v in {**a.goods_states, **a.goods_alt_states}.items() if v[0] != v[1]}
+        for n in sorted(gnames - set(dis)):
+            seen = set()
+            for a in by_k.values():
+                v = {**a.goods_states, **a.goods_alt_states}.get(n)
+                seen.add(tuple(v) if v and v[0] != v[1] else None)
+            if len(seen) > 1:
+                dis.append(n)
+        dis.sort()
         out.append(MultiKAblation(rid, by_k, dis))
     return out
 
@@ -373,6 +531,9 @@ def summarize(entries: dict[str, list[MultiKAblation]], ks: tuple[int, ...]) -> 
             "offcondition_free_not_ranked": sorted(m.rule_id for m in res if m.by_k[k0].offcondition_free),
             "inconsistent_after": sum(a.inconsistent_after for m in res for a in m.by_k.values()),
             "uncounted": sum(len(a.uncounted) for m in res for a in m.by_k.values()),
+            "constitutive": sorted(m.rule_id for m in ranked if m.by_k[k0].reading() == "constitutive"),
+            "hard_cases": sorted(m.rule_id for m in ranked if m.by_k[k0].reading() == "hard case"),
+            "contested_readings": sorted(m.rule_id for m in ranked if len(set(m.by_k[k0].reading_by_encoder().values())) > 1),
         }
     return {"ks": list(ks), "entries": out,
             "totals": {"entries": len(out), "inconsistent_after": sum(e["inconsistent_after"] for e in out.values()),
@@ -390,4 +551,48 @@ def scoreboard_stats(results: dict[str, list[MultiKAblation]], ks, prev_summary:
     return {"entries": summ["totals"]["entries"], "rows": sum(len(r) for r in results.values()),
             "uncounted": summ["totals"]["uncounted"], "inconsistent_after": summ["totals"]["inconsistent_after"],
             "k_disagreements": sum(1 for r in results.values() for m in r if m.k_disagreement),
-            "top_rule_changes": changes}
+            "top_rule_changes": changes,
+            "goods_rows": sum(1 for r in results.values() for m in r
+                              if m.by_k[ks[0]].load_goods or m.by_k[ks[0]].load_goods_gained),
+            "contested_readings": sum(len(e["contested_readings"]) for e in summ["entries"].values())}
+
+
+def readings_table(results: dict[str, list[MultiKAblation]], ks, insts=None) -> str:
+    """Markdown readings table (plans/priority-slice2.md 4.2): one line per (entry, rule row, k) whose row has a
+    reading (up > 0 or goods lost > 0 under any encoder) or any goods change; ranked or not (column `ranked`).
+    Encoder columns are per encoder, never pooled."""
+    encs: list[str] = []
+    for res in results.values():
+        for m in res:
+            for a in m.by_k.values():
+                for e in a.load_goods_by_encoder:
+                    if e not in encs:
+                        encs.append(e)
+    cols = (["entry", "rule", "ranked", "tag", "k", "up"] + [f"lost [{e}]" for e in encs] + [f"gained [{e}]" for e in encs]
+            + [f"reading [{e}]" for e in encs] + [f"agreement [{e}]" for e in encs] + ["goods changes"])
+    out = ["| " + " | ".join(cols) + " |", "|" + "|".join(" --- " for _ in cols) + "|"]
+    for eid, res in results.items():
+        for m in sorted(res, key=lambda m: _rule_key(m.rule_id)):
+            for k in ks:
+                a = m.by_k[k]
+                if a.inconsistent_after:
+                    continue
+                bye = a.load_goods_by_encoder or {}
+                changes = {n: v for n, v in {**a.goods_states, **a.goods_alt_states}.items() if v[0] != v[1]}
+                if not (a.load_freedom_up or changes or any(d["lost"] for d in bye.values())):
+                    continue
+                rbe = {e: reading(a.load_freedom_up, bye[e]["lost"]) if e in bye else "-" for e in encs}
+                row = ([eid, m.rule_id, "no" if _unranked(a) else "yes", a.strand, str(k), str(a.load_freedom_up)]
+                       + [str(bye[e]["lost"]) if e in bye else "-" for e in encs]
+                       + [str(bye[e]["gained"]) if e in bye else "-" for e in encs]
+                       + [rbe[e] for e in encs]
+                       + [strand_agreement(a.strand, rbe[e]) if e in bye else "-" for e in encs]
+                       + [", ".join(f"{n}: {v[0]}>{v[1]}" for n, v in changes.items()) or "-"])
+                out.append("| " + " | ".join(row) + " |")
+    return "\n".join(out) + "\n"
+
+
+def _rule_key(rid: str):
+    base = rid.split("~")[0]
+    num = "".join(ch for ch in base if ch.isdigit())
+    return (int(num) if num else 0, rid)

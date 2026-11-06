@@ -34,7 +34,8 @@ def keeper(extra_rules=()):
     props = {
         "held_persists": Property(name="held_persists", kind="freedom", polarity="unfreedom", formal="(held ward t)"),
         "held_reachable": Property(name="held_reachable", kind="structure", formal="(held ward t)"),
-        "ghost": Property(name="ghost", kind="goods", formal="(unknown_fluent ward t)"),
+        "ghost": Property(name="ghost", kind="goods", polarity="good", check="persists", encoders=["e1", "e2"], contested=[],
+                          formal="(unknown_fluent ward t)"),
     }
     return inst, props
 
@@ -390,8 +391,11 @@ def test_cli_ablate_scoreboard_rows(tmp_path, monkeypatch):
     lines = board.read_text().splitlines()
     assert sum(l.startswith("| date ") for l in lines) == 1 and len(lines) == 4
     first, second = ([c.strip() for c in l.strip("|").split("|")] for l in lines[2:])
-    assert first[2] == "rules ablate" and first[3] == "1" and first[-1] == "-"
-    assert second[-1] == "0"
+    cols = [c.strip() for c in lines[0].strip("|").split("|")]
+    tc = cols.index("top_rule_changes")
+    assert first[2] == "rules ablate" and first[3] == "1" and first[tc] == "-"
+    assert second[tc] == "0"
+    assert cols[-2:] == ["goods_rows", "contested_readings"] and first[-2:] == ["0", "0"]
 
 
 # The hand table rules_ablate.UNFREEDOM as it stood before revision 5 (plans/priority.md, slice 1 revision 5), kept here

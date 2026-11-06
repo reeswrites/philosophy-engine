@@ -204,6 +204,15 @@ class InstitutionJSON(BaseModel):
 PropertyKind = Literal["freedom", "goods", "structure", "failure_mode"]  # priority.md decision 1
 
 
+class ContestedAlternative(BaseModel):
+    """A second encoder's formula for a goods property that is not logically equivalent to the primary `formal`
+    (plans/priority-slice2.md section 2, merge step 5). Evaluated beside the primary in every ablation run, in its own
+    columns; never pooled with, averaged into, or chosen over the primary."""
+    encoder: str
+    formal: str
+    note: str = ""
+
+
 class Property(BaseModel):
     name: str
     kind: PropertyKind  # required: freedom / goods count toward ablation load; structure / failure_mode are listed
@@ -215,7 +224,17 @@ class Property(BaseModel):
     # Required "unfreedom" on every kind: freedom property (plans/priority.md slice 1 revision 5): the encoder declares
     # that the property's HOLDING is bad for the subject, which is how rules_ablate signs a flip (freedom_up/down).
     # The shape is a reading of the formula z3 cannot decide, so it is an explicit declaration the loader enforces.
-    polarity: Literal["unfreedom"] | None = None
+    # Required "good" on every kind: goods property (plans/priority-slice2.md section 6): its holding is good for the
+    # named party; rules_ablate reads a goods state (stable / fragile / absent) from it.
+    polarity: Literal["unfreedom", "good"] | None = None
+    # kind goods only (slice 2): the encoders who wrote it (>= 2 distinct; the first wrote `formal`) and the
+    # non-equivalent alternatives (an empty list = the encoders' formulas were logically equivalent). Required there.
+    encoders: list[str] = []
+    contested: list[ContestedAlternative] | None = None
+    # Entries the property was written for (goods: plans/priority-slice2.md section 3 "entries"). In these entries the
+    # property is applicable even when it names a fluent the entry does not declare (lowered as false, with a warning);
+    # elsewhere the usual rule holds (every fluent declared). Slice-2 adaptation: section 6 does not name this field.
+    entries: list[str] = []
 
     @model_validator(mode="after")
     def _family_default(self):
@@ -224,6 +243,25 @@ class Property(BaseModel):
         if self.kind == "freedom" and self.polarity != "unfreedom":
             raise ValueError(f"property {self.name!r}: kind freedom requires polarity: unfreedom (its holding is bad for "
                              "the subject; rules_ablate signs flips by it)")
+        if self.polarity == "good" and self.kind != "goods":
+            raise ValueError(f"property {self.name!r}: polarity: good is only for kind goods")
+        if self.kind == "goods":
+            if self.polarity != "good":
+                raise ValueError(f"property {self.name!r}: kind goods requires polarity: good")
+            if self.contested is None:
+                raise ValueError(f"property {self.name!r}: kind goods requires a contested list ([] when the encoders' "
+                                 "formulas were equivalent)")
+            if len(set(self.encoders)) < 2:
+                raise ValueError(f"property {self.name!r}: kind goods requires encoders naming at least two encoders")
+            if self.check != "persists":
+                raise ValueError(f"property {self.name!r}: kind goods requires check: persists")
+        if self.contested:
+            from . import sexpr
+            for alt in self.contested:
+                try:
+                    sexpr.parse(alt.formal)
+                except Exception as e:  # noqa: BLE001 - any parse failure is a load error
+                    raise ValueError(f"property {self.name!r}: contested formula of {alt.encoder!r} does not parse: {e}")
         return self
 
 
