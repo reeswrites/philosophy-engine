@@ -357,5 +357,27 @@
   "formal": "(forall ((w agent)) (=> (is_subject w t) (or (exists ((h agent)) (and (married h w t) (provides_care h w t))) (and (earns w t) (owns_earnings w t)) (and (acquired_property w t) (controls_own_property w t)) (has_own_income w t))))",
   "subject": "(exists ((s agent)) (is_subject s t))",
   "history": "Slice 2 (plans/priority-slice2.md sections 2, 3, 6; cd2f895). Gloss from section 3. formal: encoder 1 (primary, fixed before either encoder ran). Merge (data/institutions/goods-encoding/merge-log.md, 89c4e28; z3 validity of A <-> B, fluents uninterpreted): different. Encoder 1 back-gloss: Every wife-subject is maintained by her husband, or has earnings that are hers, or has acquired property she controls, or has an income in her own right. Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
+ },
+ {
+  "name": "chosen_mutual_care",
+  "family": "chosen_mutual_care",
+  "kind": "goods",
+  "polarity": "good",
+  "check": "persists",
+  "encoders": [
+   "encoder-1",
+   "encoder-2"
+  ],
+  "contested": [],
+  "entries": [
+   "coverture-household",
+   "coverture-household-us",
+   "mwpa-earnings",
+   "coverture-floor"
+  ],
+  "gloss": "A married couple care for each other (the husband for the wife and the wife for the husband) while the wife can leave the marriage and no one holds a power to sanction her: care both give and she is free not to give. For the wife, within the couple. \"Can leave\" is read at the fluent level as her permitted, unsanctioned way out at that step. \"Her care carries no sanction\" is read at the fluent level as: at that step no one holds a power to coerce her. The vocabularies record who holds a power to sanction whom, not which duty a sanction enforces, so this is the closest reading they allow; it is stricter than the gloss (any sanction power counts, not only one attached to her care).",
+  "formal": "(forall ((h agent) (w agent)) (=> (married h w t) (and (provides_care h w t) (provides_care w h t) (can_exit w t) (forall ((x agent)) (not (can_sanction x w t))))))",
+  "subject": "(exists ((h agent) (w agent)) (married h w t))",
+  "history": "Slice 2 revision 2 (plans/priority-slice2.md R2.3; cf29916). Gloss from R2.3, verbatim. formal and subject: encoder 1 (primary). Encoders: encoder-1 and encoder-2 are role labels for the two revision-2 fresh agents, distinct from the revision-1 encoders and never used as builders or reviewers in this slice. Bundle bundle2, aggregate hash 7962473270d59000b21a0a5afae434725e1946d9d19e292e5d9cc5fbad93a5da (data/institutions/goods-encoding/r2/bundle-manifest.sha256; the full encoder prompt is inside the hashed bundle, template in r2/prompt-template.md). Merge (data/institutions/goods-encoding/merge-log.md \"Revision 2\", 68d8eb2; z3 validity of A <-> B, fluents uninterpreted, formal and subject separately): formal equivalent (universal vs negated existential over the sanctioning agent), subject character-identical; contested []. Encoder 1 back-gloss: For every married couple at t, the husband cares for the wife, the wife cares for the husband, the wife has a permitted unsanctioned way out, and no one holds a power to coerce the wife. Known limit (R2.3): no fluent says whether her care is obliged, so exit and no-sanction are the fluent-level proxies for \"chosen\". Second encoder: agent, not someone living under the institution (ADR 0012); both encoders are instances of one model given one bundle, so agreement measures that model's consistency, not agreement between people."
  }
 ]

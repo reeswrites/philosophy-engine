@@ -9847,7 +9847,7 @@
  },
  {
   "id": "coverture-floor",
-  "name": "Coverture with a material floor (counterfactual: US coverture plus an income in her own right)",
+  "name": "Coverture with an income-access floor (counterfactual: US coverture plus an income in her own right)",
   "roles": [
    {
     "name": "husband",
@@ -10281,7 +10281,7 @@
     "aim": "(draw_subsistence w)",
     "conditions": "true",
     "or_else": null,
-    "strand": "superadditive",
+    "strand": null,
     "implicit": false,
     "source": "counterfactual encoding: no work cited and none claimed; the rule is the floor route of plans/priority-slice2.md section 5 (preregistered 2026-11-06), read from the material floor of docs/glossary.md (subsistence regardless of any relationship). UNVERIFIED as history: no jurisdiction ever enacted it on the coverture frame.",
     "var_roles": {
@@ -10289,7 +10289,7 @@
     }
    }
   ],
-  "source_text": "Counterfactual, not a historical institution (ADR 0004: no forward claim; ADR 0011: every result is a statement about encodings). The US coverture base (coverture-household-us) plus one rule, R20, giving the wife an income in her own right regardless of marriage: the material floor of docs/glossary.md. Preregistered in plans/priority-slice2.md section 5 (2026-11-06) as the floor route, compared against the title route (the MWPA chain ending in mwpa-earnings).",
+  "source_text": "Counterfactual, not a historical institution (ADR 0004: no forward claim; ADR 0011: every result is a statement about encodings). The US coverture base (coverture-household-us) plus one rule, R20, giving the wife an income in her own right regardless of marriage: an unconditional income-access floor for the wife, read from but narrower than the material floor of docs/glossary.md (care, health, housing and income). Preregistered in plans/priority-slice2.md section 5 (2026-11-06) as the floor route, compared against the title route (the MWPA chain ending in mwpa-earnings).",
   "expected_properties": {
    "dependent_cannot_exit": "reachable",
    "subject_cannot_exit": "reachable",
@@ -10308,7 +10308,7 @@
   "not_isomorphic_to": [],
   "not_isomorphic_to_control": [],
   "minimal_pair_of": null,
-  "notes": "COUNTERFACTUAL ENCODING (plans/priority-slice2.md section 5; provenance unverified). Base coverture-household-us, so the title route (mwpa-creditor-exemption -> mwpa-property -> mwpa-earnings) and the floor route start from one rule set; initial_free and the fluent arg_roles are mwpa-creditor-exemption's, so both end states quantify over the same exogenous worlds. One rule added (R20); no R13, no R14, R1 kept: no property grant. PREREGISTERED (2026-11-06, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (both read only property and earnings, so they cannot see a floor: as written, material independence means title); financial_dependence_means violated; financial_dependence_margin violated BY CONSTRUCTION (R20's condition is true); double_burden unreachable_open (needs owns_earnings, which only R14 grants); creditor_shield unreachable_open by construction (no creditor role; transferred and can_attach undeclared); exit, standing, contract, care and sanction as in the US base. Goods (slice 2): second encoder: agent, not someone living under the institution (ADR 0012). Rejected base: mwpa-creditor-exemption (would put the floor on a debtor-relief statute and make creditor_shield reachable); a later variant, not built.",
+  "notes": "COUNTERFACTUAL ENCODING (plans/priority-slice2.md section 5; provenance unverified). Base coverture-household-us, so the title route (mwpa-creditor-exemption -> mwpa-property -> mwpa-earnings) and the floor route start from one rule set; initial_free and the fluent arg_roles are mwpa-creditor-exemption's, so both end states quantify over the same exogenous worlds. One rule added (R20: an unconditional income-access floor for the wife, not the glossary's material floor; strand null, untagged; plans/priority-slice2.md R2.5); no R13, no R14, R1 kept: no property grant. PREREGISTERED (2026-11-06, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (both read only property and earnings, so they cannot see a floor: as written, material independence means title); financial_dependence_means violated; financial_dependence_margin violated BY CONSTRUCTION (R20's condition is true); double_burden unreachable_open (needs owns_earnings, which only R14 grants); creditor_shield unreachable_open by construction (no creditor role; transferred and can_attach undeclared); exit, standing, contract, care and sanction as in the US base. Goods (slice 2): second encoder: agent, not someone living under the institution (ADR 0012). Rejected base: mwpa-creditor-exemption (would put the floor on a debtor-relief statute and make creditor_shield reachable); a later variant, not built.",
   "initial": [],
   "initial_free": [
    "female",
