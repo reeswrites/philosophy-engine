@@ -31,7 +31,10 @@ from .schemas_rules import InstitutionJSON, Property, RuleCheckReport, RulesLoad
 def _load(a) -> tuple[list[InstitutionJSON], dict[str, Property]]:
     ip, pp = default_paths()
     try:
-        return load_institutions(a.institutions or ip), load_properties(a.properties or pp)
+        insts, props = load_institutions(a.institutions or ip), load_properties(a.properties or pp)
+        for inst in insts:  # goods subjects per applicable entry (R2.1): a load error, not a warning
+            rules_ablate.applicable_which(inst, rules_ablate.expand_contested(props))
+        return insts, props
     except RulesLoadError as e:
         print(str(e), file=sys.stderr)
         raise SystemExit(2)
@@ -312,6 +315,10 @@ def cmd_gate(a) -> int:
     return 0 if rep.passed else 1
 
 
+def _na(state: str) -> str:
+    return "n/a" if state == "not_applicable" else state
+
+
 def cmd_ablate(a) -> int:
     insts, props = _load(a)
     try:
@@ -328,22 +335,26 @@ def cmd_ablate(a) -> int:
     full = {}
     results = {}
     kinds = rules_ablate.check_kinds(all_insts)
-    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "goods lost/gained", "reading", "note", "orphaned_or_else", "k-disagree", "flips")
+    hdr = ("rule", "deontic", "strand", "load_freedom", "up/down", "mixed", "goods G lost-gained+ / P lost-gained+", "reading G / P", "note", "orphaned_or_else", "k-disagree", "flips")
 
     def row(m):
         first = m.by_k[ks[0]]
         lf = "/".join(str(m.by_k[k].load_freedom) for k in ks)
         ud = "/".join(f"{m.by_k[k].load_freedom_up}+{m.by_k[k].load_freedom_down}" for k in ks)
         mx = "/".join(str(m.by_k[k].load_freedom_mixed) for k in ks)
-        lg = "/".join(f"{m.by_k[k].load_goods}-{m.by_k[k].load_goods_gained}+" for k in ks)
-        rbe = first.reading_by_encoder()
-        rd = first.reading() if len(set(rbe.values())) <= 1 else "; ".join(f"{e}: {r}" for e, r in rbe.items())
+        lg = "/".join(f"G{m.by_k[k].load_goods_guaranteed}-{m.by_k[k].load_goods_guaranteed_gained}+"
+                      f" P{m.by_k[k].load_goods_possible}-{m.by_k[k].load_goods_possible_gained}+" for k in ks)
+
+        def rd_of(ms):
+            rbe = first.reading_by_encoder(ms)
+            return first.reading(ms) if len(set(rbe.values())) <= 1 else "; ".join(f"{e}: {r}" for e, r in rbe.items())
+        rd = f"G {rd_of('guaranteed')} / P {rd_of('possible')}"
         if first.inconsistent_after:
             summ = "inconsistent after deletion (no compliant trace)"
         else:
             summ = ", ".join([f"{n}:{b}>{c}[{first.flip_directions.get(n, '')}]" if first.flip_directions.get(n) else f"{n}:{b}>{c}"
                               for n, b, c in first.flips]
-                             + [f"{n}:{v[0]}>{v[1]}[goods]" for n, v in {**first.goods_states, **first.goods_alt_states}.items()
+                             + [f"{n}:{_na(v[0])}>{_na(v[1])}[goods]" for n, v in {**first.goods_states, **first.goods_alt_states}.items()
                                 if v[0] != v[1]]) or "-"
         note = ("deregulated (action becomes unregulated: always enabled, derived power zeroed)" if first.deregulated
                 else "prohibit leaks off-condition (sole regulator): not ranked" if first.offcondition_free
@@ -462,7 +473,7 @@ def register(sub) -> None:
     s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_iso)
-    s = rs.add_parser("ablate", help="delete each rule, report which property verdicts flip (load_freedom / load_goods)")
+    s = rs.add_parser("ablate", help="delete each rule, report which property verdicts flip (load_freedom; goods guaranteed / possible)")
     for flag in ("--institutions", "--properties"):
         s.add_argument(flag, default=None)
     s.add_argument("--init", choices=["empty", "free", "declared"], default=None)

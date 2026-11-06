@@ -121,7 +121,7 @@ def rule_skeleton(r: Rule, roles: set[str], with_strands: bool = False, cond_lev
             pattern.append(varmap[a.name])
     key = (r.deontic, tuple(pattern), _erase(cond, roles, varmap), r.or_else is not None)
     if with_strands:
-        key = key + (r.strand,)
+        key = key + (r.strand if r.strand is not None else "<untagged>",)  # null strand (R2.5): its own tag
     return key
 
 

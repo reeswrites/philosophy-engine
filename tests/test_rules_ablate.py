@@ -35,7 +35,7 @@ def keeper(extra_rules=()):
         "held_persists": Property(name="held_persists", kind="freedom", polarity="unfreedom", formal="(held ward t)"),
         "held_reachable": Property(name="held_reachable", kind="structure", formal="(held ward t)"),
         "ghost": Property(name="ghost", kind="goods", polarity="good", check="persists", encoders=["e1", "e2"], contested=[],
-                          formal="(unknown_fluent ward t)"),
+                          formal="(unknown_fluent ward t)", subject="(unknown_fluent ward t)"),
     }
     return inst, props
 
@@ -48,7 +48,7 @@ def keeper_free():
 
 
 def loads(res):
-    return {a.rule_id: (a.load_freedom, a.load_goods, a.permission_removed, sorted((b, c) for _, b, c in a.flips),
+    return {a.rule_id: (a.load_freedom, a.load_goods_guaranteed, a.load_goods_possible, a.permission_removed, sorted((b, c) for _, b, c in a.flips),
                         a.inconsistent_after) for a in res}
 
 
@@ -70,7 +70,7 @@ def test_basic_flip_and_applicability():
     inst, props = keeper()
     res = {a.rule_id: a for a in ra.ablate(inst, props, k=4)}
     a2 = res["R2"]
-    assert a2.flips == [("held_persists", "persists", "fails")] and a2.load_freedom == 1 and a2.load_goods == 0
+    assert a2.flips == [("held_persists", "persists", "fails")] and a2.load_freedom == 1 and a2.load_goods_guaranteed == 0 == a2.load_goods_possible
     assert a2.not_applicable == ["ghost"] and a2.applicable == 2  # not only expected_properties; ghost skipped
     assert res["R1"].deregulated and not res["R1"].permission_removed
 

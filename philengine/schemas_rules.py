@@ -110,7 +110,9 @@ class Rule(BaseModel):
     aim_kind: AimKind | None = None  # None = infer: "action" if the head is a declared action, "state" if a fluent
     conditions: str  # S-expression over fluents (step implicit), or bare "true"
     or_else: str | None = None  # sanction rule id; null on must_not = disability (hard constraint)
-    strand: Strand
+    # key required; null = untagged, outside the bundle (plans/priority-slice2.md R2.5: coverture-floor R20). `+strands`
+    # iso levels treat null as its own tag; rules_ablate's strand agreement reads it as "untagged".
+    strand: Strand | None
     implicit: bool = False
     source: str = ""
     var_roles: dict[str, str] = {}  # {variable: role} for aim/condition variables; overrides the prefix heuristic
@@ -211,6 +213,7 @@ class ContestedAlternative(BaseModel):
     encoder: str
     formal: str
     note: str = ""
+    subject: str | None = None  # revision 2 (R2.1): its own bearer formula; None = the primary's `subject`
 
 
 class Property(BaseModel):
@@ -235,6 +238,11 @@ class Property(BaseModel):
     # property is applicable even when it names a fluent the entry does not declare (lowered as false, with a warning);
     # elsewhere the usual rule holds (every fluent declared). Slice-2 adaptation: section 6 does not name this field.
     entries: list[str] = []
+    # kind goods only, required there (plans/priority-slice2.md revision 2, R2.1): a state formula, `t` its only free
+    # variable, true at t exactly when some bearer of the good exists at t. The implication premise of `formal` must
+    # imply it (rules_goods.premise_implies_subject, fluents uninterpreted); per entry it may name only declared
+    # fluents (rules_ablate.goods_subject_errors). rules_checks.goods_queries reads the four goods states from it.
+    subject: str | None = None
 
     @model_validator(mode="after")
     def _family_default(self):
@@ -255,6 +263,28 @@ class Property(BaseModel):
                 raise ValueError(f"property {self.name!r}: kind goods requires encoders naming at least two encoders")
             if self.check != "persists":
                 raise ValueError(f"property {self.name!r}: kind goods requires check: persists")
+            if not self.subject:
+                raise ValueError(f"property {self.name!r}: kind goods requires a subject formula (some bearer exists at t)")
+        elif self.subject is not None:
+            raise ValueError(f"property {self.name!r}: subject is only for kind goods")
+        if self.kind == "goods":
+            from . import rules_goods, sexpr
+            pairs = [("formal", self.formal, self.subject)] + [
+                (f"contested formula of {a.encoder!r}", a.formal, a.subject or self.subject) for a in self.contested or ()]
+            for what, f, subj in pairs:
+                try:
+                    sexpr.parse(subj)
+                except Exception as e:  # noqa: BLE001 - any parse failure is a load error
+                    raise ValueError(f"property {self.name!r}: subject (for {what}) does not parse: {e}")
+                try:
+                    sexpr.parse(f)
+                except Exception:  # noqa: BLE001 - reported below for alternatives, by the engine for formal
+                    continue
+                ok = rules_goods.premise_implies_subject(f, subj)
+                if ok is not True:
+                    raise ValueError(f"property {self.name!r}: the implication premise of the {what} does not imply "
+                                     f"its subject ({'z3 unknown' if ok is None else 'counterexample exists'}; "
+                                     "fluents uninterpreted)")
         if self.contested:
             from . import sexpr
             for alt in self.contested:
@@ -285,6 +315,13 @@ class PropertyResult(BaseModel):
     antecedent_reachable: bool | None = None
     subject_exists: bool | None = None
     vacuous: bool = False  # either flag is False
+    # goods (kind goods, persists check; revision 2 R2.1, rules_checks.goods_queries): not_applicable | absent | fragile
+    # | stable, or None with goods_reason (subject_unknown | no_witness_within_k | witness_unknown | possible_unknown
+    # | guaranteed_unknown). goods_queries: the four query outcomes (sat / unsat / unknown; guaranteed: the
+    # invariant verdict). The old vacuity flags are not computed for goods.
+    goods_state: Literal["not_applicable", "absent", "fragile", "stable"] | None = None
+    goods_reason: str | None = None
+    goods_queries: dict[str, str] | None = None
 
 
 class RuleStatus(BaseModel):

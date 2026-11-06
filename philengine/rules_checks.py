@@ -231,6 +231,48 @@ def vacuity(G: Grounded, ast, **kw) -> tuple[bool | None, bool | None]:
     return ant_ok, (True if r.result == "sat" else False if r.result == "unsat" else None)
 
 
+# ------------------------------------------------------------------ goods states (revision 2, R2.1)
+def goods_queries(G: Grounded, ast, subj_ast, **kw) -> tuple[str | None, str | None, dict[str, str]]:
+    """(state, reason, queries) for one goods formula on G, decided in this order (plans/priority-slice2.md R2.1):
+      1. subject   S = sat(system and OR_t Subj(t))          unsat: not_applicable   unknown: uncounted subject_unknown
+      2. witness   W = sat(system and OR_t Wit(t))           unsat: uncounted no_witness_within_k   unknown: witness_unknown
+      3. possible  P = sat(system and OR_t (Wit(t) and Good(t)))   unsat: absent      unknown: possible_unknown
+      4. guaranteed: invariant of formal                     holds_to_k: stable   violated: fragile   else guaranteed_unknown
+    Wit(t) = the implication premise (antecedent) when formal has implication shape, else Subj(t). An undecided query is
+    never read as any state (state None, reason given)."""
+    from .rules_goods import implication_shape
+    Good = _prop_at(ast, G)
+    Subj = _prop_at(subj_ast, G)
+    Wit = _prop_at(antecedent(ast), G) if implication_shape(ast) else Subj
+    ts = range(G.k + 1)
+    q: dict[str, str] = {}
+    r = _check([G.system(), z3.Or(*[Subj(t) for t in ts])], **kw)
+    q["subject"] = r.result
+    if r.result == "unsat":
+        return "not_applicable", None, q
+    if r.result != "sat":
+        return None, "subject_unknown", q
+    r = _check([G.system(), z3.Or(*[Wit(t) for t in ts])], **kw)
+    q["witness"] = r.result
+    if r.result == "unsat":
+        return None, "no_witness_within_k", q
+    if r.result != "sat":
+        return None, "witness_unknown", q
+    r = _check([G.system(), z3.Or(*[z3.And(Wit(t), Good(t)) for t in ts])], **kw)
+    q["possible"] = r.result
+    if r.result == "unsat":
+        return "absent", None, q
+    if r.result != "sat":
+        return None, "possible_unknown", q
+    inv = check_invariant(G, ast, **kw)
+    q["guaranteed"] = inv.verdict if not inv.z3_unknown else "unknown"
+    if inv.verdict == "holds_to_k":
+        return "stable", None, q
+    if inv.verdict == "violated":
+        return "fragile", None, q
+    return None, "guaranteed_unknown", q
+
+
 # ------------------------------------------------------------------ run_all
 def _has_unknown(log: list[dict]) -> bool:
     return any(e["result"] == "unknown" for e in log)
@@ -342,7 +384,9 @@ def run_all(
             elif cons.result == "unknown":
                 res = PropertyResult(property=name, check=kind, verdict="open", z3_unknown=True, reason=f"consistency unknown: {cons.reason}")
             else:
-                pkey = rcache.make_key(inst, entry=rcache.PROPERTY_KIND, formal=p.formal, check=kind, init=rep.init,
+                goods = p.kind == "goods" and kind == "persists" and bool(p.subject)
+                ckey_formal = p.formal + (f"\n;subject {p.subject}" if goods else "")
+                pkey = rcache.make_key(inst, entry=rcache.PROPERTY_KIND, formal=ckey_formal, check=kind, init=rep.init,
                                        **ckw) if cache else None
                 cached = cache.get(pkey) if cache else None
                 if cached is not None:
@@ -355,7 +399,11 @@ def run_all(
                 try:
                     _begin("check", name, kind)
                     res = CHECKS[kind](get_G(), ast, **kw)
-                    if kind in ("invariant", "persists"):
+                    if goods:  # revision 2: goods read the four states from their own subject, not vacuity()
+                        _begin("goods", name, kind)
+                        res.goods_state, res.goods_reason, res.goods_queries = goods_queries(
+                            get_G(), ast, sx.parse(p.subject), **kw)
+                    elif kind in ("invariant", "persists"):
                         _begin("vacuity", name, kind)
                         res.antecedent_reachable, res.subject_exists = vacuity(get_G(), ast, **kw)
                         res.vacuous = res.antecedent_reachable is False or res.subject_exists is False

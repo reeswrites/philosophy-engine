@@ -426,8 +426,20 @@ def rename(inst: InstitutionJSON, props: dict, mapping: dict[str, str]):
 
     def sub(text):
         return pat.sub(lambda m: mapping[m.group(1)], text)
+    inverse = {v: k for k, v in mapping.items()}
+
+    def keep_field_keys(x, fields):
+        """A renamed identifier can equal a schema field name (role `subject` vs Property.subject): restore keys."""
+        if isinstance(x, dict):
+            return {(inverse[k] if k in inverse and inverse[k] in fields else k): keep_field_keys(v, fields)
+                    for k, v in x.items()}
+        if isinstance(x, list):
+            return [keep_field_keys(v, fields) for v in x]
+        return x
     inst2 = InstitutionJSON.model_validate(json.loads(sub(json.dumps(inst.model_dump()))))
-    props2 = {sub(n): Property.model_validate(json.loads(sub(json.dumps(p.model_dump())))) for n, p in props.items()}
+    pfields = set(Property.model_fields) | {"encoder", "formal", "note", "subject"}
+    props2 = {sub(n): Property.model_validate(keep_field_keys(json.loads(sub(json.dumps(p.model_dump()))), pfields))
+              for n, p in props.items()}
     return inst2, props2
 
 
