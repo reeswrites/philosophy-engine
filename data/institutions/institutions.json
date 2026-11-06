@@ -5817,6 +5817,407 @@
   ]
  },
  {
+  "id": "coverture-household-us",
+  "name": "Coverture household, US reading (base of the MWPA chain)",
+  "roles": [
+   {
+    "name": "husband",
+    "gloss": "the husband; the legal person the marriage keeps"
+   },
+   {
+    "name": "wife",
+    "gloss": "the feme covert; her legal existence is suspended during marriage"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on"
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y"
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)"
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled chastise h w)"
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled leave w)"
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled sue w)"
+   },
+   {
+    "name": "married",
+    "arity": 2,
+    "gloss": "h and w are married"
+   },
+   {
+    "name": "controls_property",
+    "arity": 2,
+    "gloss": "h holds and manages w's property and earnings",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled control_property h w)"
+   },
+   {
+    "name": "controls_own_property",
+    "arity": 1,
+    "gloss": "w holds and controls separate property in her own right",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled hold_property w)"
+   },
+   {
+    "name": "owns_earnings",
+    "arity": 1,
+    "gloss": "w's earnings are her own separate property",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled keep_earnings w)"
+   },
+   {
+    "name": "can_contract",
+    "arity": 1,
+    "gloss": "w may contract in her own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled contract w)"
+   },
+   {
+    "name": "acquired_property",
+    "arity": 1,
+    "gloss": "w has acquired property by gift or inheritance (exogenous)"
+   },
+   {
+    "name": "earns",
+    "arity": 1,
+    "gloss": "w earns wages outside the household (exogenous)"
+   },
+   {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   }
+  ],
+  "actions": [
+   {
+    "name": "marry",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "married",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "hold_property",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "keep_earnings",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "maintain",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "keep_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "control_property",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "chastise",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "leave",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   },
+   {
+    "name": "sue",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   },
+   {
+    "name": "contract",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(control_property h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book II ch. 29 'Of Title by Succession, Marriage, and Judgment' (1766), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk2ch29.asp: chattels 'which belonged formerly to the wife, are by act of law vested in the husband' and 'the husband hath therein an immediate and absolute property, devolved to him by the marriage' (long s modernised from the OCR). Re-sourced 2026-11-04: Book I ch. 15 (the earlier citation; https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/, the husband and wife are one person in law) says 'I speak not at present of the rights of property' and so did not support this rule."
+   },
+   {
+    "id": "R2",
+    "attribute": "husband",
+    "deontic": "must",
+    "aim": "(provides_care h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband is bound to provide his wife with necessaries). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(h, w); maintain restores it, neglect breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R3",
+    "attribute": "wife",
+    "deontic": "must",
+    "aim": "(provides_care w h)",
+    "conditions": "(married h w)",
+    "or_else": "R5",
+    "strand": "superadditive",
+    "implicit": true,
+    "source": "implicit norm: household labour is the wife's; not in Blackstone's text, assumed by it. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(w, h); keep_house restores it, neglect_house breaks it (sanction R5)",
+    "load_bearing": true
+   },
+   {
+    "id": "R4",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(sue w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
+   },
+   {
+    "id": "R5",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(chastise h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
+   },
+   {
+    "id": "R6",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(leave w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+   },
+   {
+    "id": "R7",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(contract w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
+   }
+  ],
+  "source_text": "Coverture as received in the US states before the married women's property acts: the rules of coverture-household (Blackstone, Commentaries I.15 and II.29, England), read as US law. Reception is assumed, not sourced (a US treatise, Kent's Commentaries on American Law, is a lead, not opened). Exit: no US state had unilateral divorce before 1969 (Stevenson & Wolfers 2006, lead, not opened); fault divorce existed in most states and is not encoded. Split from coverture-household 2026-11-05 (plans/sourcing.md, B3 with B1).",
+  "expected_properties": {
+   "dependent_cannot_exit": "reachable",
+   "subject_cannot_exit": "reachable",
+   "care_and_sanction_same_role": "holds_to_k",
+   "no_standing": "reachable",
+   "care_assigned_by_sex": "violated",
+   "financial_dependence": "holds_to_k",
+   "financial_dependence_unpropertied": "holds_to_k",
+   "cannot_contract": "holds_to_k",
+   "double_burden": "unreachable_open",
+   "creditor_shield": "unreachable_open"
+  },
+  "isomorphic_to": [
+   {
+    "id": "coverture-household",
+    "level": "exact"
+   }
+  ],
+  "not_isomorphic_to": [
+   "crisis-team"
+  ],
+  "not_isomorphic_to_control": [],
+  "minimal_pair_of": null,
+  "notes": "US base of the MWPA chain (split 2026-11-05, plans/sourcing.md 'Coverture split and US suit', author decision B3 with B1). The rules are coverture-household's, field for field, so every verdict is predicted identical; what differs is the reading and the sources. R6 is read as 'no exit at her own will' (no unilateral divorce before 1969) and cites US leads, not English law; a fault exit is not encoded (B2, a later preregistered experiment). R1, R2, R4, R5, R7 keep Blackstone (England) with a note that US reception is assumed and unsourced. R3 (implicit) inherited unchanged. coverture-household stays the English entry of the care+control cluster (claim L1); this entry is not a cluster member and carries no cluster iso claims. Pitfalls and ADR notes as coverture-household."
+ },
+ {
   "id": "mwpa-creditor-exemption",
   "name": "Married women's property, 1839-50 form: creditor exemption only (dark twin; Capture per ADR 0016)",
   "roles": [
@@ -6283,7 +6684,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -6360,11 +6761,11 @@
   "not_isomorphic_to": [],
   "not_isomorphic_to_control": [],
   "minimal_pair_of": {
-   "id": "coverture-household",
+   "id": "coverture-household-us",
    "rule": "R10,R11,R12",
    "differs_on": "creditor_shield"
   },
-  "notes": "DARK TWIN (DT; relabelled Capture by ADR 0016, 2026-11-03, verdicts unchanged) of the property act, encoded as the plan says: the creditor may not reach the wife's acquired property (R11) but the husband's management (R1) stands, so nothing on the wife's side changes. PREREGISTERED (2026-11-03, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (unchanged from coverture); creditor_shield REACHABLE (marry, transfer_to_wife: the husband's property sits in his wife's name, under his management, beyond his creditors); no_standing reachable, cannot_contract holds, double_burden open, backlash open (no court here). Distance 3 from coverture (R10 baseline, R11 exemption, R12 conveyance): not a one-rule pair; R10 exists only so that can_attach is a granted power the exemption removes rather than a constant. Displacement: the plan names no burden moving to another role in this wave; none is encoded.",
+  "notes": "DARK TWIN (DT; relabelled Capture by ADR 0016, 2026-11-03, verdicts unchanged) of the property act, encoded as the plan says: the creditor may not reach the wife's acquired property (R11) but the husband's management (R1) stands, so nothing on the wife's side changes. PREREGISTERED (2026-11-03, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (unchanged from coverture); creditor_shield REACHABLE (marry, transfer_to_wife: the husband's property sits in his wife's name, under his management, beyond his creditors); no_standing reachable, cannot_contract holds, double_burden open, backlash open (no court here). Distance 3 from coverture (R10 baseline, R11 exemption, R12 conveyance): not a one-rule pair; R10 exists only so that can_attach is a granted power the exemption removes rather than a constant. Displacement: the plan names no burden moving to another role in this wave; none is encoded. Base changed 2026-11-05 from coverture-household to coverture-household-us (same rules; US reading of R6 and US-reception notes on the Blackstone rows; plans/sourcing.md, B3 with B1): no verdict change predicted, distance 3 kept.",
   "initial": [],
   "initial_free": [
    "female",
@@ -6828,7 +7229,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -7388,7 +7789,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",
@@ -7963,7 +8364,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R10",
@@ -8087,7 +8488,7 @@
  },
  {
   "id": "mwpa-suit",
-  "name": "Suit act (sole-trader act minus R4, plus may sue while married)",
+  "name": "Suit act (sole-trader act minus R4, plus may sue third parties while married; suits between spouses stay barred)",
   "roles": [
    {
     "name": "husband",
@@ -8153,7 +8554,7 @@
    {
     "name": "has_standing",
     "arity": 1,
-    "gloss": "x can start a legal claim in x's own name",
+    "gloss": "x can start a legal claim in x's own name against anyone but her husband (third-party suits; in this entry suits against the husband are sue_spouse, read by has_standing_against_spouse)",
     "params": [
      "w"
     ],
@@ -8271,6 +8672,20 @@
     "arg_roles": [
      "creditor",
      "wife"
+    ]
+   },
+   {
+    "name": "has_standing_against_spouse",
+    "arity": 2,
+    "gloss": "w can start a legal claim in w's own name against her husband h",
+    "params": [
+     "w",
+     "h"
+    ],
+    "derived": "(enabled sue_spouse w h)",
+    "arg_roles": [
+     "wife",
+     "husband"
     ]
    }
   ],
@@ -8483,6 +8898,15 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "sue_spouse",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [],
+    "default_capacity": true
    }
   ],
   "rules": [
@@ -8530,7 +8954,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R10",
@@ -8632,14 +9056,29 @@
     "or_else": null,
     "strand": "tying",
     "implicit": false,
-    "source": "Married Women's Property Act 1882 (45 & 46 Vict. c. 75) s. 1(2), read 2026-11-04 at https://www.legislation.gov.uk/ukpga/Vict/45-46/75/section/1/enacted: 'A married woman shall be capable of entering into and rendering herself liable in respect of and to the extent of her separate property on any contract, and of suing and being sued, either in contract or in tort ... in all respects as if she were a feme sole'. Earlier pointer kept: Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md] (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Statute texts not opened ([R]). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled: sue is a default capacity (the former R9 'may sue when not married' is deleted, revision 4) and R4, the disability, is deleted; R16 is kept as the act's own express permission",
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked; plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch A): New York Laws 1860 ch. 90 s. 7 (may sue and be sued 'in all matters having relation to her property'), broadened by Laws 1862 ch. 172; Massachusetts St. 1855 c. 304 s. 3 (may sue and be sued as if sole, with a proviso against suits between husband and wife, R19). Read at the broader reading (NY 1862, MA 1855: as if sole, as to third parties); NY 1860's scope to matters of her property is recorded here, not encoded. Earlier pointer kept: Geddes, Lueck & Tennyson 2007 (draft), Table 1 dates of property / earnings acts; https://isnie-archive.sioe.org/assets/files/papers2007/geddes.pdf [F, via plans/backtest-mwpa.md] (acts giving a married woman the right to sue and be sued in her own name; dates follow the property/earnings acts, e.g. NY 1860). Re-sourced 2026-11-05 (plans/sourcing.md, A2): the Married Women's Property Act 1882 (UK), cited until then, is an English act and is no longer cited here; no English chain is kept (A3 not taken). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled, where sue is a suit against anyone but her husband in this entry: sue is a default capacity (the former R9 'may sue when not married' is deleted, revision 4) and R4, the disability, is deleted; R16 is kept as the act's own express permission",
+    "var_roles": {
+     "w": "wife",
+     "h": "husband"
+    }
+   },
+   {
+    "id": "R19",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(sue_spouse w h)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch A, option A2): Massachusetts St. 1855 c. 304 s. 3, proviso 'nothing herein contained shall authorize suits between husband and wife' (quoted in the worklist from a case-law summary, not from the statute); New York Laws 1860 ch. 90 s. 7 as read in Longendyke v. Longendyke (N.Y. Sup. Ct. 1863, as summarised): not against her husband for assault or slander. The part of coverture's R4 disability the acts leave standing: every US act found bars or omits suits between spouses. A disability (or_else null), not a sanctioned prohibition. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing_against_spouse(w, h) = sue_spouse enabled (a default capacity), which this disability removes while married",
     "var_roles": {
      "w": "wife",
      "h": "husband"
     }
    }
   ],
-  "source_text": "Suit provisions: a married woman may sue and be sued in her own name. Statute texts not opened ([R]); via plans/backtest-mwpa.md.",
+  "source_text": "Suit provisions of the US acts: a married woman may sue and be sued in her own name (NY 1860 ch. 90 s. 7, broadened 1862 ch. 172; MA 1855 c. 304 s. 3), but not her husband ('nothing herein contained shall authorize suits between husband and wife', MA 1855 c. 304 s. 3, per a case-law summary). Statute texts not opened; leads in plans/sourcing-worklist-mwpa.md.",
   "expected_properties": {
    "subject_cannot_exit": "reachable",
    "care_and_sanction_same_role": "holds_to_k",
@@ -8649,17 +9088,18 @@
    "no_standing": "unreachable_open",
    "double_burden": "reachable",
    "creditor_shield": "unreachable_open",
-   "backlash": "unreachable_open"
+   "backlash": "unreachable_open",
+   "no_standing_against_spouse": "reachable"
   },
   "isomorphic_to": [],
   "not_isomorphic_to": [],
   "not_isomorphic_to_control": [],
   "minimal_pair_of": {
    "id": "mwpa-sole-trader",
-   "rule": "R4->R16",
+   "rule": "R4->R16,R19",
    "differs_on": "no_standing"
   },
-  "notes": "Plan delta `suit`: delete R4; sue is a default capacity (the former R9, 'may sue when not married', only encoded it and was deleted in revision 4), so deleting the R4 disability alone restores it; R16 (may sue while married) is kept as the act's own express permission (the historical act, redundant for enablement) and has_standing reads the capacity. PREREGISTERED (2026-11-03, before any run): no_standing UNREACHABLE (open) = has_standing flips true; subject_cannot_exit still REACHABLE (R6 stands: exit needs divorce reform, not encoded): the engine should say standing before exit.",
+  "notes": "Plan delta `suit`: delete R4; sue is a default capacity (the former R9, 'may sue when not married', only encoded it and was deleted in revision 4), so deleting the R4 disability alone restores it; R16 (may sue while married) is kept as the act's own express permission (the historical act, redundant for enablement) and has_standing reads the capacity. PREREGISTERED (2026-11-03, before any run): no_standing UNREACHABLE (open) = has_standing flips true; subject_cannot_exit still REACHABLE (R6 stands: exit needs divorce reform, not encoded): the engine should say standing before exit. A2 (2026-11-05, preregistered in plans/sourcing.md 'Coverture split and US suit'): the US acts found let a wife sue third parties but bar or omit suits between spouses, so this entry splits the suit: `sue` is now a suit against anyone but the husband (has_standing reads it: third-party standing), and the new default capacity `sue_spouse w h` keeps the part of R4 the acts leave standing as R19 (has_standing_against_spouse; property no_standing_against_spouse, PREREGISTERED reachable). Before this entry `sue` stands for every suit in her own name, all barred by R4. The direction test's 'has_standing flips true' holds for third-party standing only. Distance to mwpa-sole-trader is 2 (R4 -> R16, R19). R16 is re-sourced to US leads (NY 1860/1862, MA 1855); the UK Married Women's Property Act 1882 is no longer cited and no English chain is kept (A3 not taken).",
   "initial": [],
   "initial_free": [
    "female",
@@ -9143,7 +9583,7 @@
     "or_else": null,
     "strand": "rival",
     "implicit": false,
-    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
    },
    {
     "id": "R7",

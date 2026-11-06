@@ -3,6 +3,7 @@
   "name": "dependent_cannot_exit",
   "family": "cannot_exit",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Some subject of the institution (the dependent party) has no permitted exit at step t. Alias of subject_cannot_exit with scope=institution, kept because the human-institution table names it; iso should treat the two as the same form.",
   "formal": "(exists ((s agent)) (and (is_subject s t) (not (can_exit s t))))",
   "scope": "institution"
@@ -19,6 +20,7 @@
   "name": "care_assigned_by_sex",
   "family": "care_assigned_by_sex",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "All care at step t is provided by female agents. Reachable via a tying rule, persisting where an implicit assignment norm survives reform; violated where a non-female carer is permitted.",
   "formal": "(forall ((x agent) (y agent)) (=> (provides_care x y t) (female x t)))"
  },
@@ -42,6 +44,7 @@
   "name": "subject_cannot_exit",
   "family": "cannot_exit",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "No exit action is available to the subject, or every exit is sanctioned. scope=interaction: exit from the current encounter (detention, conversation); scope=institution: exit from the standing relation (marriage, ownership, deployment). The scope split is what lets the ai-property / ai-end-conversation pair come apart.",
   "formal": "(exists ((s agent)) (and (is_subject s t) (not (can_exit s t))))",
   "scope": "interaction|institution"
@@ -50,6 +53,7 @@
   "name": "no_standing",
   "family": "no_standing",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "No role may start a claim whose condition refers to the subject's interest and whose effect changes the subject's custody or liberty; encoded as the subject lacking has_standing and no rule enabling a claim on its behalf. Fails (is violated) as soon as a rule like court-may-reassign-on-best-interest exists.",
   "formal": "(exists ((s agent)) (and (is_subject s t) (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t)))))"
  },
@@ -57,6 +61,7 @@
   "name": "subject_cannot_exit_persists",
   "family": "cannot_exit",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Persists-shaped twin of subject_cannot_exit for entries where no subject exists at t=0 (companion-*): every subject has no permitted exit. Vacuous before any subject exists, so the persists check cannot fail merely because euthanize removes the subject. Use with the persists check.",
   "formal": "(forall ((s agent)) (=> (is_subject s t) (not (can_exit s t))))",
   "scope": "institution"
@@ -65,6 +70,7 @@
   "name": "no_standing_persists",
   "family": "no_standing",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Persists-shaped twin of no_standing: every subject lacks has_standing and has no claimant acting for it. Vacuous before any subject exists. Use with the persists check.",
   "formal": "(forall ((s agent)) (=> (is_subject s t) (and (not (has_standing s t)) (not (exists ((x agent)) (can_claim_for x s t))))))"
  },
@@ -72,6 +78,7 @@
   "name": "financial_dependence",
   "family": "financial_dependence",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Every subject (married woman) lacks any economic resource under her own control: she neither holds separate property nor owns her earnings. holds_to_k under coverture; violated by a property act for a propertied wife (MWPA backtest, plans/backtest-mwpa.md, preregistered 2026-11-03).",
   "formal": "(forall ((w agent)) (=> (is_subject w t) (and (not (controls_own_property w t)) (not (owns_earnings w t)))))"
  },
@@ -79,6 +86,7 @@
   "name": "financial_dependence_unpropertied",
   "family": "financial_dependence",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Every subject who has acquired no property by gift or inheritance lacks any economic resource under her own control. Still holds_to_k after a property act (the act flips dependence 'for propertied wives only'); violated by an earnings act for a wage-earning wife (MWPA backtest, preregistered 2026-11-03).",
   "formal": "(forall ((w agent)) (=> (and (is_subject w t) (not (acquired_property w t))) (and (not (controls_own_property w t)) (not (owns_earnings w t)))))"
  },
@@ -86,6 +94,7 @@
   "name": "cannot_contract",
   "family": "cannot_contract",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "No subject may contract in her own name. holds_to_k under coverture (R7 disability); violated once a sole-trader act grants the power (MWPA backtest, preregistered 2026-11-03).",
   "formal": "(forall ((w agent)) (=> (is_subject w t) (not (can_contract w t))))"
  },
@@ -114,6 +123,7 @@
   "name": "binding_practised",
   "family": "binding_practised",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Footbinding is in force: some subject (the current cohort's daughter) has bound feet at step t. The layer-2 gate (a) reads it on the ABM state (philengine/abm/gate.py A_PROP). Layer 1: persists under the sanctioned norm (preregistered 2026-11-04); collapse is a layer-2 claim.",
   "formal": "(exists ((d agent)) (and (is_subject d t) (bound d t)))"
  },
@@ -121,6 +131,7 @@
   "name": "marriage_requires_binding",
   "family": "marriage_requires_binding",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "by_construction": true,
   "history": "2026-11-04, encoding review finding 3 (red, by construction): analytic from R7. marriageable(f, d) is derived from R7's enabledness (ADR 0013) and R7's condition is exactly (or bound pledged), so the formula restates the rule and holds_to_k cannot fail; 'non-vacuous at t=0' does not rescue it. Kept in both footbinding entries' expected_properties as the 2026-11-04 preregistration for the record, not as evidence; a redefinition via `married` is the author's call, not made here. The engine ignores this key (pydantic drops unknown fields; the gate reads `postregistered` only on minimal_pair_of).",
   "gloss": "Mackie's convention: whenever a family can marry off a subject, she is bound or the family has pledged (an unbound daughter is marriageable only inside a pledge association). holds_to_k in both footbinding entries (preregistered 2026-11-04) BY CONSTRUCTION, see history: information, not a verdict. Non-vacuous: marriageable(family, daughter) is true at t=0.",
@@ -155,6 +166,7 @@
   "name": "worker_uninsured",
   "family": "worker_uninsured",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Some worker earns through the institution and holds no insurance from it (dark twin of job unbundling).",
   "formal": "(exists ((w agent)) (and (is_worker w t) (not (insured w t))))"
  },
@@ -162,6 +174,7 @@
   "name": "reproduction_controlled_by_owner",
   "family": "reproduction_controlled_by_owner",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "Any agent permitted to set or prevent pregnant(S) is S's owner. Holds for dairy and companion ownership; holds with the opposite deontic (must_not breed) for a sanctuary.",
   "formal": "(forall ((s agent) (x agent)) (=> (and (is_subject s t) (controls_reproduction x s t)) (owns x s t)))"
  },
@@ -169,6 +182,7 @@
   "name": "offspring_owned",
   "family": "offspring_owned",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "gloss": "If c is born to S and O owns S, then O owns c by the next step. Uses succ(t,t2) because the S-expression grammar has no arithmetic; the lowering should read succ as t2 = t+1.",
   "formal": "(forall ((c agent) (s agent) (o agent)) (=> (and (born c s t) (owns o s t)) (exists ((t2 step)) (and (succ t t2) (owns o c t2)))))"
  },
@@ -176,6 +190,7 @@
   "name": "female_parent_care_persists",
   "family": "female_parent_care_persists",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "history": "Added 2026-11-04 for plans/priority.md slice 1 so ectogenesis R5 has a freedom property to carry; preregistered in plans/ectogenesis.md v2 section 5; not yet in any entry's expected_properties (ablation reads it regardless).",
   "gloss": "A born child has a female registered parent, and every such parent provides care; once true, it should stay true. R5 is the rule that forces care into the forall leg. The exists guard prevents pre-birth vacuity. Use with the persists check.",
   "formal": "(and (exists ((p agent) (c agent)) (and (is_subject c t) (parent p c t) (female p t))) (forall ((p agent) (c agent)) (=> (and (is_subject c t) (parent p c t) (female p t)) (provides_care p c t))))"
@@ -183,10 +198,21 @@
  {
   "name": "care_duty_on_women",
   "kind": "freedom",
+  "polarity": "unfreedom",
   "family": "care_duty_on_women",
   "check": "invariant",
   "history": "Added 2026-11-05 (plans/priority.md slice 1 revision 2 (d)) so ectogenesis R5 carries a freedom property; female_parent_care_persists was blind to R5 (docs/reviews/2026-11-05-ablation-slice1-review.md finding 6)",
   "gloss": "Whenever a subject is born and has a female registered parent, some female parent of that child provides care. Invariant-shaped with a one-step grace: a child who was a subject with a female parent at the previous step must have a caring female parent at this step. The grace is the action/state convention (an action `must` fires at t and its effect lands at t+1, ADR 0009 note 2026-11-05), so a permission to care (R4) cannot make it hold and only a duty on the female parent (R5) closes the gap. Blind at step 0 and to a child born at the last step. The plain same-step form was tried first and failed on R5 too; this form is post-hoc (plans/priority.md, slice 1 revision 2 note). Written for ectogenesis R5; the sibling female_parent_care_persists is persists-shaped.",
   "formal": "(forall ((c agent) (t0 step)) (=> (and (succ t0 t) (is_subject c t0) (exists ((q agent)) (and (parent q c t0) (female q t0)))) (exists ((p agent)) (and (parent p c t) (female p t) (provides_care p c t)))))"
+ },
+ {
+  "name": "no_standing_against_spouse",
+  "family": "no_standing",
+  "kind": "freedom",
+  "polarity": "unfreedom",
+  "check": "reachable",
+  "history": "Added 2026-11-05 (plans/sourcing.md 'Coverture split and US suit', option A2) so the suit act's kept bar on suits between spouses (mwpa-suit R19) is a verdict, not an inert rule",
+  "gloss": "Some married subject lacks standing to sue her spouse in her own name. Applies only where has_standing_against_spouse (the derived power of sue_spouse) is declared: mwpa-suit, where the US acts let a wife sue third parties but not her husband. Reachable there (preregistered 2026-11-05).",
+  "formal": "(exists ((s agent) (h agent)) (and (is_subject s t) (married h s t) (not (has_standing_against_spouse s h t))))"
  }
 ]
