@@ -112,6 +112,15 @@
     "name": "misbehaves",
     "arity": 1,
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
    }
   ],
   "actions": [
@@ -269,6 +278,13 @@
     ]
    },
    {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
     "name": "leave",
     "args": [
      "w"
@@ -416,7 +432,7 @@
    "naming-convention"
   ],
   "minimal_pair_of": null,
-  "notes": "Care + control: the husband both maintains (R2, provides_care h w) and may chastise/restrain (R5, can_sanction h w) the same subject. That is the sub-signature matched against police-crisis and cps; the wife's own labour (R3) is implicit and runs the other way (provides_care w h), which is why care_and_sanction_same_role is restricted to care received by is_subject, and why care_assigned_by_sex is 'violated' rather than 'holds' (the husband's maintenance also counts as care). Pitfalls: (1) an encoder that drops R3 loses the household-labour strand and reports the wife as purely a recipient of care; (2) R4 and R7 are disabilities (or_else null) and should not be lowered as sanctioned prohibitions; (3) no_standing is 'reachable' not 'holds_to_k' because before marry() the woman has standing (feme sole); the iso with the animal entries on 'cannot sue in own name' holds only post-marriage and is structural, not a claim of equal status. Rival reading: equity courts' separate estates (not encoded) gave propertied wives a partial exit from R1; recorded here, not in the rules. ADR 0009: R2 and R3 are state obligations (must-be provides_care); as per-step action obligations they filled the one action slot at every married step and made marriage unsatisfiable (care_assigned_by_sex held vacuously)."
+  "notes": "Care + control: the husband both maintains (R2, provides_care h w) and may chastise/restrain (R5, can_sanction h w) the same subject. That is the sub-signature matched against police-crisis and cps; the wife's own labour (R3) is implicit and runs the other way (provides_care w h), which is why care_and_sanction_same_role is restricted to care received by is_subject, and why care_assigned_by_sex is 'violated' rather than 'holds' (the husband's maintenance also counts as care). Pitfalls: (1) an encoder that drops R3 loses the household-labour strand and reports the wife as purely a recipient of care; (2) R4 and R7 are disabilities (or_else null) and should not be lowered as sanctioned prohibitions; (3) no_standing is 'reachable' not 'holds_to_k' because before marry() the woman has standing (feme sole); the iso with the animal entries on 'cannot sue in own name' holds only post-marriage and is structural, not a claim of equal status. Rival reading: equity courts' separate estates (not encoded) gave propertied wives a partial exit from R1; recorded here, not in the rules. ADR 0009: R2 and R3 are state obligations (must-be provides_care); as per-step action obligations they filled the one action slot at every married step and made marriage unsatisfiable (care_assigned_by_sex held vacuously). Slice 2 root change (2026-11-06, plans/priority-slice2.md section 5), inherited by the coverture family: action draw_subsistence(w) (no effects, not a default capacity) and derived fluent has_own_income(w) := (enabled draw_subsistence w), declared for the floor route (coverture-floor R20). No rule names the action here, so it is unregulated and has_own_income is false, as hold_property and keep_earnings are under coverture."
  },
  {
   "id": "police-crisis",
@@ -5929,6 +5945,15 @@
     "name": "misbehaves",
     "arity": 1,
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
    }
   ],
   "actions": [
@@ -6084,6 +6109,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -6375,6 +6407,15 @@
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    },
    {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -6559,6 +6600,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -6931,6 +6979,15 @@
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    },
    {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -7115,6 +7172,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -7491,6 +7555,15 @@
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    },
    {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -7675,6 +7748,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -8066,6 +8146,15 @@
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    },
    {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -8250,6 +8339,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -8644,6 +8740,15 @@
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    },
    {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -8842,6 +8947,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -9269,6 +9381,15 @@
     "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
    },
    {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   },
+   {
     "name": "transferred",
     "arity": 2,
     "gloss": "h has conveyed property of his to w",
@@ -9453,6 +9574,13 @@
       "value": true
      }
     ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
    },
    {
     "name": "leave",
@@ -9710,6 +9838,477 @@
    "differs_on": "backlash"
   },
   "notes": "BACKLASH (BL) entry (backlash; filed Erosion by ADR 0016 on 2026-11-03, reverted by its council pass 2026-11-04; verdicts unchanged; see docs/reviews/2026-11-04-adr0016-council.md): mwpa-property plus a court that may construe the act narrowly (R17, sets narrowed(w)), which re-disables the wife's R13 power (its condition carries (not narrowed)) and reinstates R1 as R18 under narrowed. PREREGISTERED (2026-11-03, before any run): backlash REACHABLE (marry, construe_narrowly: the husband controls again, the wife does not); financial_dependence still VIOLATED (the court may but need not narrow, and before it does the wife holds); creditor_shield REACHABLE again (marry, transfer_to_wife, construe_narrowly: with his management reinstated the conveyance is a shield once more); everything else as mwpa-property. Distance 2 from mwpa-property (the narrowing power and the reinstated R1 are two rules). Not a chain step: a branch off mwpa-property.",
+  "initial": [],
+  "initial_free": [
+   "female",
+   "acquired_property",
+   "earns"
+  ]
+ },
+ {
+  "id": "coverture-floor",
+  "name": "Coverture with a material floor (counterfactual: US coverture plus an income in her own right)",
+  "roles": [
+   {
+    "name": "husband",
+    "gloss": "the husband; the legal person the marriage keeps"
+   },
+   {
+    "name": "wife",
+    "gloss": "the feme covert; her legal existence is suspended during marriage"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y"
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled chastise h w)",
+    "arg_roles": [
+     "husband",
+     "wife"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled leave w)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled sue w)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "married",
+    "arity": 2,
+    "gloss": "h and w are married",
+    "arg_roles": [
+     "husband",
+     "wife"
+    ]
+   },
+   {
+    "name": "controls_property",
+    "arity": 2,
+    "gloss": "h holds and manages w's property and earnings",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled control_property h w)",
+    "arg_roles": [
+     "husband",
+     "wife"
+    ]
+   },
+   {
+    "name": "controls_own_property",
+    "arity": 1,
+    "gloss": "w holds and controls separate property in her own right",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled hold_property w)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "owns_earnings",
+    "arity": 1,
+    "gloss": "w's earnings are her own separate property",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled keep_earnings w)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "can_contract",
+    "arity": 1,
+    "gloss": "w may contract in her own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled contract w)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "acquired_property",
+    "arity": 1,
+    "gloss": "w has acquired property by gift or inheritance (exogenous)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "earns",
+    "arity": 1,
+    "gloss": "w earns wages outside the household (exogenous)",
+    "arg_roles": [
+     "wife"
+    ]
+   },
+   {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   }
+  ],
+  "actions": [
+   {
+    "name": "marry",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "married",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "hold_property",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "keep_earnings",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "maintain",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "keep_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "control_property",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "chastise",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   },
+   {
+    "name": "sue",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   },
+   {
+    "name": "contract",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(control_property h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book II ch. 29 'Of Title by Succession, Marriage, and Judgment' (1766), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk2ch29.asp: chattels 'which belonged formerly to the wife, are by act of law vested in the husband' and 'the husband hath therein an immediate and absolute property, devolved to him by the marriage' (long s modernised from the OCR). Re-sourced 2026-11-04: Book I ch. 15 (the earlier citation; https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/, the husband and wife are one person in law) says 'I speak not at present of the rights of property' and so did not support this rule."
+   },
+   {
+    "id": "R2",
+    "attribute": "husband",
+    "deontic": "must",
+    "aim": "(provides_care h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband is bound to provide his wife with necessaries). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(h, w); maintain restores it, neglect breaks it",
+    "load_bearing": true
+   },
+   {
+    "id": "R3",
+    "attribute": "wife",
+    "deontic": "must",
+    "aim": "(provides_care w h)",
+    "conditions": "(married h w)",
+    "or_else": "R5",
+    "strand": "superadditive",
+    "implicit": true,
+    "source": "implicit norm: household labour is the wife's; not in Blackstone's text, assumed by it. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(w, h); keep_house restores it, neglect_house breaks it (sanction R5)",
+    "load_bearing": true
+   },
+   {
+    "id": "R4",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(sue w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married"
+   },
+   {
+    "id": "R5",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(chastise h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable."
+   },
+   {
+    "id": "R6",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(leave w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "source": "UNVERIFIED (leads, not opened 2026-11-05; network fetches blocked): Stevenson & Wolfers, 'Bargaining in the Shadow of the Law: Divorce Laws and Family Distress', Quarterly Journal of Economics 121(1) (2006), NBER w10175, on unilateral (no-fault) divorce adopted state by state from 1969; New York's 1787 divorce act (absolute divorce for adultery only, until the 1966 reform) as one state's fault statute (plans/sourcing-worklist-mwpa.md, Jurisdiction mismatch B). Reading (option B1): R6 encodes no exit at her own will. A judicial divorce on the husband's proved fault (grounds varied by state; South Carolina had none) is an exit this encoding does not represent (option B2, a later preregistered experiment, plans/sourcing.md). The English sources of coverture-household R6 (Shanley 1989, Stone 1990, on England before the Matrimonial Causes Act 1857) are not cited here. [ADR 0013: or_else null: the exit bar is a disability, not a prohibition the subject answers for. Power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married"
+   },
+   {
+    "id": "R7",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(contract w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (contracts between husband and wife void; her contracts are his)"
+   },
+   {
+    "id": "R20",
+    "attribute": "wife",
+    "deontic": "may",
+    "aim": "(draw_subsistence w)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "source": "counterfactual encoding: no work cited and none claimed; the rule is the floor route of plans/priority-slice2.md section 5 (preregistered 2026-11-06), read from the material floor of docs/glossary.md (subsistence regardless of any relationship). UNVERIFIED as history: no jurisdiction ever enacted it on the coverture frame.",
+    "var_roles": {
+     "w": "wife"
+    }
+   }
+  ],
+  "source_text": "Counterfactual, not a historical institution (ADR 0004: no forward claim; ADR 0011: every result is a statement about encodings). The US coverture base (coverture-household-us) plus one rule, R20, giving the wife an income in her own right regardless of marriage: the material floor of docs/glossary.md. Preregistered in plans/priority-slice2.md section 5 (2026-11-06) as the floor route, compared against the title route (the MWPA chain ending in mwpa-earnings).",
+  "expected_properties": {
+   "dependent_cannot_exit": "reachable",
+   "subject_cannot_exit": "reachable",
+   "care_and_sanction_same_role": "holds_to_k",
+   "no_standing": "reachable",
+   "care_assigned_by_sex": "violated",
+   "financial_dependence": "holds_to_k",
+   "financial_dependence_unpropertied": "holds_to_k",
+   "financial_dependence_means": "violated",
+   "financial_dependence_margin": "violated",
+   "cannot_contract": "holds_to_k",
+   "double_burden": "unreachable_open",
+   "creditor_shield": "unreachable_open"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [],
+  "not_isomorphic_to_control": [],
+  "minimal_pair_of": null,
+  "notes": "COUNTERFACTUAL ENCODING (plans/priority-slice2.md section 5; provenance unverified). Base coverture-household-us, so the title route (mwpa-creditor-exemption -> mwpa-property -> mwpa-earnings) and the floor route start from one rule set; initial_free and the fluent arg_roles are mwpa-creditor-exemption's, so both end states quantify over the same exogenous worlds. One rule added (R20); no R13, no R14, R1 kept: no property grant. PREREGISTERED (2026-11-06, before any run): financial_dependence and financial_dependence_unpropertied holds_to_k (both read only property and earnings, so they cannot see a floor: as written, material independence means title); financial_dependence_means violated; financial_dependence_margin violated BY CONSTRUCTION (R20's condition is true); double_burden unreachable_open (needs owns_earnings, which only R14 grants); creditor_shield unreachable_open by construction (no creditor role; transferred and can_attach undeclared); exit, standing, contract, care and sanction as in the US base. Goods (slice 2): second encoder: agent, not someone living under the institution (ADR 0012). Rejected base: mwpa-creditor-exemption (would put the floor on a debtor-relief statute and make creditor_shield reachable); a later variant, not built.",
   "initial": [],
   "initial_free": [
    "female",
