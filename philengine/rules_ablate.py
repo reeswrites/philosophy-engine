@@ -60,7 +60,9 @@ load_goods_by_encoder[e]: e's view, the alternative `<name>@<e>` where it exists
 (chosen BY NAME), the primary elsewhere; a good whose alternative is uncounted while the primary is counted is listed in
 that encoder's `uncounted`. Readings per measure (section 4, R2.1): possible: tying (up > 0, lost 0) | constitutive
 (lost > 0, up 0: deleting the rule makes a good impossible) | hard case | unread; guaranteed: tying | guarantee-carrying
-| hard case (guarantee) | unread. "constitutive" is never used for the guaranteed column.
+| hard case (guarantee) | unread. "constitutive" is never used for the guaranteed column. A constitutive row that
+prohibits an action setting a fluent the lost goods read carries the label "prohibition of the care act"
+(care_act_label; label only, beside the reading, never a count).
 """
 from __future__ import annotations
 
@@ -229,6 +231,11 @@ class RuleAblation:
     goods_families_possible_lost: list[str] = field(default_factory=list)
     goods_families_possible_gained: list[str] = field(default_factory=list)
     goods_families_possible_mixed: list[str] = field(default_factory=list)
+    # label only (slice 2 revision 2 faithfulness review, major 3): "prohibition of the care act" when the row prohibits
+    # an action that sets a fluent the possible-lost goods read, so the constitutive reading is by construction (forbid
+    # the only way to give care and care is impossible), not a constitutive bundle in the glossary's sense. Read by no
+    # count, load, reading or agreement; printed beside the reading in readings_table and listed in the summary.
+    possible_lost_label: str | None = None
     goods_not_applicable: list[str] = field(default_factory=list)  # primary goods with not_applicable on either side
     goods_states: dict[str, list] = field(default_factory=dict)  # primary goods property -> [before, after] (counted)
     goods_alt_states: dict[str, list] = field(default_factory=dict)  # `<name>@<encoder>` -> [before, after]
@@ -444,7 +451,33 @@ def _ablate_one(inst: InstitutionJSON, properties: dict[str, Property], k: int, 
                 and head not in regulated_actions(inst2) and not _default_capacity(inst, head)):
             ab.offcondition_free = True
     _fill(ab, inst2, properties, k, which, base, bv, **run_kw)
+    if variant == "prohibited" and ab.goods_families_possible_lost and aim_kind(rule, inst) == "action":
+        ab.possible_lost_label = care_act_label(inst, head, ab, properties)
     return ab
+
+
+CARE_ACT_LABEL = "prohibition of the care act"
+
+
+def care_act_label(inst: InstitutionJSON, action: str, ab: RuleAblation, properties: dict[str, Property]) -> str | None:
+    """CARE_ACT_LABEL when the prohibited `action` sets (value true) a fluent named in what the good asks for (the
+    consequent of `formal` when it has implication shape, else the whole formula) of a primary goods property in a
+    possible-lost family of row `ab`, else None. An act that only creates the bearer (sets a premise fluent) is not
+    the care act. A label, never a count."""
+    from .rules_lower import _fluents_in
+    from . import sexpr as sx
+    decl = next((a for a in inst.actions if a.name == action), None)
+    sets = {e.fluent for e in (decl.effects if decl else ()) if e.value}
+    lost = set(ab.goods_families_possible_lost)
+    read = set()
+    for n in ab.goods_states:
+        p = properties.get(n)
+        if p is not None and p.family in lost:
+            x = sx.parse(p.formal)
+            while isinstance(x, sx.Quant) and x.kind == "forall":
+                x = x.body
+            read |= _fluents_in(x.right if isinstance(x, sx.Implies) else sx.parse(p.formal))
+    return CARE_ACT_LABEL if sets & read else None
 
 
 def _fill(ab, inst2, properties, k, which, base, bv, **run_kw) -> None:
@@ -628,6 +661,10 @@ def summarize(entries: dict[str, list[MultiKAblation]], ks: tuple[int, ...]) -> 
             "uncounted": sum(len(a.uncounted) for m in res for a in m.by_k.values()),
             # possible measure (R2.1: the only one that feeds constitutive / hard_cases)
             "constitutive": sorted(m.rule_id for m in ranked if m.by_k[k0].reading("possible") == "constitutive"),
+            # label only: constitutive rows (ranked or not) that prohibit the care act itself (care_act_label)
+            "constitutive_labels": {m.rule_id: m.by_k[k0].possible_lost_label for m in res
+                                    if m.by_k[k0].possible_lost_label
+                                    and m.by_k[k0].reading("possible") == "constitutive"},
             "hard_cases": sorted(m.rule_id for m in ranked if m.by_k[k0].reading("possible") == "hard case"),
             # guaranteed measure
             "guarantee_carrying": sorted(m.rule_id for m in ranked if m.by_k[k0].reading("guaranteed") == "guarantee-carrying"),
@@ -698,7 +735,9 @@ def readings_table(results: dict[str, list[MultiKAblation]], ks, insts=None) -> 
                             row += ["-"] * 4
                             continue
                         rd = reading(a.load_freedom_up, bye[e][ms]["lost"], ms)
-                        row += [str(bye[e][ms]["lost"]), str(bye[e][ms]["gained"]), rd, strand_agreement(a.strand, rd)]
+                        shown = f"{rd} ({a.possible_lost_label})" if (
+                            ms == "possible" and rd == "constitutive" and a.possible_lost_label) else rd
+                        row += [str(bye[e][ms]["lost"]), str(bye[e][ms]["gained"]), shown, strand_agreement(a.strand, rd)]
                 row.append(", ".join(f"{n}: {na(v[0])}>{na(v[1])}" for n, v in changes.items()) or "-")
                 out.append("| " + " | ".join(row) + " |")
     return "\n".join(out) + "\n"

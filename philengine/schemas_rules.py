@@ -280,7 +280,12 @@ class Property(BaseModel):
                     sexpr.parse(f)
                 except Exception:  # noqa: BLE001 - reported below for alternatives, by the engine for formal
                     continue
-                ok = rules_goods.premise_implies_subject(f, subj)
+                try:
+                    ok = rules_goods.premise_implies_subject(f, subj)
+                except Exception as e:  # noqa: BLE001 - e.g. z3 Sort mismatch: a free step variable (t0) in subject
+                    raise ValueError(f"property {self.name!r}: subject (for {what}) does not type-check against the "
+                                     f"formula ({type(e).__name__}: {e}); only t may be free in a subject, and a step "
+                                     "variable must be bound")
                 if ok is not True:
                     raise ValueError(f"property {self.name!r}: the implication premise of the {what} does not imply "
                                      f"its subject ({'z3 unknown' if ok is None else 'counterexample exists'}; "

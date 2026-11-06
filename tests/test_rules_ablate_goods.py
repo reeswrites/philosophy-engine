@@ -1,7 +1,8 @@
 """Goods in rule ablation (plans/priority-slice2.md section 6 and revision 2, R2.1 / R2.2): the four goods states
 (not_applicable, absent, fragile, stable) read from the good's own subject, the guaranteed and possible measures,
 contested alternatives chosen by name and never pooled, goods k-disagreement, readings and strand agreement, loader
-checks. Mutations R2.2 names (M1, M2, M5, M6', M8, M9) are each killed by a test below (record: the engine commit)."""
+checks. Mutations R2.2 names (M1, M2, M5, M6', M8, M9) are each killed by a test below (record: the engine commit);
+so are the revision-2 correctness review's survivors M10, M11, M12 (test_4e, test_4f, test_4g)."""
 import itertools
 import json
 
@@ -157,6 +158,28 @@ def test_5d_made_impossible_fragile_to_absent_is_possible_lost_and_constitutive(
     summ = ra.summarize({"t": m}, (4,))["entries"]["t"]
     assert summ["constitutive"] == ["R2~prohibit"] and summ["guarantee_carrying"] == []
     assert ra.strand_agreement("superadditive", "constitutive") == "agree"
+    # label only (faithfulness review major 3): R2 prohibits `give`, which sets `cares`, which the lost good reads
+    assert a.possible_lost_label == ra.CARE_ACT_LABEL == "prohibition of the care act"
+    assert summ["constitutive_labels"] == {"R2~prohibit": "prohibition of the care act"}
+    assert all(x.by_k[4].possible_lost_label is None for x in m if x.rule_id != "R2~prohibit")
+
+
+def test_5f_care_act_label_is_label_only():
+    inst, props = care2()
+    m = ra.ablate_multi_k(inst, props, ks=(4,))
+    a = row([x.by_k[4] for x in m], "R2~prohibit")
+    assert a.possible_lost_label == ra.CARE_ACT_LABEL
+    # an action that sets no fluent the lost good reads gets no label
+    assert ra.care_act_label(inst, "enrol", a, props) is None
+    # the readings table prints it beside the reading; the agreement cell is unchanged
+    txt = ra.readings_table({"t": m}, (4,))
+    line = next(x for x in txt.splitlines() if "| R2~prohibit |" in x)
+    assert "| constitutive (prohibition of the care act) | agree |" in line
+    # no count, load or reading changes with the label removed
+    b = a.to_dict() | {"possible_lost_label": None}
+    assert {k: v for k, v in b.items() if k != "possible_lost_label"} == {
+        k: v for k, v in a.to_dict().items() if k != "possible_lost_label"}
+    assert a.reading("possible") == "constitutive"
 
 
 def test_5e_formula_without_implication_shape_uses_subject_as_witness():
@@ -223,6 +246,69 @@ def test_4c_undecided_subject_query_is_uncounted_never_stable(monkeypatch):
     a = row(ra.ablate(inst, props, k=4), "R2")
     assert a.uncounted == ["cared"] and "subject_unknown" in a.uncounted_reasons["cared"]
     assert a.goods_states == {} and a.load_goods_guaranteed == 0
+
+
+def _unknown_at_goods_query(monkeypatch, n):
+    """z3 answers unknown to the n-th goods query of each property run only (0 subject, 1 witness, 2 possible,
+    3 guaranteed = check_invariant's query); every other query is decided."""
+    real_check, real_begin = rules_checks._check, rules_checks._begin
+    cnt = {"i": 0}
+
+    def begin(phase, property="", check=""):
+        cnt["i"] = 0
+        real_begin(phase, property, check)
+
+    def fake(exprs, **kw):
+        if rules_checks._CTX["phase"] == "goods":
+            i, cnt["i"] = cnt["i"], cnt["i"] + 1
+            if i == n:
+                rules_checks._LOG.append({"phase": "goods", "property": "", "check": "", "build_ms": 0, "solve_ms": 0,
+                                          "result": "unknown", "retries": 0})
+                return rules_checks._Res("unknown", None, "test")
+        return real_check(exprs, **kw)
+    monkeypatch.setattr(rules_checks, "_begin", begin)
+    monkeypatch.setattr(rules_checks, "_check", fake)
+
+
+def test_4e_undecided_guaranteed_query_is_uncounted_never_stable(monkeypatch):
+    # kills M10 (an undecided invariant read as stable: `inv.verdict != "violated"`)
+    inst, props = care()  # stable when decided
+    _unknown_at_goods_query(monkeypatch, 3)
+    state, reason = base_state(inst, props["cared"])
+    assert (state, reason) == (None, "guaranteed_unknown")
+    a = row(ra.ablate(inst, props, k=4), "R2")
+    assert a.uncounted == ["cared"] and "guaranteed_unknown" in a.uncounted_reasons["cared"]
+    assert a.goods_states == {} and (a.load_goods_guaranteed, a.load_goods_possible) == (0, 0)
+
+
+def test_4f_undecided_possible_query_is_uncounted_never_absent(monkeypatch):
+    # kills M11 (an undecided possible query read as absent: `!= "sat"`)
+    inst, props = care2()  # fragile when decided
+    _unknown_at_goods_query(monkeypatch, 2)
+    assert base_state(inst, props["cared"]) == (None, "possible_unknown")
+    a = row(ra.ablate(inst, props, k=4), "R2~prohibit")  # decided: fragile > absent, possible lost 1
+    assert a.uncounted == ["cared"] and "possible_unknown" in a.uncounted_reasons["cared"]
+    assert a.goods_states == {} and a.load_goods_possible == 0 and a.reading("possible") == "unread"
+
+
+def test_4g_no_witness_within_k_is_uncounted_never_absent():
+    # kills M12 (no_witness_within_k read as absent). The bearer exists (subject sat) but the premise needs at_home,
+    # which R3 bars: no witness step within k. Deleting R3 makes the good hold trivially; with the before side
+    # uncounted that is no gain.
+    inst, _ = barred()
+    g = good("w", "(forall ((s agent)) (=> (and (is_subject s t) (at_home s t)) (at_home s t)))")
+    assert base_state(inst, g) == (None, "no_witness_within_k")
+    a = row(ra.ablate(inst, {"w": g}, k=4), "R3")
+    assert a.uncounted == ["w"] and "no_witness_within_k" in a.uncounted_reasons["w"]
+    assert a.goods_states == {} and (a.load_goods_possible_gained, a.load_goods_guaranteed_gained) == (0, 0)
+
+
+def test_4h_subject_with_a_free_step_variable_is_a_clean_load_error(tmp_path):
+    # correctness review minor 2(a): a RulesLoadError (exit 2), not a raw z3 Sort mismatch out of load_properties
+    p = tmp_path / "p.json"
+    p.write_text(json.dumps([good("x", CARED).model_dump(mode="json") | {"subject": "(exists ((s agent)) (is_subject s t0))"}]))
+    with pytest.raises(RulesLoadError, match="does not type-check"):
+        load_properties(p)
 
 
 def test_4d_loader_rejects_missing_subject_undeclared_subject_fluent_and_unimplied_subject(tmp_path):

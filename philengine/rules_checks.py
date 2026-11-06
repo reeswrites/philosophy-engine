@@ -239,7 +239,13 @@ def goods_queries(G: Grounded, ast, subj_ast, **kw) -> tuple[str | None, str | N
       3. possible  P = sat(system and OR_t (Wit(t) and Good(t)))   unsat: absent      unknown: possible_unknown
       4. guaranteed: invariant of formal                     holds_to_k: stable   violated: fragile   else guaranteed_unknown
     Wit(t) = the implication premise (antecedent) when formal has implication shape, else Subj(t). An undecided query is
-    never read as any state (state None, reason given)."""
+    never read as any state (state None, reason given); each of the four branches is pinned by a test
+    (tests/test_rules_ablate_goods.py test_4c, test_4e, test_4f, test_4g).
+    Known limit (slice 2 revision 2 correctness review, minor 3): `possible` asks for the WHOLE formula at ONE witness
+    step, and Good(t) quantifies over every binding. A good written over several bearer roles whose goods can hold
+    only at different steps would read `absent` although it is possible for each bearer. The grounding has one agent
+    per role and every goods formula in the dataset has a single bearer role, so this cannot bite there; a multi-bearer
+    good needs a per-binding possible query first."""
     from .rules_goods import implication_shape
     Good = _prop_at(ast, G)
     Subj = _prop_at(subj_ast, G)
