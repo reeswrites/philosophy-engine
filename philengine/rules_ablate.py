@@ -348,6 +348,8 @@ def without_rule(inst: InstitutionJSON, rule_id: str) -> tuple[InstitutionJSON, 
     for r in d["rules"]:
         if r.get("or_else") == rule_id:
             r["or_else"] = None
+            if r.get("sanctioner") is not None:
+                r["sanctioner"] = "none"  # its sanction rule is gone; keeps validate_institution's sanctioner/or_else check true
             orphaned.append(r["id"])
     return InstitutionJSON.model_validate(d), orphaned
 
@@ -361,12 +363,16 @@ def prohibited(inst: InstitutionJSON, rule_id: str) -> tuple[InstitutionJSON, li
     for r in d["rules"]:
         if r["id"] == rule_id:
             r.update(id=new_id, deontic="must_not", or_else=None)
+            if r.get("sanctioner") is not None:
+                r["sanctioner"] = "none"
             found = True
     if not found:
         raise KeyError(rule_id)
     for r in d["rules"]:
         if r.get("or_else") == rule_id:
             r["or_else"] = None
+            if r.get("sanctioner") is not None:
+                r["sanctioner"] = "none"  # its sanction rule is gone; keeps validate_institution's sanctioner/or_else check true
             orphaned.append(r["id"])
     return InstitutionJSON.model_validate(d), orphaned
 

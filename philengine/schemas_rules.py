@@ -124,6 +124,10 @@ class Rule(BaseModel):
     source: str = ""
     var_roles: dict[str, str] = {}  # {variable: role} for aim/condition variables; overrides the prefix heuristic
     load_bearing: bool = False  # a headline claim rests on this rule: gate (a) fails if it is inert (must-be only)
+    # informal-rule layer (CL plans/informal-rules.md D1/D2); no verdict semantics
+    kind: Literal["formal", "norm", "strategy"] = "formal"
+    sanctioner: Literal["state", "institution", "peers", "family", "self", "none"] | None = None
+    function: str | None = None  # short name of the job the rule does; a preregistered ablation prediction (D2)
 
 
 class IsoClaim(BaseModel):
