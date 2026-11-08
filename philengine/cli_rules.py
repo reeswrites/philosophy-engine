@@ -9,7 +9,7 @@
   phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
   phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--readings PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
-  phil rules freeze-bindings [--entry ID]... [--json]   print the var_roles the prefix heuristic implies (writes no files)
+  phil rules freeze-bindings [--entry ID]... [--json]   print the var_roles / action arg_roles the prefix heuristic implies (writes no files)
   phil rules compose --id X --member A --member B [--alias A:old=new ...] [--initial LIT ...] [--json]   in-memory composite (ADR 0018)
   phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
@@ -433,13 +433,14 @@ def cmd_freeze_bindings(a) -> int:
         out.append((frozen, rows))
     if a.json:
         print(json.dumps([{"entry": f.id, "rows": [r.to_dict() for r in rows],
-                           "var_roles": {r.id: dict(r.var_roles) for r in f.rules}} for f, rows in out], indent=1))
+                           "var_roles": {r.id: dict(r.var_roles) for r in f.rules},
+                           "arg_roles": {a.name: a.arg_roles for a in f.actions}} for f, rows in out], indent=1))
         return 0
-    print(f"{'entry':<28} {'rule':<10} {'variable':<12} {'role':<14} action")
+    print(f"{'entry':<28} {'kind':<7} {'rule/action':<18} {'variable':<12} {'role':<14} action")
     for _f, rows in out:
         for r in rows:
             note = f"  (explicit: {r.existing})" if r.action == "conflict" else ""
-            print(f"{r.entry:<28} {r.rule:<10} {r.variable:<12} {r.role or '-':<14} {r.action}{note}")
+            print(f"{r.entry:<28} {r.kind:<7} {r.rule:<18} {r.variable:<12} {r.role or '-':<14} {r.action}{note}")
     tally = {k: sum(r.action == k for _f, rows in out for r in rows) for k in rules_compose.ACTIONS}
     print("  ".join(f"{k}={v}" for k, v in tally.items()))
     return 0
@@ -547,7 +548,7 @@ def register(sub) -> None:
     s.add_argument("--readings", default=None, metavar="PATH",
                    help="write the readings table (markdown): per rule row with a reading or a goods change, per k: up, "
                         "goods lost/gained per encoder, reading per encoder, strand agreement (plans/priority-slice2.md 4.2)")
-    s = rs.add_parser("freeze-bindings", help="print the var_roles that make the prefix heuristic explicit (writes no files)")
+    s = rs.add_parser("freeze-bindings", help="print the var_roles and action arg_roles that make the prefix heuristic explicit (writes no files)")
     s.add_argument("--entry", action="append", default=None, help="restrict to this institution id (repeatable)")
     s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
     s.add_argument("--json", action="store_true")

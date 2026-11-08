@@ -104,8 +104,97 @@ def test_cli_json(tmp_path, capsys):
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# compose (ADR 0018)
+# freeze_action_roles: action parameters typed from the member's OWN roles (the dataset's former P1b workaround)
 import pytest
+
+
+def atoy(arg_roles=None) -> InstitutionJSON:
+    return InstitutionJSON.model_validate({
+        "id": "atoy",
+        "roles": [{"name": "husband"}, {"name": "wife"}, {"name": "worker"}, {"name": "warden"}, {"name": "court"}],
+        "fluents": [{"name": "bound", "arity": 1}],
+        "actions": [{"name": "rule_on", "args": ["h", "court", "w", "wi"], "arg_roles": arg_roles, "effects": []}],
+        "rules": [{"id": "R1", "attribute": "husband", "deontic": "must", "aim": "(rule_on h court w wi)",
+                   "conditions": "true", "strand": None, "var_roles": {}}],
+    })
+
+
+def arows(rows):
+    return {(r.rule, r.variable): r for r in rows if r.kind == "action"}
+
+
+def test_action_params_written_untyped():
+    inst = atoy()
+    frozen, rows = rc.freeze_action_roles(inst)
+    m = arows(rows)
+    assert (m["rule_on", "h"].role, m["rule_on", "h"].action) == ("husband", "written")
+    assert (m["rule_on", "wi"].role, m["rule_on", "wi"].action) == ("wife", "written")
+    assert (m["rule_on", "w"].role, m["rule_on", "w"].action) == (None, "untyped")  # wife / worker / warden
+    assert (m["rule_on", "court"].role, m["rule_on", "court"].action) == ("court", "written")  # literal role
+    assert frozen.actions[0].arg_roles == ["husband", "court", None, "wife"]
+    assert inst.actions[0].arg_roles is None  # input not mutated
+    # freeze_bindings carries the same rows (kind="action") beside the rule rows
+    fb, all_rows = rc.freeze_bindings(inst)
+    assert fb.actions == frozen.actions
+    assert arows(all_rows).keys() == m.keys() and {r.kind for r in all_rows} == {"action", "rule"}
+
+
+def test_action_explicit_wins_and_conflict():
+    inst = atoy(["wife", None, "worker", None])  # h explicit (wrong by prefix) -> conflict; w explicit -> already_explicit
+    frozen, rows = rc.freeze_action_roles(inst)
+    m = arows(rows)
+    c = m["rule_on", "h"]
+    assert (c.action, c.role, c.existing) == ("conflict", "husband", "wife")
+    assert m["rule_on", "w"].action == "already_explicit" and m["rule_on", "w"].existing == "worker"
+    assert frozen.actions[0].arg_roles == ["wife", "court", "worker", "wife"]  # explicit kept, gaps filled
+    ok = atoy(["husband", None, None, None])
+    assert arows(rc.freeze_action_roles(ok)[1])["rule_on", "h"].action == "already_explicit"
+
+
+def test_action_untypable_stays_none_and_idempotent():
+    inst = atoy().model_copy(update={"actions": [atoy().actions[0].model_copy(update={"args": ["w", "x"]})],
+                                     "rules": []})
+    frozen, rows = rc.freeze_action_roles(inst)
+    assert frozen.actions[0].arg_roles is None and {r.action for r in rows} == {"untyped"}
+    f1, _ = rc.freeze_action_roles(atoy())
+    f2, rows2 = rc.freeze_action_roles(f1)
+    assert f2 == f1 and {r.action for r in rows2} == {"already_explicit", "untyped"}
+
+
+def test_action_roles_survive_added_prefix_in_compose():
+    # alone, `h` -> husband; united with an entry declaring `hunter`, the prefix is ambiguous. Freezing in the member
+    # keeps husband (what build.py's P1b did by hand).
+    a = atoy()
+    extra = InstitutionJSON.model_validate({"id": "extra", "roles": [{"name": "hunter"}], "fluents": [], "actions": [], "rules": []})
+    c = rc.compose([a, extra], {}, "c")
+    assert {x.name: x.arg_roles for x in c.actions}["rule_on"] == ["husband", "court", None, "wife"]
+    assert Reference(c).aim_types(c.rules[0])["h"] == "husband"
+
+
+def test_action_conflict_raises_compose_error():
+    bad = atoy(["wife", None, None, None])
+    with pytest.raises(rc.ComposeError, match="rule_on.*'h'.*'wife'.*'husband'"):
+        rc.compose([bad], {}, "c")
+
+
+def test_cli_covers_actions(tmp_path, capsys):
+    p = tmp_path / "i.json"
+    p.write_text(json.dumps([atoy().model_dump(mode="json")]))
+    pp = tmp_path / "p.json"
+    pp.write_text("[]")
+    ns = type("A", (), {"institutions": str(p), "properties": str(pp), "entry": ["atoy"], "json": True})()
+    assert cli_rules.cmd_freeze_bindings(ns) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out[0]["arg_roles"] == {"rule_on": ["husband", "court", None, "wife"]}
+    assert any(r["kind"] == "action" and r["variable"] == "wi" and r["action"] == "written" for r in out[0]["rows"])
+    ns.json = False
+    assert cli_rules.cmd_freeze_bindings(ns) == 0
+    text = capsys.readouterr().out
+    assert "action  rule_on" in text and "kind" in text.splitlines()[0]
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# compose (ADR 0018)
 
 from philengine.rules_ablate import applicable_which
 from philengine.schemas_rules import Property
@@ -253,6 +342,9 @@ def test_same_member_twice_distinct_prefixes():
     _, b = pair()
     c = rc.compose([b, b], {"hosp-b": {"patient": "p1", "visitor": "p2"}, "hosp-b_2": {"patient": "p2", "visitor": "p3"}}, "twice")
     assert [r.id for r in c.rules] == ["hosp_b__R1", "hosp_b_2__R1"]
+    # `visit v` freezes to visitor -> p2 in one occurrence, p3 in the other: the union keeps the action and falls
+    # back to untyped at that position; each rule keeps its own frozen var_roles
+    assert c.actions[0].arg_roles is None and [r.var_roles["v"] for r in c.rules] == ["p2", "p3"]
     assert c.members == ["hosp-b", "hosp-b"] and [r.name for r in c.roles] == ["p1", "p2", "p3"]
     assert c.rules[1].attribute == "p3" and c.rules[1].conditions == "(married p2 p3)"
     # same alias map on a typed fluent twice is fine; a swapped one is a typed disagreement
