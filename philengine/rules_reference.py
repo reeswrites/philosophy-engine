@@ -86,109 +86,25 @@ class RuleInst:
     free_doms: tuple  # ((name, (agents...)), ...)
 
 
-class Reference:
-    def __init__(self, inst: InstitutionJSON, k: int = 4, init: str | None = None, step_mode: str = "one"):
-        self.inst = inst
-        self.k = k
-        self.step_mode = step_mode
+class _Typing:
+    """Rule-variable typing, the ONE resolution of aim / condition variables to roles. Needs self.roles, agents, lits,
+    fluents, actions (set by `_init_typing` + `_init_lits`, which `Reference` calls and `rules_compose.freeze_bindings`
+    calls without building the grounding)."""
+
+    def _init_typing(self, inst: InstitutionJSON) -> None:
         self.agents = [r.name for r in inst.roles]
         self.roles = set(self.agents)
-        self.init = init or ("declared" if inst.declares_init() else "empty")
         self.fluents = {f.name: f for f in inst.fluents}
         self.actions = {a.name: a for a in inst.actions}
-        self.derived: dict[str, tuple[list[str], object]] = {}  # name -> (params, AST)
-        for f in inst.fluents:
-            if f.derived is not None:
-                if len(f.params or []) != f.arity:
-                    raise RefError(f"derived fluent {f.name}: params/arity mismatch")
-                self.derived[f.name] = (list(f.params or []), sx.parse(f.derived))
-        for a in inst.actions:
-            for e in a.effects:
-                if e.fluent in self.derived:
-                    raise RefError(f"action {a.name}: effect on derived fluent {e.fluent}")
-        # fluent tuples
-        self.tuples: dict[str, list[tuple]] = {}
-        for f in inst.fluents:
-            if f.name in self.derived:
-                self.tuples[f.name] = []  # not state
-                continue
-            if f.arg_roles is None:
-                self.tuples[f.name] = list(itertools.product(self.agents, repeat=f.arity))
-            else:
-                self.tuples[f.name] = [tuple(f.arg_roles)] if all(r in self.roles for r in f.arg_roles) else []
-        self.all_atoms = {(n, tup) for n, ts in self.tuples.items() for tup in ts}
+
+    def _init_lits(self, inst: InstitutionJSON) -> None:
         # literal roles: role names used as action params or aim args
         self.lits: set[str] = set()
         for a in inst.actions:
             self.lits |= self.roles & set(a.args)
         for r in inst.rules:
             self.lits |= self.roles & {x.name for x in self._aim(r.aim).args}
-        # rule instances
-        self.rule_insts: list[RuleInst] = []
-        named: dict[str, set[str]] = {}  # action -> attributes of rules naming it
-        self.may_must_named: set[str] = set()
-        self.state_rules: list[RuleInst] = []  # aim head is a fluent (state obligation)
-        for r in inst.rules:
-            aim = self._aim(r.aim)
-            if aim.pred in self.fluents and aim.pred not in self.actions:
-                if r.deontic == "may":
-                    raise RefError(f"{r.id}: may on a fluent")
-                if aim.pred in self.derived:
-                    raise RefError(f"{r.id}: aim is a derived fluent")
-                cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
-                names = [x.name for x in aim.args]
-                types = self.aim_types(r)
-                free = sorted(self._free_vars(cond) - set(names)) if cond is not None else []
-                free_doms = []
-                for v in free:
-                    ty = r.var_roles.get(v) if v not in self.lits else None
-                    if ty is None:
-                        ty = self._var_role(v)
-                    free_doms.append((v, (ty,) if ty else tuple(self.agents)))
-                doms = [[types[n]] if types.get(n) else list(self.agents) for n in names]
-                for tup in itertools.product(*doms):
-                    b = dict(zip(names, tup))
-                    self.state_rules.append(RuleInst(r.id, r.deontic, aim.pred, tuple(b[n] for n in names), cond, b,
-                                                     tuple(free_doms)))
-                continue
-            if aim.pred not in self.actions:
-                raise RefError(f"{r.id}: unknown action {aim.pred}")
-            named.setdefault(aim.pred, set()).add(r.attribute)
-            if r.deontic in ("may", "must"):
-                self.may_must_named.add(aim.pred)
-            cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
-            names = [x.name for x in aim.args]
-            if len(names) != len(self.actions[aim.pred].args):
-                raise RefError(f"{r.id}: aim arity")
-            types = self.aim_types(r)
-            free = sorted(self._free_vars(cond) - set(names)) if cond is not None else []
-            free_doms = []
-            for v in free:
-                ty = r.var_roles.get(v) if v not in self.lits else None
-                if ty is None:
-                    ty = self._var_role(v)
-                free_doms.append((v, (ty,) if ty else tuple(self.agents)))
-            for b in self._bindings(names, types):
-                self.rule_insts.append(RuleInst(r.id, r.deontic, aim.pred, tuple(b[n] for n in names), cond, b,
-                                                tuple(free_doms)))
-        # action instances (typed, distinct, attribute-scoped)
-        self.action_insts: list[tuple[str, tuple]] = []
-        for a in inst.actions:
-            atypes = self._action_types(a)
-            for b in self._bindings(a.args, atypes):
-                args = tuple(b[p] for p in a.args)
-                if a.name in named and (not args or args[0] not in named[a.name]):
-                    continue
-                self.action_insts.append((a.name, args))
-        self.action_inst_set = set(self.action_insts)  # membership tests in power / compliant_step
-        self.rules_on: dict[tuple, list[RuleInst]] = {}
-        for ri in self.rule_insts:
-            self.rules_on.setdefault((ri.action, ri.args), []).append(ri)
-        self.disabilities = {r.id for r in inst.rules if r.deontic == "must_not" and r.or_else is None}
-        self._traces: list[tuple[frozenset, ...]] | None = None
-        self._trace_actions: dict | None = None
 
-    # ------------------------------------------------------------ typing helpers
     @staticmethod
     def _aim(text: str) -> sx.App:
         a = sx.parse(text)
@@ -244,11 +160,16 @@ class Reference:
                 out[p] = r
         return out
 
-    def _bindings(self, names, types):
-        doms = [[types[n]] if types.get(n) else list(self.agents) for n in names]
-        for tup in itertools.product(*doms):
-            if len(set(tup)) == len(tup):
-                yield dict(zip(names, tup))
+    def free_var_types(self, r, cond) -> dict[str, str | None]:
+        """{condition variable not in the aim: role or None} (var_roles > prefix heuristic; None = all agents)."""
+        names = {x.name for x in self._aim(r.aim).args}
+        out: dict[str, str | None] = {}
+        for v in sorted(self._free_vars(cond) - names) if cond is not None else []:
+            ty = r.var_roles.get(v) if v not in self.lits else None
+            if ty is None:
+                ty = self._var_role(v)
+            out[v] = ty
+        return out
 
     @staticmethod
     def _free_vars(ast) -> set[str]:
@@ -276,6 +197,95 @@ class Reference:
                 go(x.body, bound | {v for v, _ in x.vars})
         go(ast, set())
         return out
+
+
+class Reference(_Typing):
+    def __init__(self, inst: InstitutionJSON, k: int = 4, init: str | None = None, step_mode: str = "one"):
+        self.inst = inst
+        self.k = k
+        self.step_mode = step_mode
+        self._init_typing(inst)
+        self.init = init or ("declared" if inst.declares_init() else "empty")
+        self.derived: dict[str, tuple[list[str], object]] = {}  # name -> (params, AST)
+        for f in inst.fluents:
+            if f.derived is not None:
+                if len(f.params or []) != f.arity:
+                    raise RefError(f"derived fluent {f.name}: params/arity mismatch")
+                self.derived[f.name] = (list(f.params or []), sx.parse(f.derived))
+        for a in inst.actions:
+            for e in a.effects:
+                if e.fluent in self.derived:
+                    raise RefError(f"action {a.name}: effect on derived fluent {e.fluent}")
+        # fluent tuples
+        self.tuples: dict[str, list[tuple]] = {}
+        for f in inst.fluents:
+            if f.name in self.derived:
+                self.tuples[f.name] = []  # not state
+                continue
+            if f.arg_roles is None:
+                self.tuples[f.name] = list(itertools.product(self.agents, repeat=f.arity))
+            else:
+                self.tuples[f.name] = [tuple(f.arg_roles)] if all(r in self.roles for r in f.arg_roles) else []
+        self.all_atoms = {(n, tup) for n, ts in self.tuples.items() for tup in ts}
+        self._init_lits(inst)
+        # rule instances
+        self.rule_insts: list[RuleInst] = []
+        named: dict[str, set[str]] = {}  # action -> attributes of rules naming it
+        self.may_must_named: set[str] = set()
+        self.state_rules: list[RuleInst] = []  # aim head is a fluent (state obligation)
+        for r in inst.rules:
+            aim = self._aim(r.aim)
+            if aim.pred in self.fluents and aim.pred not in self.actions:
+                if r.deontic == "may":
+                    raise RefError(f"{r.id}: may on a fluent")
+                if aim.pred in self.derived:
+                    raise RefError(f"{r.id}: aim is a derived fluent")
+                cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
+                names = [x.name for x in aim.args]
+                types = self.aim_types(r)
+                free_doms = [(v, (ty,) if ty else tuple(self.agents)) for v, ty in self.free_var_types(r, cond).items()]
+                doms = [[types[n]] if types.get(n) else list(self.agents) for n in names]
+                for tup in itertools.product(*doms):
+                    b = dict(zip(names, tup))
+                    self.state_rules.append(RuleInst(r.id, r.deontic, aim.pred, tuple(b[n] for n in names), cond, b,
+                                                     tuple(free_doms)))
+                continue
+            if aim.pred not in self.actions:
+                raise RefError(f"{r.id}: unknown action {aim.pred}")
+            named.setdefault(aim.pred, set()).add(r.attribute)
+            if r.deontic in ("may", "must"):
+                self.may_must_named.add(aim.pred)
+            cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
+            names = [x.name for x in aim.args]
+            if len(names) != len(self.actions[aim.pred].args):
+                raise RefError(f"{r.id}: aim arity")
+            types = self.aim_types(r)
+            free_doms = [(v, (ty,) if ty else tuple(self.agents)) for v, ty in self.free_var_types(r, cond).items()]
+            for b in self._bindings(names, types):
+                self.rule_insts.append(RuleInst(r.id, r.deontic, aim.pred, tuple(b[n] for n in names), cond, b,
+                                                tuple(free_doms)))
+        # action instances (typed, distinct, attribute-scoped)
+        self.action_insts: list[tuple[str, tuple]] = []
+        for a in inst.actions:
+            atypes = self._action_types(a)
+            for b in self._bindings(a.args, atypes):
+                args = tuple(b[p] for p in a.args)
+                if a.name in named and (not args or args[0] not in named[a.name]):
+                    continue
+                self.action_insts.append((a.name, args))
+        self.action_inst_set = set(self.action_insts)  # membership tests in power / compliant_step
+        self.rules_on: dict[tuple, list[RuleInst]] = {}
+        for ri in self.rule_insts:
+            self.rules_on.setdefault((ri.action, ri.args), []).append(ri)
+        self.disabilities = {r.id for r in inst.rules if r.deontic == "must_not" and r.or_else is None}
+        self._traces: list[tuple[frozenset, ...]] | None = None
+        self._trace_actions: dict | None = None
+
+    def _bindings(self, names, types):
+        doms = [[types[n]] if types.get(n) else list(self.agents) for n in names]
+        for tup in itertools.product(*doms):
+            if len(set(tup)) == len(tup):
+                yield dict(zip(names, tup))
 
     # ------------------------------------------------------------ evaluation
     def holds(self, state: frozenset, ast, env: dict) -> bool:
