@@ -10,6 +10,7 @@
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
   phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--readings PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
   phil rules freeze-bindings [--entry ID]... [--json]   print the var_roles the prefix heuristic implies (writes no files)
+  phil rules compose --id X --member A --member B [--alias A:old=new ...] [--initial LIT ...] [--json]   in-memory composite (ADR 0018)
   phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
 Prints a compact table: institution, property, check, expected, got, match, flags, k, init; `flags` is `vacuous`
@@ -444,6 +445,32 @@ def cmd_freeze_bindings(a) -> int:
     return 0
 
 
+def cmd_compose(a) -> int:
+    insts, _props = _load(a)
+    by_id = {i.id: i for i in insts}
+    members = []
+    for m in a.member:
+        if m not in by_id:
+            print(f"unknown institution {m!r}; have {sorted(by_id)}", file=sys.stderr)
+            return 2
+        members.append(by_id[m])
+    aliases: dict[str, dict[str, str]] = {}
+    for spec in a.alias or []:
+        mid, sep, rest = spec.partition(":")
+        old, eq, new = rest.partition("=")
+        if not (sep and eq and mid and old and new):
+            print(f"bad --alias {spec!r}; expected MEMBER:old=new", file=sys.stderr)
+            return 2
+        aliases.setdefault(mid, {})[old] = new
+    try:
+        comp = rules_compose.compose(members, aliases, a.id, initial=a.initial or None, notes=a.notes)
+    except rules_compose.ComposeError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(comp.model_dump_json(indent=1))
+    return 0
+
+
 def register(sub) -> None:
     """Attach `rules` to the top-level `phil` subparsers."""
     p = sub.add_parser("rules", help="institutions family: bounded z3 checks over ADICO rules")
@@ -525,6 +552,15 @@ def register(sub) -> None:
     s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_freeze_bindings)
+    s = rs.add_parser("compose", help="build a composite of several entries in memory and print it as JSON (writes no files)")
+    s.add_argument("--id", required=True)
+    s.add_argument("--member", action="append", required=True, help="member institution id (repeatable; a repeat is keyed A_2, A_3 in --alias)")
+    s.add_argument("--alias", action="append", default=None, metavar="MEMBER:old=new", help="rename a member role (repeatable)")
+    s.add_argument("--initial", action="append", default=None, metavar="LITERAL", help="extra initial literal, e.g. 'female(partner_b)'")
+    s.add_argument("--notes", default="")
+    s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)
+    s.add_argument("--json", action="store_true", help="accepted for symmetry; output is always JSON")
+    s.set_defaults(fn=cmd_compose)
     s = rs.add_parser("gate", help="Phase 0 gate (a)-(f); exit 0 = PASS"); common(s)
     s.add_argument("--verbose", action="store_true", help="print the per-pair iso reports behind each criterion")
     s.set_defaults(fn=cmd_gate)

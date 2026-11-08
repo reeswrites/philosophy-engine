@@ -432,7 +432,8 @@ def applicable_which(inst: InstitutionJSON, properties: dict[str, Property],
     for n, p in properties.items():
         if n not in inst.expected_properties:
             errs, warns = validate_property(p, inst)
-            if errs or (inst.id not in p.entries and any("undeclared fluent" in w for w in warns)):
+            lenient = inst.id in p.entries or any(m in p.entries for m in inst.members)  # composites: any member listed (ADR 0018)
+            if errs or (not lenient and any("undeclared fluent" in w for w in warns)):
                 na.append(n)
                 continue
         errs = goods_subject_errors(p, inst)
