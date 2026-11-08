@@ -48,7 +48,7 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 Deontic = Literal["must", "may", "must_not"]
 AimKind = Literal["action", "state"]  # ADR 0009: an aim is an action (must-do) or a fluent (must-be)
@@ -61,6 +61,12 @@ CheckKind = Literal["reachable", "invariant", "persists"]
 class RoleDecl(BaseModel):
     name: str
     gloss: str = ""
+    count: int = Field(1, ge=1)  # agents of this role. 1 (default): one agent named after the role. N > 1: name_1..name_N
+
+    @property
+    def instance_names(self) -> list[str]:
+        """The agent names of this role: [name] when count is 1, else name_1..name_count."""
+        return [self.name] if self.count == 1 else [f"{self.name}_{i}" for i in range(1, self.count + 1)]
 
 
 class FluentDecl(BaseModel):

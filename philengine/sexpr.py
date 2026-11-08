@@ -2,6 +2,7 @@
 
 Grammar (no eval, no arithmetic, no ite/let/lambda):
   F := (forall ((x Sort) ...) F) | (exists ((x Sort) ...) F)
+     | (atmost N ((x Sort) ...) F) | (atleast N ((x Sort) ...) F)   (N a non-negative integer literal: cardinality)
      | (=> F F) | (iff F F) | (and F+) | (or F+) | (not F)
      | (= t t) | (P t ...) | atom
   t := atom (variable or constant)
@@ -14,7 +15,7 @@ import re
 from dataclasses import dataclass
 
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-OPERATORS = {"forall", "exists", "=>", "iff", "and", "or", "not", "="}
+OPERATORS = {"forall", "exists", "atmost", "atleast", "=>", "iff", "and", "or", "not", "="}
 # Rejected outright with a precise message (SMT-LIB things we deliberately do not support).
 FORBIDDEN = {
     "ite", "let", "lambda", "+", "-", "*", "/", "<", ">", "<=", ">=", "distinct",
@@ -78,6 +79,14 @@ class Quant:
     kind: str  # "forall" | "exists"
     vars: tuple  # tuple[(name, sort)]
     body: object
+
+
+@dataclass(frozen=True)
+class Count(Quant):
+    """Cardinality quantifier: (atmost N ((x S) ...) body) / (atleast N ...): at most / at least N bindings of the
+    variables (over the whole domain, no distinctness filter) satisfy body. A Quant subclass so walkers that only
+    recurse through binders (free variables, fluent checks) need no change; evaluators must test it first."""
+    n: int = 0
 
 
 def tokenize(text: str) -> list[str]:
@@ -175,6 +184,13 @@ def _formula(x):
         if len({v for v, _ in vs}) != len(vs):
             raise ParseError(f"{head}: duplicate bound variable")
         return Quant(head, tuple(vs), _formula(rest[1]))
+    if head in ("atmost", "atleast"):
+        if len(rest) != 3:
+            raise ParseError(f"({head} N ((x Sort) ...) body) takes exactly 3 arguments")
+        if not (isinstance(rest[0], str) and rest[0].isdigit()):
+            raise ParseError(f"{head}: N must be a non-negative integer literal, got {rest[0]!r}")
+        q = _formula(["forall", rest[1], rest[2]])
+        return Count(head, q.vars, q.body, int(rest[0]))
     if head in ("=>", "iff", "="):
         if len(rest) != 2:
             raise ParseError(f"({head} a b) takes exactly 2 arguments, got {len(rest)}")
@@ -221,6 +237,9 @@ def to_sexpr(a) -> str:
         return f"(iff {to_sexpr(a.left)} {to_sexpr(a.right)})"
     if isinstance(a, Eq):
         return f"(= {to_sexpr(a.left)} {to_sexpr(a.right)})"
+    if isinstance(a, Count):
+        bs = " ".join(f"({v} {s})" for v, s in a.vars)
+        return f"({a.kind} {a.n} ({bs}) {to_sexpr(a.body)})"
     if isinstance(a, Quant):
         bs = " ".join(f"({v} {s})" for v, s in a.vars)
         return f"({a.kind} ({bs}) {to_sexpr(a.body)})"

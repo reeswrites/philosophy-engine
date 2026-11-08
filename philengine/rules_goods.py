@@ -50,6 +50,8 @@ def _translator():
             if e.name in env:
                 return env[e.name]
             return z3.Const(e.name, agent)  # a role literal
+        if isinstance(e, sx.Count):
+            raise ValueError("atmost/atleast are not supported in the goods encoding")
         if isinstance(e, sx.Quant):
             vs = [z3.Const(n, sorts.get(srt, agent)) for n, srt in e.vars]
             env2 = dict(env)
