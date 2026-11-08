@@ -50,6 +50,7 @@ import re
 from dataclasses import dataclass
 
 from . import sexpr as sx
+from . import rules_roles as rr
 from .schemas_rules import InstitutionJSON, Property, TraceStep
 
 _LIT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?:\((.*)\))?$")
@@ -92,8 +93,14 @@ class _Typing:
     calls without building the grounding)."""
 
     def _init_typing(self, inst: InstitutionJSON) -> None:
-        self.agents = [r.name for r in inst.roles]
-        self.roles = set(self.agents)
+        errs = rr.check_role_counts(inst)
+        if errs:
+            raise RefError("\n".join(errs))
+        self.agents = rr.agent_names(inst)  # one per role (count 1: the bare role name) else role_1..role_N
+        self.role_names = [r.name for r in inst.roles]
+        self.roles = set(self.role_names)
+        self.role_of = rr.instance_role(inst)  # agent -> role
+        self._instances = {r.name: r.instance_names for r in inst.roles}
         self.fluents = {f.name: f for f in inst.fluents}
         self.actions = {a.name: a for a in inst.actions}
 
@@ -147,10 +154,22 @@ class _Typing:
                 types[n] = atypes.get(params[i]) if i < len(params) else None
         return types
 
+    def instances(self, role: str) -> list[str]:
+        """The agents of a role (rules_roles.instances): [role] at count 1."""
+        return self._instances.get(role, [role])
+
+    def typed_tuples(self, decl) -> list[tuple]:
+        """Tuples of a fluent: its arg_roles' instances (product; no distinctness filter, as the single tuple
+        (wife, wife) of count 1 was allowed), else every agent tuple."""
+        if decl.arg_roles:
+            return list(itertools.product(*[self.instances(r) for r in decl.arg_roles])) if all(
+                r in self.roles for r in decl.arg_roles) else []
+        return list(itertools.product(self.agents, repeat=decl.arity))
+
     def _var_role(self, name: str) -> str | None:
         if name in self.roles:
             return name
-        c = [r for r in self.agents if r not in self.lits and r.startswith(name)]
+        c = [r for r in self.role_names if r not in self.lits and r.startswith(name)]
         return c[0] if len(c) == 1 else None
 
     def _action_types(self, a) -> dict:
@@ -222,10 +241,8 @@ class Reference(_Typing):
             if f.name in self.derived:
                 self.tuples[f.name] = []  # not state
                 continue
-            if f.arg_roles is None:
-                self.tuples[f.name] = list(itertools.product(self.agents, repeat=f.arity))
-            else:
-                self.tuples[f.name] = [tuple(f.arg_roles)] if all(r in self.roles for r in f.arg_roles) else []
+            self.tuples[f.name] = self.typed_tuples(f) if f.arg_roles is not None else list(
+                itertools.product(self.agents, repeat=f.arity))
         self.all_atoms = {(n, tup) for n, ts in self.tuples.items() for tup in ts}
         self._init_lits(inst)
         # rule instances
@@ -243,8 +260,8 @@ class Reference(_Typing):
                 cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
                 names = [x.name for x in aim.args]
                 types = self.aim_types(r)
-                free_doms = [(v, (ty,) if ty else tuple(self.agents)) for v, ty in self.free_var_types(r, cond).items()]
-                doms = [[types[n]] if types.get(n) else list(self.agents) for n in names]
+                free_doms = [(v, tuple(self.instances(ty)) if ty else tuple(self.agents)) for v, ty in self.free_var_types(r, cond).items()]
+                doms = [self.instances(types[n]) if types.get(n) else list(self.agents) for n in names]
                 for tup in itertools.product(*doms):
                     b = dict(zip(names, tup))
                     self.state_rules.append(RuleInst(r.id, r.deontic, aim.pred, tuple(b[n] for n in names), cond, b,
@@ -260,7 +277,7 @@ class Reference(_Typing):
             if len(names) != len(self.actions[aim.pred].args):
                 raise RefError(f"{r.id}: aim arity")
             types = self.aim_types(r)
-            free_doms = [(v, (ty,) if ty else tuple(self.agents)) for v, ty in self.free_var_types(r, cond).items()]
+            free_doms = [(v, tuple(self.instances(ty)) if ty else tuple(self.agents)) for v, ty in self.free_var_types(r, cond).items()]
             for b in self._bindings(names, types):
                 self.rule_insts.append(RuleInst(r.id, r.deontic, aim.pred, tuple(b[n] for n in names), cond, b,
                                                 tuple(free_doms)))
@@ -270,7 +287,7 @@ class Reference(_Typing):
             atypes = self._action_types(a)
             for b in self._bindings(a.args, atypes):
                 args = tuple(b[p] for p in a.args)
-                if a.name in named and (not args or args[0] not in named[a.name]):
+                if a.name in named and (not args or self.role_of.get(args[0], args[0]) not in named[a.name]):
                     continue
                 self.action_insts.append((a.name, args))
         self.action_inst_set = set(self.action_insts)  # membership tests in power / compliant_step
@@ -282,7 +299,7 @@ class Reference(_Typing):
         self._trace_actions: dict | None = None
 
     def _bindings(self, names, types):
-        doms = [[types[n]] if types.get(n) else list(self.agents) for n in names]
+        doms = [self.instances(types[n]) if types.get(n) else list(self.agents) for n in names]
         for tup in itertools.product(*doms):
             if len(set(tup)) == len(tup):
                 yield dict(zip(names, tup))
@@ -314,6 +331,11 @@ class Reference(_Typing):
                 return go(x.left) == go(x.right)
             if isinstance(x, sx.Eq):
                 return term(x.left) == term(x.right)
+            if isinstance(x, sx.Count):
+                names = [v for v, _ in x.vars]
+                n = sum(1 for tup in itertools.product(*[list(self.agents)] * len(names))
+                        if self.holds(state, x.body, env | dict(zip(names, tup))))
+                return n <= x.n if x.kind == "atmost" else n >= x.n
             if isinstance(x, sx.Quant):
                 names = [v for v, _ in x.vars]
                 res = [self.holds(state, x.body, env | dict(zip(names, tup)))
@@ -327,7 +349,8 @@ class Reference(_Typing):
         if name in self.derived:
             params, ast = self.derived[name]
             decl = self.fluents[name]
-            if decl.arg_roles is not None and tuple(args) != tuple(decl.arg_roles):
+            if decl.arg_roles is not None and not (len(args) == len(decl.arg_roles) and all(
+                    self.role_of.get(a) == r for a, r in zip(args, decl.arg_roles))):
                 return False
             return self.holds(state, ast, dict(zip(params, args)))
         return (name, tuple(args)) in state
@@ -434,7 +457,10 @@ class Reference(_Typing):
                     fixed |= {at for at in self.all_atoms if at[0] == f}
             for lit in inst.initial or []:
                 n, args = parse_literal(lit)
-                fixed.add((n, args))
+                try:
+                    fixed.update(rr.expand_initial(inst, n, args))
+                except rr.RoleCardinalityError as e:
+                    raise RefError(str(e))
             free = {at for at in self.all_atoms if at[0] in set(inst.initial_free)}
             fixed -= free
         return fixed, free
@@ -520,6 +546,8 @@ class Reference(_Typing):
                 doms = [list(range(self.k + 1)) if s == "step" else list(self.agents) for _, s in x.vars]
                 names = [v for v, _ in x.vars]
                 res = [self.prop(x.body, trace, t, env | dict(zip(names, tup))) for tup in itertools.product(*doms)]
+                if isinstance(x, sx.Count):
+                    return sum(res) <= x.n if x.kind == "atmost" else sum(res) >= x.n
                 return all(res) if x.kind == "forall" else any(res)
             raise TypeError(x)
         return go(ast)
@@ -572,8 +600,7 @@ class Reference(_Typing):
         for t, st in enumerate(states):
             for n in self.derived:
                 decl = self.fluents[n]
-                tups = [tuple(decl.arg_roles)] if decl.arg_roles else list(itertools.product(self.agents, repeat=decl.arity))
-                for tup in tups:
+                for tup in self.typed_tuples(decl):
                     if self.atom(st, n, tup) and (t, n, tup) not in derived_claims:
                         bad.append(f"step {t}: derived {n}{tup} follows from the rules but the trace omits it")
         for t, st in enumerate(states):

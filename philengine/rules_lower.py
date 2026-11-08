@@ -86,6 +86,7 @@ from dataclasses import dataclass, field
 
 import z3
 
+from . import rules_roles as rr
 from . import sexpr as sx
 from .schemas_rules import ActionDecl, InstitutionJSON, Property, Rule, TraceStep
 
@@ -232,6 +233,9 @@ def validate_institution(inst: InstitutionJSON) -> list[str]:
     roles = {r.name for r in inst.roles}
     if len(roles) != len(inst.roles):
         errs.append("duplicate role names")
+    errs.extend(rr.check_role_counts(inst))
+    agent_set = set(rr.agent_names(inst))
+    role_of = rr.instance_role(inst)
     fl = {f.name: f.arity for f in inst.fluents}
     if len(fl) != len(inst.fluents):
         errs.append("duplicate fluent names")
@@ -298,10 +302,15 @@ def validate_institution(inst: InstitutionJSON) -> list[str]:
             errs.append(f"initial {lit!r}: fluent {name!r} has arity {fl[name]}, got {len(args)} argument(s)")
         else:
             for i, (x, ro) in enumerate(zip(args, typed[name] or [None] * len(args))):
-                if x not in roles:
-                    errs.append(f"initial {lit!r}: {x!r} is not a role (agents are named after roles)")
-                elif ro is not None and x != ro:
+                if x not in agent_set and x not in roles:
+                    errs.append(f"initial {lit!r}: {x!r} is not a role or an instance (agents are named after roles; "
+                                f"role_1..role_N when count > 1)")
+                elif ro is not None and role_of.get(x, x) != ro:
                     errs.append(f"initial {lit!r}: argument {i} must be of role {ro!r}, got {x!r}")
+            try:
+                rr.expand_initial(inst, name, args)
+            except rr.RoleCardinalityError as e:
+                errs.append(str(e))
     for r in inst.rules:
         if r.attribute not in roles:
             errs.append(f"{r.id}: attribute {r.attribute!r} is not a role")
@@ -498,7 +507,7 @@ def validate_derived(inst: InstitutionJSON) -> list[str]:
         except sx.ParseError as e:
             errs.append(f"{where}: parse error: {e}")
             continue
-        _check_derived_formula(ast, fl, acts, roles, set(params), errs, where, derived={
+        _check_derived_formula(ast, fl, acts, set(rr.agent_names(inst)), set(params), errs, where, derived={
             x.name for x in inst.fluents if x.derived is not None})
     if not errs:
         try:
@@ -631,7 +640,7 @@ def validate_property(p: Property, inst: InstitutionJSON) -> tuple[list[str], li
             warns.append(m + " (lowered as constant false)")
         else:
             errs.append(m)
-    free = _free_vars(ast) - {"t"} - {r.name for r in inst.roles}
+    free = _free_vars(ast) - {"t"} - {r.name for r in inst.roles if r.count == 1} - set(rr.agent_names(inst))
     if free:
         errs.append(f"property {p.name}: free variables {sorted(free)} (only t may be free)")
     return errs, warns
@@ -672,6 +681,8 @@ class Grounded:
     derived: dict = field(default_factory=dict)  # derived fluent name -> parsed definition
     derived_vars: dict = field(default_factory=dict)  # (fluent, args, t) -> Bool defined by an equation
     derived_defs: list = field(default_factory=list)  # (name, expr): the defining equations (also in assertions)
+    instances: dict = field(default_factory=dict)  # role -> agent names (rules_roles)
+    role_of: dict = field(default_factory=dict)  # agent name -> role
     cond_at: object = None  # set by ground(): (RuleInstance, t) -> z3 Bool
     regulated: set = field(default_factory=set)  # actions some may/must rule names (others fire freely but are never (enabled ...))
 
@@ -738,12 +749,13 @@ class Grounded:
         return z3.And(*[e for _, e in self.assertions]) if self.assertions else z3.BoolVal(True)
 
 
-def _typed_domains(names: list[str], types: dict, agents: list[str]):
-    """All assignments of agents to names (pairwise distinct), respecting fixed/typed names."""
+def _typed_domains(names: list[str], types: dict, agents: list[str], insts: dict | None = None):
+    """All assignments of agents to names (pairwise distinct), respecting fixed/typed names. A type is a role: the
+    name ranges over the role's instances (insts: role -> agent names; absent = the role name itself)."""
     doms = []
     for n in names:
         ty = types.get(n)
-        doms.append([ty] if ty else list(agents))
+        doms.append((insts or {}).get(ty, [ty]) if ty else list(agents))
     for tup in itertools.product(*doms):
         if len(set(tup)) == len(tup):
             yield dict(zip(names, tup))
@@ -758,15 +770,22 @@ def _action_types(a: ActionDecl, inst: InstitutionJSON, lits: set[str]) -> dict:
     return out
 
 
-def _fluent_tuples(f, agents: list[str]) -> list[tuple]:
+def _fluent_tuples(f, agents: list[str], insts: dict) -> list[tuple]:
     if f.arg_roles is None:
         return list(itertools.product(agents, repeat=f.arity))
-    return [tuple(f.arg_roles)] if all(r in agents for r in f.arg_roles) else []
+    return list(itertools.product(*[insts[r] for r in f.arg_roles])) if all(r in insts for r in f.arg_roles) else []
 
 
 def _free_types(r: Rule, free: list[str], inst: InstitutionJSON, lits: set[str]) -> dict:
     """Free condition variable -> role: Rule.var_roles first, else the prefix heuristic (None = all agents)."""
     return {n: (r.var_roles[n] if n in r.var_roles and n not in lits else var_role(n, inst, lits)) for n in free}
+
+
+def _pb(x, parts: list):
+    """(atmost N ...) / (atleast N ...) over the expanded bindings -> z3 pseudo-Boolean constraint."""
+    if x.kind == "atmost":
+        return z3.BoolVal(True) if len(parts) <= x.n else z3.PbLe([(p, 1) for p in parts], x.n)
+    return z3.BoolVal(x.n <= 0) if not parts else z3.PbGe([(p, 1) for p in parts], x.n)
 
 
 def lower_state_formula(ast, G: Grounded, t: int, env: dict | None = None):
@@ -797,6 +816,11 @@ def lower_state_formula(ast, G: Grounded, t: int, env: dict | None = None):
             return go(x.left) == go(x.right)
         if isinstance(x, sx.Eq):
             return z3.BoolVal(term(x.left) == term(x.right))
+        if isinstance(x, sx.Count):
+            names = [v for v, _ in x.vars]
+            parts = [lower_state_formula(x.body, G, t, env | dict(zip(names, tup)))
+                     for tup in itertools.product(*[list(G.agents)] * len(names))]
+            return _pb(x, parts)
         if isinstance(x, sx.Quant):
             names = [v for v, _ in x.vars]
             parts = [lower_state_formula(x.body, G, t, env | b) for b in _typed_domains(names, {}, G.agents)]
@@ -846,6 +870,8 @@ def lower_property(ast, G: Grounded, t: int, env: dict | None = None):
             doms = [list(range(G.k + 1)) if s == "step" else list(G.agents) for _, s in x.vars]
             names = [v for v, _ in x.vars]
             parts = [lower_property(x.body, G, t, env | dict(zip(names, tup))) for tup in itertools.product(*doms)]
+            if isinstance(x, sx.Count):
+                return _pb(x, parts)
             return (z3.And if x.kind == "forall" else z3.Or)(*parts)
         raise TypeError(x)
 
@@ -863,8 +889,9 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
         raise LowerError(f"compliance={compliance!r}: unknown mode")
     if step_mode not in STEP_MODES:
         raise LowerError(f"step_mode={step_mode!r}: unknown mode (one of {STEP_MODES})")
-    agents = [r.name for r in inst.roles]
-    G = Grounded(inst, k, agents, init, compliance, step_mode)
+    agents = rr.agent_names(inst)  # count 1: the bare role name; count N: role_1..role_N
+    role_insts = {r.name: r.instance_names for r in inst.roles}
+    G = Grounded(inst, k, agents, init, compliance, step_mode, instances=role_insts, role_of=rr.instance_role(inst))
     lits = literal_roles(inst)
     fl = {f.name: f.arity for f in inst.fluents}
     acts = {a.name: a for a in inst.actions}
@@ -872,7 +899,7 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
     # variables
     G.derived = _derived_asts(inst)
     for f in inst.fluents:
-        G.fluent_tuples[f.name] = _fluent_tuples(f, agents)
+        G.fluent_tuples[f.name] = _fluent_tuples(f, agents, role_insts)
         if f.name in G.derived:
             continue  # defined by an equation on first use (ADR 0013)
         for tup in G.fluent_tuples[f.name]:
@@ -885,8 +912,8 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
             actors.setdefault(parse_aim(r.aim).pred, set()).add(r.attribute)
     for a in inst.actions:
         types = _action_types(a, inst, lits)
-        G.action_instances[a.name] = [tuple(b[p] for p in a.args) for b in _typed_domains(a.args, types, agents)
-                                      if not a.args or a.name not in actors or b[a.args[0]] in actors[a.name]]
+        G.action_instances[a.name] = [tuple(b[p] for p in a.args) for b in _typed_domains(a.args, types, agents, role_insts)
+                                      if not a.args or a.name not in actors or G.role_of.get(b[a.args[0]], b[a.args[0]]) in actors[a.name]]
         for tup in G.action_instances[a.name]:
             for t in range(k):
                 G.action_vars[(a.name, tup, t)] = z3.Bool(f"{a.name}({','.join(tup)})@{t}")
@@ -919,7 +946,7 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
             types[names[0]] = r.attribute
         free = sorted((_free_vars(cond) if cond is not None else set()) - set(names))
         ftypes = _free_types(r, free, inst, lits)
-        for b in _typed_domains(names, types, agents):
+        for b in _typed_domains(names, types, agents, role_insts):
             tup = tuple(b[n] for n in names)
             if kind == "state":
                 if tup not in G.fluent_tuples[aim.pred]:
@@ -942,7 +969,7 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
         # existential quantification over the domain: a free condition variable may name an agent that is
         # also an aim argument (clerk must log(c, s) when (flag q): q = s is a witness). Several free variables are
         # bound pairwise distinct (_typed_domains), unlike the reference's plain product: known limit (2), module doc.
-        parts = [lower_state_formula(ri.cond, G, t, ri.binding | fb) for fb in _typed_domains(free, ftypes, agents)]
+        parts = [lower_state_formula(ri.cond, G, t, ri.binding | fb) for fb in _typed_domains(free, ftypes, agents, role_insts)]
         return z3.Or(*parts) if parts else z3.BoolVal(False)
 
     G.cond_at = cond_at
@@ -967,7 +994,8 @@ def ground(inst: InstitutionJSON, k: int = DEFAULT_K, init: str | None = None, c
 
     # init: "empty" = endogenous false; "free" = nothing; "declared" = defaults, then initial, else false,
     # with initial_free fluents unconstrained
-    initial_true = {parse_literal(lit) for lit in (inst.initial or [])} if init == "declared" else set()
+    initial_true = {at for lit in (inst.initial or []) for at in rr.expand_initial(inst, *parse_literal(lit))} \
+        if init == "declared" else set()
     for f in inst.fluents:
         if f.name in G.derived:
             continue

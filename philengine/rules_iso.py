@@ -104,7 +104,8 @@ def _erase(ast, roles: set[str], varmap: dict) -> object:
         inner = dict(varmap)
         for i, (v, _s) in enumerate(ast.vars):
             inner[v] = "q%d" % i
-        return (ast.kind, len(ast.vars), _erase(ast.body, roles, inner))
+        extra = (ast.n,) if isinstance(ast, sx.Count) else ()  # cardinality bound is part of the shape
+        return (ast.kind, len(ast.vars), *extra, _erase(ast.body, roles, inner))
     return repr(ast)
 
 
@@ -195,7 +196,7 @@ def _unify(x, y, A: PInst, B: PInst, m: dict):
         yield from _unify_seq([x.left, x.right], [y.left, y.right], A, B, m)
         return
     if isinstance(x, sx.Quant):
-        if x.kind != y.kind or len(x.vars) != len(y.vars):
+        if x.kind != y.kind or len(x.vars) != len(y.vars) or getattr(x, "n", None) != getattr(y, "n", None):
             return
         m2 = m
         for (vx, _), (vy, _) in zip(x.vars, y.vars):
