@@ -515,3 +515,55 @@ def test_derived_fluent_cycles_are_errors():
     assert rl.validate_institution(inst2) == []
     assert rl.derived_order(inst2) == ["can_exit", "can_sanction", "powerless"] or rl.derived_order(inst2)[-1] == "powerless"
     rl.ground(inst2, k=2)
+
+
+def _with_r(**over):
+    """tiny() with fields overridden on R1 (or_else null) / R2 (or_else R1)."""
+    rules = [r.model_dump() for r in tiny().rules]
+    for k, v in over.items():
+        rid, field = k.split("__")
+        next(r for r in rules if r["id"] == rid)[field] = v
+    return tiny(rules=rules)
+
+
+def test_informal_fields_default_when_absent():
+    r = tiny().rules[0]
+    assert (r.kind, r.sanctioner, r.function) == ("formal", None, None)
+    assert rl.validate_institution(tiny()) == []
+
+
+def test_informal_fields_valid_combinations():
+    inst = _with_r(R1__kind="norm", R1__sanctioner="none", R1__function="pays_up",
+                   R2__sanctioner="institution", R2__kind="formal")
+    assert rl.validate_institution(inst) == []
+    assert inst.rules[0].function == "pays_up"
+
+
+def test_strategy_with_or_else_is_error():
+    errs = "\n".join(rl.validate_institution(_with_r(R2__kind="strategy")))
+    assert "R2: kind strategy" in errs
+
+
+def test_sanctioner_none_with_or_else_is_error():
+    errs = "\n".join(rl.validate_institution(_with_r(R2__sanctioner="none")))
+    assert "R2: sanctioner none contradicts" in errs
+
+
+def test_sanctioner_without_or_else_is_error():
+    errs = "\n".join(rl.validate_institution(_with_r(R1__sanctioner="peers")))
+    assert "R1: sanctioner 'peers' but or_else is null" in errs
+
+
+def test_informal_fields_survive_dump_and_without_rule():
+    from philengine import rules_ablate as ra
+    inst = _with_r(R1__kind="norm", R1__function="pays_up", R2__sanctioner="peers")
+    again = InstitutionJSON.model_validate(inst.model_dump())
+    assert [(r.kind, r.sanctioner, r.function) for r in again.rules] == [("norm", None, "pays_up"), ("formal", "peers", None)]
+    kept, orphaned = ra.without_rule(inst, "R2")
+    assert [(r.id, r.kind, r.function) for r in kept.rules] == [("R1", "norm", "pays_up")]
+    # removing a sanction rule orphans its enforcers; their sanctioner becomes none so the ablated entry still lowers
+    inst2 = _with_r(R2__sanctioner="peers")
+    ablated, orphaned = ra.without_rule(inst2, "R1")
+    assert orphaned == ["R2"] and ablated.rules[0].sanctioner == "none"
+    assert rl.validate_institution(ablated) == []
+    assert [r.kind for r in ra.without_rule(inst, "R1")[0].rules] == ["formal"]

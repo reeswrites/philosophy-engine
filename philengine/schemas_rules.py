@@ -124,6 +124,10 @@ class Rule(BaseModel):
     source: str = ""
     var_roles: dict[str, str] = {}  # {variable: role} for aim/condition variables; overrides the prefix heuristic
     load_bearing: bool = False  # a headline claim rests on this rule: gate (a) fails if it is inert (must-be only)
+    # informal-rule layer (CL plans/informal-rules.md D1/D2); no verdict semantics
+    kind: Literal["formal", "norm", "strategy"] = "formal"
+    sanctioner: Literal["state", "institution", "peers", "family", "self", "none"] | None = None
+    function: str | None = None  # short name of the job the rule does; a preregistered ablation prediction (D2)
 
 
 class IsoClaim(BaseModel):
@@ -179,6 +183,7 @@ class InstitutionJSON(BaseModel):
     defaults: dict[str, Literal["true", "false"]] = {}  # fluent -> value at t=0 for every tuple (before `initial`)
     initial: list[str] | None = None  # fluent literals true at t=0: "employed(worker)" / "(employed worker)" / "flag"
     initial_free: list[str] = []  # fluents left unconstrained at t=0
+    members: list[str] = []  # ADR 0018: ids of the entries a composite was built from (rules_compose.compose); [] = ordinary entry
 
     @field_validator("defaults", mode="before")
     @classmethod

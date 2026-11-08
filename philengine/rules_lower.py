@@ -310,6 +310,12 @@ def validate_institution(inst: InstitutionJSON) -> list[str]:
                 errs.append(f"{r.id}: var_roles types {v!r} as {ro!r}, which is not a role")
         if r.or_else is not None and r.or_else not in ids:
             errs.append(f"{r.id}: or_else {r.or_else!r} is not a rule id")
+        if r.kind == "strategy" and r.or_else is not None:
+            errs.append(f"{r.id}: kind strategy has no sanction by definition, but or_else is {r.or_else!r}")
+        if r.sanctioner == "none" and r.or_else is not None:
+            errs.append(f"{r.id}: sanctioner none contradicts or_else {r.or_else!r}")
+        if r.or_else is None and r.sanctioner not in (None, "none"):
+            errs.append(f"{r.id}: sanctioner {r.sanctioner!r} but or_else is null (a sanction with no sanction rule)")
         try:
             aim = parse_aim(r.aim)
         except sx.ParseError as e:
