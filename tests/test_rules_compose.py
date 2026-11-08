@@ -29,6 +29,33 @@ def by(rows):
     return {(r.rule, r.variable): r for r in rows}
 
 
+def test_slot0_attribute_written_and_conflict():
+    inst = toy()
+    frozen, rows = rc.freeze_bindings(inst)
+    m = by(rows)
+    assert (m["R1", "h"].role, m["R1", "h"].action) == ("husband", "written")
+    assert {r.id: r.var_roles for r in frozen.rules}["R1"] == {"h": "husband", "z": "wife"}
+    bad = inst.model_copy(update={"rules": [inst.rules[0].model_copy(update={"var_roles": {"h": "wife"}})]})
+    f2, rows2 = rc.freeze_bindings(bad)
+    c = by(rows2)["R1", "h"]
+    assert (c.action, c.role, c.existing) == ("conflict", "husband", "wife")
+    assert f2.rules[0].var_roles["h"] == "wife"  # not overwritten
+    ok = inst.model_copy(update={"rules": [inst.rules[0].model_copy(update={"var_roles": {"h": "husband"}})]})
+    assert by(rc.freeze_bindings(ok)[1])["R1", "h"].action == "already_explicit"
+
+
+def test_slot0_entry_does_not_change_grounding():
+    inst = toy()
+    frozen, _ = rc.freeze_bindings(inst)
+    assert frozen.rules[0].var_roles["h"] == "husband"
+    # even a wrong explicit slot-0 entry must not move typing: attribute still wins
+    wrong = frozen.model_copy(update={"rules": [frozen.rules[0].model_copy(update={"var_roles": {"h": "wife"}})] + list(frozen.rules[1:])})
+    a, b, w = Reference(inst), Reference(frozen), Reference(wrong)
+    assert b.aim_types(frozen.rules[0])["h"] == "husband" == w.aim_types(wrong.rules[0])["h"]
+    key = lambda ref: [(x.rule_id, x.args, x.free_doms) for x in ref.rule_insts]
+    assert key(a) == key(b) == key(w)
+
+
 def test_written_untyped_conflict_explicit():
     inst = toy()
     frozen, rows = rc.freeze_bindings(inst)
@@ -39,7 +66,7 @@ def test_written_untyped_conflict_explicit():
     assert m["R3", "wi"].action == "conflict" and m["R3", "wi"].role == "wife" and m["R3", "wi"].existing == "husband"
     assert m["R4", "wi"].action == "already_explicit"
     vr = {r.id: r.var_roles for r in frozen.rules}
-    assert vr["R1"] == {"z": "wife"}
+    assert vr["R1"] == {"h": "husband", "z": "wife"}
     assert vr["R2"] == {"wi": "wife"}  # untyped w left alone
     assert vr["R3"] == {"wi": "husband"}  # explicit kept
     assert vr["R4"] == {"wi": "wife"}
@@ -72,7 +99,7 @@ def test_cli_json(tmp_path, capsys):
     ns = type("A", (), {"institutions": str(p), "properties": str(pp), "entry": ["toy"], "json": True})()
     assert cli_rules.cmd_freeze_bindings(ns) == 0
     out = json.loads(capsys.readouterr().out)
-    assert out[0]["entry"] == "toy" and out[0]["var_roles"]["R1"] == {"z": "wife"}
+    assert out[0]["entry"] == "toy" and out[0]["var_roles"]["R1"] == {"h": "husband", "z": "wife"}
     assert {"entry", "rule", "variable", "role", "action", "existing"} <= set(out[0]["rows"][0])
 
 

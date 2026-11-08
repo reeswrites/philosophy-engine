@@ -5,7 +5,7 @@
 None = all agents). Adding roles (composition) can make a prefix ambiguous and silently untype a variable.
 `freeze_bindings` records the answer the heuristic gives TODAY, in the entry's own role list, into `var_roles`,
 using `Reference`'s own resolution code (`_Typing`, no grounding built). Typed variables: every aim variable
-(action aims: positions 1.. since position 0 is the attribute; state aims: all positions) and every condition
+(action aims: position 0 resolves to the rule's attribute, written as an explicit entry; positions 1.. by the heuristic; state aims: all positions) and every condition
 variable that is not in the aim (Reference types those too: existential domain). Names that are roles are
 literals, not variables, and are skipped.
 """
@@ -50,8 +50,9 @@ def freeze_bindings(inst: InstitutionJSON) -> tuple[InstitutionJSON, list[Freeze
         is_action = not (aim.pred in t.fluents and aim.pred not in t.actions)
         resolved: dict[str, str | None] = {}
         for i, (n, ty) in enumerate(t.aim_types(bare).items()):
-            if (is_action and i == 0) or n in t.roles:
-                continue  # attribute slot / literal role name
+            if n in t.roles:
+                continue  # literal role name
+            # action aim position 0: aim_types (bare rule) already returns rule.attribute; record it too (P3b)
             resolved.setdefault(n, ty)
         cond = None if r.conditions.strip() == "true" else sx.parse(r.conditions)
         for v, ty in t.free_var_types(bare, cond).items():
