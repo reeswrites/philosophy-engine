@@ -8,6 +8,11 @@ using `Reference`'s own resolution code (`_Typing`, no grounding built). Typed v
 (action aims: position 0 resolves to the rule's attribute, written as an explicit entry; positions 1.. by the heuristic; state aims: all positions) and every condition
 variable that is not in the aim (Reference types those too: existential domain). Names that are roles are
 literals, not variables, and are skipped.
+
+`freeze_action_roles` does the same for action parameters: each parameter's type by the prefix heuristic over the
+entry's OWN roles is written into `ActionDecl.arg_roles` (explicit entries win; an untypable parameter stays None),
+so a role added by composition cannot re-type it (coverture's `h` must stay `husband` beside a `hospital`).
+`freeze_bindings` runs it first, so its rows (kind="action", `rule` = the action name) come back with the rule rows.
 """
 from __future__ import annotations
 
@@ -27,7 +32,8 @@ class FreezeRow:
     variable: str
     role: str | None  # what the heuristic / arg_roles resolve to with var_roles ignored
     action: str  # written | already_explicit | untyped | conflict
-    existing: str | None = None  # the explicit var_roles entry, if any
+    existing: str | None = None  # the explicit var_roles / arg_roles entry, if any
+    kind: str = "rule"  # "rule": `rule` is a rule id, `variable` a rule variable; "action": an action name and parameter
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -40,9 +46,36 @@ def _typer(inst: InstitutionJSON) -> _Typing:
     return t
 
 
-def freeze_bindings(inst: InstitutionJSON) -> tuple[InstitutionJSON, list[FreezeRow]]:
+def freeze_action_roles(inst: InstitutionJSON) -> tuple[InstitutionJSON, list[FreezeRow]]:
+    """Write each action parameter's type (prefix heuristic over the entry's own roles, `_Typing._var_role`) into
+    `arg_roles`; an explicit entry is kept (already_explicit, or conflict when the heuristic disagrees), an untypable
+    parameter stays None (untyped). An action with no typable parameter is returned unchanged (arg_roles None)."""
     t = _typer(inst)
     rows: list[FreezeRow] = []
+    acts = []
+    for a in inst.actions:
+        given = list(a.arg_roles) if a.arg_roles is not None else [None] * len(a.args)
+        typed: list[str | None] = []
+        for p, ex in zip(a.args, given):
+            ty = t._var_role(p)
+            if ex is not None:
+                act = "conflict" if ty is not None and ty != ex else "already_explicit"
+                typed.append(ex)
+            elif ty is None:
+                act = "untyped"
+                typed.append(None)
+            else:
+                act = "written"
+                typed.append(ty)
+            rows.append(FreezeRow(inst.id, a.name, p, ty, act, ex, kind="action"))
+        acts.append(a.model_copy(update={"arg_roles": typed}) if any(x is not None for x in typed) else a)
+    return inst.model_copy(update={"actions": acts}), rows
+
+
+def freeze_bindings(inst: InstitutionJSON) -> tuple[InstitutionJSON, list[FreezeRow]]:
+    """Freeze action parameter roles, then rule variable roles. Rows: action rows first, then rule rows."""
+    inst, rows = freeze_action_roles(inst)
+    t = _typer(inst)
     new_rules = []
     for r in inst.rules:
         bare = r.model_copy(update={"var_roles": {}})  # what Reference gives with no explicit entries
@@ -170,7 +203,12 @@ def compose(members: list[InstitutionJSON], aliases: dict[str, dict[str, str]], 
     actions: dict[str, ActionDecl] = {}
     rules, defaults, init_lits, init_free = [], {}, [], []
     for m0, eff in zip(members, effs):
-        m = _alias_member(freeze_bindings(m0)[0], aliases.get(eff, {}), eff)
+        frozen, frows = freeze_bindings(m0)
+        for fr in frows:
+            if fr.kind == "action" and fr.action == "conflict":
+                raise ComposeError(f"member {eff!r}: action {fr.rule!r} parameter {fr.variable!r} arg_roles says "
+                                   f"{fr.existing!r} but the member's own roles type it {fr.role!r}")
+        m = _alias_member(frozen, aliases.get(eff, {}), eff)
         pre = eff.replace("-", "_") + "__"
         for r in m.roles:
             roles.setdefault(r.name, r)
@@ -191,8 +229,15 @@ def compose(members: list[InstitutionJSON], aliases: dict[str, dict[str, str]], 
             b = actions.get(a.name)
             if b is None:
                 actions[a.name] = a
-            elif b.model_dump() != a.model_dump():
-                raise ComposeError(f"member {eff!r}: action {a.name!r} differs from an earlier member's (args, arg_roles, effects, gloss or default_capacity)")
+            elif b.model_dump(exclude={"arg_roles"}) != a.model_dump(exclude={"arg_roles"}):
+                raise ComposeError(f"member {eff!r}: action {a.name!r} differs from an earlier member's (args, effects, gloss or default_capacity)")
+            elif b.arg_roles != a.arg_roles:
+                # frozen parameter types from two occurrences (e.g. the same member under two alias maps): keep a
+                # position where they agree or one side is untyped, else fall back to untyped (the pre-freeze answer).
+                # Rule variables are already pinned by var_roles, so this only loosens the fallback, never a rule.
+                ba, aa = b.arg_roles or [None] * len(b.args), a.arg_roles or [None] * len(a.args)
+                merged = [x if x == y or y is None else (y if x is None else None) for x, y in zip(ba, aa)]
+                actions[a.name] = b.model_copy(update={"arg_roles": merged if any(x is not None for x in merged) else None})
         for r in m.rules:
             rules.append(r.model_copy(update={"id": pre + r.id, "or_else": pre + r.or_else if r.or_else else None}))
         for k, v in m.defaults.items():
