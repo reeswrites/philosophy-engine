@@ -26,4 +26,4 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv python install 3.14
       - run: uv sync --python 3.14
-      - run: uv run phil rules gate  # on data/example/: criteria whose institutions the fixture lacks report FAIL/deferred
+      - run: uv run phil rules gate --no-cache  # uncached on purpose; on data/example/: criteria whose institutions the fixture lacks report FAIL/deferred

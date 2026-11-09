@@ -11,7 +11,7 @@
   phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--readings PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
   phil rules freeze-bindings [--entry ID]... [--json]   print the var_roles / action arg_roles the prefix heuristic implies (writes no files)
   phil rules compose --id X --member A --member B [--alias A:old=new ...] [--initial LIT ...] [--json]   in-memory composite (ADR 0018)
-  phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json]
+  phil rules gate [--k 6] [--init ...] [--compliance ...] [--step-mode ...] [--verbose] [--json] [--no-cache]
 --init defaults to "declared" for an institution with defaults/initial/initial_free, else "empty".
 Prints a compact table: institution, property, check, expected, got, match, flags, k, init; `flags` is `vacuous`
 when an invariant / persists result has an unreachable antecedent or no subject ever exists (review finding 6).
@@ -307,7 +307,8 @@ def cmd_iso(a) -> int:
 
 def cmd_gate(a) -> int:
     insts, props = _load(a)
-    rep = rules_gate.run_gate(insts, props, k=a.k, init=a.init, compliance=a.compliance, step_mode=a.step_mode)
+    rep = rules_gate.run_gate(insts, props, k=a.k, init=a.init, compliance=a.compliance, step_mode=a.step_mode,
+                              cache=_make_cache(a))
     if a.json:
         print(json.dumps({"passed": rep.passed, "agreement": rep.agreement,
                           "criteria": [{"key": c.key, "status": c.status, "detail": c.detail, "lines": c.lines}
@@ -564,6 +565,7 @@ def register(sub) -> None:
     s.set_defaults(fn=cmd_compose)
     s = rs.add_parser("gate", help="Phase 0 gate (a)-(f); exit 0 = PASS"); common(s)
     s.add_argument("--verbose", action="store_true", help="print the per-pair iso reports behind each criterion")
+    s.add_argument("--no-cache", action="store_true", help="bypass the result cache (neither read nor write)")
     s.set_defaults(fn=cmd_gate)
 
 
