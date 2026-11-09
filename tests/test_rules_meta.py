@@ -355,6 +355,19 @@ def is_antimonotone_in_enablement(inst, formal) -> bool:
     return pol == frozenset({-1})
 
 
+def must_not_law_applies(inst, formal, check) -> bool:
+    """Whether "adding a disability never worsens the verdict" is a law for `formal` under `check`. A disability only
+    shrinks enablement (and the transitions), so:
+      reachable  open stays not-reachable iff no `(enabled ...)` under an odd number of negations (ADR 0013 amendment);
+      invariant  holds_to_k stays not-violated iff no `(enabled ...)` under an EVEN number: a violation is the
+                 reachability of the negation, so the ADR's rule applies to `(not formal)`. An invariant that asserts
+                 a power (ssi-marriage-penalty `married_couple_rated`: married => the agency can apply the couple
+                 rate) is rightly violated by forbidding that power;
+      persists   fails needs the property true then false, so both polarities matter: only enablement-free ones."""
+    pol = enablement_polarity(inst, formal)
+    return {"reachable": -1 not in pol, "invariant": 1 not in pol, "persists": not pol}[check]
+
+
 def _split_by_polarity(inst, props):
     mono = {n for n, p in props.items() if is_monotone_in_enablement(inst, p.formal)}
     anti = {n for n, p in props.items() if is_antimonotone_in_enablement(inst, p.formal)}
@@ -455,7 +468,13 @@ def rename(inst: InstitutionJSON, props: dict, mapping: dict[str, str]):
         if isinstance(x, list):
             return [keep_field_keys(v, fields) for v in x]
         return x
-    inst2 = InstitutionJSON.model_validate(json.loads(sub(json.dumps(inst.model_dump()))))
+    d2 = json.loads(sub(json.dumps(inst.model_dump())))
+    # Closed-vocabulary rule fields are not identifiers: a role named `state` (companion-*) is spelled like the
+    # sanctioner value `state`, and the whole-token rename would turn the enum value into `state_q`. Restore them.
+    for r2, r in zip(d2["rules"], inst.rules):
+        for f in ("deontic", "aim_kind", "strand", "kind", "sanctioner"):
+            r2[f] = getattr(r, f)
+    inst2 = InstitutionJSON.model_validate(d2)
     pfields = set(Property.model_fields) | {"encoder", "formal", "note", "subject"}
     props2 = {sub(n): Property.model_validate(keep_field_keys(json.loads(sub(json.dumps(p.model_dump()))), pfields))
               for n, p in props.items()}
@@ -531,7 +550,7 @@ def test_adding_must_not_never_opens_reachability_tiny(make):
     for v in _add_must_not(inst):
         _, after = engine_verdicts(v, props, 3)
         for (n, c), vb in before.items():
-            if n not in mono:
+            if not must_not_law_applies(inst, props[n].formal, c):  # per check: see must_not_law_applies
                 continue
             if c == "reachable" and vb == "open":
                 assert after[(n, c)] != "reachable", (v.rules[-1].id, n)
@@ -562,13 +581,13 @@ def test_disability_closes_derived_power():
 def test_adding_must_not_never_opens_reachability_dataset(iid):
     insts, props = _dataset()
     inst = next(i for i in insts if i.id == iid)
-    mono, _ = _split_by_polarity(inst, props)  # polarity can differ per institution (derived definitions do)
     which = _dataset_which(inst)
     _, before = engine_verdicts(inst, props, 4, which=which)
     for v in _add_must_not(inst):
         _, after = engine_verdicts(v, props, 4, which=which)
         for key, vb in before.items():
-            if key[0] not in mono:
+            # polarity can differ per institution (derived definitions do) and the law differs per check
+            if not must_not_law_applies(inst, props[key[0]].formal, key[1]):
                 continue
             if vb == "open":
                 assert after[key] != "reachable", (v.rules[-1].id, key)
