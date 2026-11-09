@@ -56,7 +56,12 @@ AimKind = Literal["action", "state"]  # ADR 0009: an aim is an action (must-do) 
 Strand = Literal["rival", "superadditive", "tying"]
 # Verdict names, exactly as the plan's Checks table spells them. "open" is never "safe".
 PropertyVerdict = Literal["reachable", "open", "holds_to_k", "violated", "persists", "fails", "inconsistent", "error"]
-CheckKind = Literal["reachable", "invariant", "persists"]
+CheckKind = Literal["reachable", "invariant", "persists", "rebundling"]
+# Derived checks (plans/priority.md slice 3): not a z3 query over `formal` but a report over rule ablations of the
+# entry (rules_ablate.derived_check). A property opts in with an explicit `check`; its `formal` is documentation
+# (write `true`). Verdicts reuse reachable (a witness was found at k) / open (none found within k). Ablation never
+# reads a derived property (rules_ablate.applicable_which), so it carries no load and cannot recurse.
+DERIVED_CHECKS = ("rebundling",)
 
 
 class RoleDecl(BaseModel):
@@ -344,6 +349,9 @@ class Property(BaseModel):
             own = [k for k in ("primary_measure", "primary_measure_reason") if getattr(self, k) is not None]
             if own:
                 raise ValueError(f"property {self.name!r}: {', '.join(own)} is only for kind goods")
+        if self.check in DERIVED_CHECKS and self.kind != "failure_mode":
+            raise ValueError(f"property {self.name!r}: check: {self.check} is a derived check and requires kind "
+                             "failure_mode (it is a report over rule ablations and carries no load)")
         if self.contested:
             from . import sexpr
             for alt in self.contested:

@@ -8,6 +8,7 @@
   (check-all and diff also take --scoreboard PATH: append one markdown table row per run, see scoreboard.py)
   phil rules cache (stats|clear)     the content-addressed result cache under runs/rules-cache/
   phil rules iso (--pair A B | --all) [--with-strands] [--cond exact|guard] [--json]
+  phil rules transfer --entry ID [--k 6,8] [--json PATH] [--quiet] [--no-cache]   pairwise transfer graph + rebundling edges; prints the cache hit rate
   phil rules ablate [--k 6,8] [--entry ID] [--json PATH] [--summary PATH] [--readings PATH] [--scoreboard PATH] [--prev PATH] [--init ...] [--compliance ...] [--step-mode ...]
   phil rules freeze-bindings [--entry ID]... [--json]   print the var_roles / action arg_roles the prefix heuristic implies (writes no files)
   phil rules compose --id X --member A --member B [--alias A:old=new ...] [--initial LIT ...] [--json]   in-memory composite (ADR 0018)
@@ -418,6 +419,48 @@ def cmd_ablate(a) -> int:
     return 0
 
 
+def cmd_transfer(a) -> int:
+    """Pairwise transfer graph per entry (plans/priority.md slice 3). Serial, through the result cache: (r1, r2) and
+    (r2, r1) share one doubly-ablated institution, which is what the printed hit rate measures on a cold cache."""
+    import time
+    from pathlib import Path
+    insts, props = _load(a)
+    try:
+        ks = tuple(int(x) for x in a.k.split(","))
+    except ValueError:
+        print(f"--k {a.k!r}: expected comma-separated integers, e.g. 6,8", file=sys.stderr)
+        return 2
+    kinds = rules_ablate.check_kinds(insts)
+    sel = [i for i in insts if i.id in a.entry]
+    if not sel:
+        print(f"no entry matches {a.entry}", file=sys.stderr)
+        return 2
+    out = {"ks": list(ks), "entries": {}}
+    for inst in sel:
+        cache = _make_cache(a)
+        t0 = time.monotonic()
+        by_k, dis = rules_ablate.transfer_multi_k(inst, props, ks, kinds, init=a.init, compliance=a.compliance,
+                                                  step_mode=a.step_mode, cache=cache)
+        secs = round(time.monotonic() - t0, 1)
+        n = len(inst.rules)
+        stats = {"seconds": secs, "rules": n, "ordered_pairs": n * (n - 1),
+                 "cache": None if cache is None else {"hits": cache.hits, "misses": cache.misses, "hit_rate": round(cache.rate(), 4)}}
+        out["entries"][inst.id] = {"by_k": {str(k): g.to_dict() for k, g in by_k.items()}, "k_disagreement": dis, **stats}
+        if not a.quiet:
+            for g in by_k.values():
+                print(rules_ablate.transfer_table(g))
+            print("   k-disagreement: " + ("; ".join(f"{name}: " + ", ".join(f"{s}->{t}" for s, t in v) for name, v in dis.items() if v) or "none"))
+            print(f"   {secs}s for {n} rules ({n * (n - 1)} ordered pairs) at k={','.join(map(str, ks))}; "
+                  + (cache.summary() if cache is not None else "cache: off (--no-cache)"))
+            print()
+    if a.json:
+        Path(a.json).write_text(json.dumps(out, indent=1))
+        print(f"wrote {a.json}")
+    elif a.quiet:
+        print(json.dumps(out, indent=1))
+    return 0
+
+
 def cmd_freeze_bindings(a) -> int:
     insts, _props = _load(a)
     ids = {i.id for i in insts}
@@ -548,6 +591,18 @@ def register(sub) -> None:
     s.add_argument("--readings", default=None, metavar="PATH",
                    help="write the readings table (markdown): per rule row with a reading or a goods change, per k: up, "
                         "goods lost/gained per encoder, reading per encoder, strand agreement (plans/priority-slice2.md 4.2)")
+    s = rs.add_parser("transfer", help="pairwise transfer graph: load(r2 | E minus r1) - load(r2 | E), freedom and goods; rebundling edges")
+    for flag in ("--institutions", "--properties"):
+        s.add_argument(flag, default=None)
+    s.add_argument("--init", choices=["empty", "free", "declared"], default=None)
+    s.add_argument("--compliance", choices=["strict", "sanctioned"], default="strict")
+    s.add_argument("--step-mode", choices=["one", "many"], default="one")
+    s.add_argument("--k", default="6,8", help="comma-separated bounds (default 6,8)")
+    s.add_argument("--entry", action="append", required=True, help="institution id (repeatable)")
+    s.add_argument("--json", default=None, metavar="PATH", help="write the full structure to PATH")
+    s.add_argument("--quiet", action="store_true", help="no tables; without --json the JSON goes to stdout")
+    s.add_argument("--no-cache", action="store_true", help="bypass the result cache (every doubly-ablated run is then paid twice)")
+    s.set_defaults(fn=cmd_transfer)
     s = rs.add_parser("freeze-bindings", help="print the var_roles and action arg_roles that make the prefix heuristic explicit (writes no files)")
     s.add_argument("--entry", action="append", default=None, help="restrict to this institution id (repeatable)")
     s.add_argument("--institutions", default=None); s.add_argument("--properties", default=None)

@@ -82,7 +82,7 @@ from dataclasses import asdict, dataclass, field
 from . import rules_checks
 from .abm.parallel import run_map
 from .rules_lower import TRUE_WORDS, regulated_actions, validate_property, aim_kind, parse_aim
-from .schemas_rules import InstitutionJSON, Property, RuleCheckReport, RulesLoadError
+from .schemas_rules import DERIVED_CHECKS, InstitutionJSON, Property, PropertyResult, RuleCheckReport, RulesLoadError
 
 REAL = ("reachable", "open", "holds_to_k", "violated", "persists", "fails")
 
@@ -430,6 +430,8 @@ def applicable_which(inst: InstitutionJSON, properties: dict[str, Property],
     anything in expected_properties is included regardless."""
     which, na = {}, []
     for n, p in properties.items():
+        if p.check in DERIVED_CHECKS:  # a report over ablations, not a verdict a deletion can flip: never read here
+            continue
         if n not in inst.expected_properties:
             errs, warns = validate_property(p, inst)
             lenient = inst.id in p.entries or any(m in p.entries for m in inst.members)  # composites: any member listed (ADR 0018)
@@ -441,6 +443,8 @@ def applicable_which(inst: InstitutionJSON, properties: dict[str, Property],
             raise RulesLoadError("goods subject (plans/priority-slice2.md R2.1): " + "; ".join(errs))
         which[n] = [check_for_property(n, inst, kinds, properties)]
     for n in inst.expected_properties:
+        if n in properties and properties[n].check in DERIVED_CHECKS:
+            continue
         which.setdefault(n, [check_for_property(n, inst, kinds, properties)])
     return which, sorted(na)
 
@@ -463,13 +467,17 @@ def base_report(inst: InstitutionJSON, properties: dict[str, Property], k: int, 
 
 
 def ablate(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
-           kinds: dict[str, str] | None = None, workers: int | None = 1, **run_kw) -> list[RuleAblation]:
+           kinds: dict[str, str] | None = None, workers: int | None = 1,
+           variants: tuple[str, ...] = ("deleted", "prohibited"), **run_kw) -> list[RuleAblation]:
     """Every applicable property in `properties` (not just the entry's expected_properties) is read before and after.
     `workers` > 1 runs one job per (rule, variant) over a process pool (abm/parallel.py: spawn on macOS); the rows come
-    back in the serial order, identical to workers=1."""
+    back in the serial order, identical to workers=1. `variants` restricts the rows (transfer_graph asks for deletions
+    only). `cache=` in run_kw is a rules_cache.RuleCache handed to every run_all (serial runs only: a pool's workers
+    would each count their own hits)."""
     properties = expand_contested(properties)
     jobs = [(inst, properties, k, kinds, rule.id, variant, run_kw)
-            for rule in inst.rules for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))]
+            for rule in inst.rules for variant in (("deleted", "prohibited") if rule.deontic == "may" else ("deleted",))
+            if variant in variants]
     return run_map(_ablate_one, jobs, workers)
 
 
@@ -823,3 +831,223 @@ def _rule_key(rid: str):
     base = rid.split("~")[0]
     num = "".join(ch for ch in base if ch.isdigit())
     return (int(num) if num else 0, rid)
+
+
+# ------------------------------------------------------------------ transfer graph (plans/priority.md, slice 3)
+# For rules r1 != r2 of entry E:  weight(r1 -> r2) = load(r2 | E \ r1) - load(r2 | E).
+# load(r2 | X) is the ordinary ablation load of r2 in institution X (delete r2 from X, compare with X), so the base of
+# the second term is E and the base of the first is E \ r1. A positive weight is a directed edge: deleting r1 made r2
+# more load-bearing. Two graphs, never combined: freedom (load_freedom_up, the load the ranking reads) and goods
+# (load_goods_primary). The other loads' differences are kept per pair in `deltas` and feed no edge.
+#
+# ASSUMED (slice 3 scope, not ratified): deletions only. The prohibit variant of a `may` is neither a source nor a
+# target; a pair is ordered and unordered pairs share one doubly-ablated institution (E \ {r1, r2}), which is what the
+# RuleCache hit rate reports. A source whose deletion leaves no compliant trace has no out-edges (inconsistent_sources);
+# a target whose deletion from E or from E \ r1 leaves no compliant trace has no load there and the pair is `undefined`.
+# A row that is `deregulated` (not ranked by slice 1) on either side marks the edge `unranked`: shown, never a
+# rebundling edge and never in out_transfer.
+#
+# Rebundling (ADR 0016, who-pays axis; claim T11): a freedom edge r1 -> r2, ranked on both sides, whose target reads
+# `tying` in E \ r1 under the primary column (load_freedom_up > 0 and no goods family lost in its primary sense).
+# rebundling(E, r1) holds when r1 has such an edge. The hand tag (`strand: tying`) is reported beside it
+# (target_strand), never used to decide it.
+TRANSFER_LOADS = {"freedom_up": "load_freedom_up", "freedom_down": "load_freedom_down", "freedom": "load_freedom",
+                  "goods_primary": "load_goods_primary", "goods_guaranteed": "load_goods_guaranteed",
+                  "goods_possible": "load_goods_possible"}
+GRAPH_LOAD = {"freedom": "freedom_up", "goods": "goods_primary"}
+_GRAPH_FAMILIES = {"freedom": "families_up", "goods": "goods_families_primary_lost"}
+
+
+def _transfer_loads(a: RuleAblation) -> dict[str, int]:
+    return {name: getattr(a, attr) for name, attr in TRANSFER_LOADS.items()}
+
+
+@dataclass
+class TransferEdge:
+    source: str  # r1, the deleted rule
+    target: str  # r2, the rule whose load rose
+    graph: str  # freedom | goods
+    weight: int  # after - before, > 0
+    before: int  # load(r2 | E)
+    after: int  # load(r2 | E \ r1)
+    families_added: list[str] = field(default_factory=list)  # families r2 carries in E \ r1 and not in E
+    families_removed: list[str] = field(default_factory=list)
+    target_strand: str | None = None  # hand tag, reported only
+    target_reading_before: str = "unread"  # primary-column reading of r2 in E
+    target_reading_after: str = "unread"  # ... in E \ r1
+    unranked: bool = False  # source deregulated in E, or target deregulated in E or in E \ r1
+    uncounted: list[str] = field(default_factory=list)  # properties uncounted for r2 on either side (read with care)
+    rebundling: bool = False  # freedom graph only
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class TransferGraph:
+    entry: str
+    k: int
+    rules: list[str]
+    base: dict[str, dict[str, int]]  # r -> loads in E
+    base_reading: dict[str, str]  # r -> primary-column reading in E
+    after: dict[str, dict[str, dict[str, int]]]  # r1 -> r2 -> loads in E \ r1
+    deltas: dict[str, dict[str, dict[str, int]]]  # r1 -> r2 -> nonzero load differences (every TRANSFER_LOADS key)
+    edges: dict[str, list[TransferEdge]]  # graph -> edges (positive weight), source order then target order
+    relief: dict[str, list[tuple[str, str, int]]]  # graph -> (r1, r2, negative weight): the load fell
+    inconsistent_sources: list[str] = field(default_factory=list)
+    undefined: list[tuple[str, str]] = field(default_factory=list)  # (r1, r2): r2's load is undefined in E or in E \ r1
+    uncounted_pairs: list[tuple[str, str]] = field(default_factory=list)  # (r1, r2) with an uncounted property on either side
+    unranked_rules: list[str] = field(default_factory=list)  # deregulated in E
+    out_transfer: dict[str, dict[str, int]] = field(default_factory=dict)  # graph -> r1 -> sum of ranked edge weights
+    in_transfer: dict[str, dict[str, int]] = field(default_factory=dict)
+    rebundling: dict[str, list[str]] = field(default_factory=dict)  # r1 -> targets, only sources that have one
+    strands: dict[str, str | None] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["relief"] = {g: [list(x) for x in v] for g, v in self.relief.items()}
+        d["undefined"] = [list(x) for x in self.undefined]
+        d["uncounted_pairs"] = [list(x) for x in self.uncounted_pairs]
+        return d
+
+
+def transfer_graph(inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
+                   kinds: dict[str, str] | None = None, **run_kw) -> TransferGraph:
+    """The pairwise transfer graph of `inst` at bound k (see the block comment above). Serial; pass `cache=` (a
+    rules_cache.RuleCache) to share the doubly-ablated runs between (r1, r2) and (r2, r1). n rules cost 1 + n +
+    n(n-1)/2 distinct institutions."""
+    base_rows = {a.rule_id: a for a in ablate(inst, properties, k, kinds, variants=("deleted",), **run_kw)}
+    rules = [r.id for r in inst.rules]
+    g = TransferGraph(entry=inst.id, k=k, rules=rules, base={r: _transfer_loads(base_rows[r]) for r in rules},
+                      base_reading={r: base_rows[r].reading(PRIMARY) for r in rules}, after={}, deltas={},
+                      edges={"freedom": [], "goods": []}, relief={"freedom": [], "goods": []},
+                      unranked_rules=[r for r in rules if _unranked(base_rows[r])],
+                      strands={r.id: r.strand for r in inst.rules})
+    for r1 in rules:
+        if base_rows[r1].inconsistent_after:
+            g.inconsistent_sources.append(r1)
+            continue
+        inst1, _ = without_rule(inst, r1)
+        rows = {a.rule_id: a for a in ablate(inst1, properties, k, kinds, variants=("deleted",), **run_kw)}
+        g.after[r1], g.deltas[r1] = {}, {}
+        for r2 in rules:
+            if r2 == r1:
+                continue
+            b, a = base_rows[r2], rows[r2]
+            if b.inconsistent_after or a.inconsistent_after:
+                g.undefined.append((r1, r2))
+                continue
+            if b.uncounted or a.uncounted:
+                g.uncounted_pairs.append((r1, r2))
+            lb, la = _transfer_loads(b), _transfer_loads(a)
+            g.after[r1][r2] = la
+            d = {n: la[n] - lb[n] for n in TRANSFER_LOADS if la[n] != lb[n]}
+            if d:
+                g.deltas[r1][r2] = d
+            for graph, load in GRAPH_LOAD.items():
+                w = la[load] - lb[load]
+                if w < 0:
+                    g.relief[graph].append((r1, r2, w))
+                if w <= 0:
+                    continue
+                fb, fa = set(getattr(b, _GRAPH_FAMILIES[graph])), set(getattr(a, _GRAPH_FAMILIES[graph]))
+                e = TransferEdge(source=r1, target=r2, graph=graph, weight=w, before=lb[load], after=la[load],
+                                 families_added=sorted(fa - fb), families_removed=sorted(fb - fa),
+                                 target_strand=a.strand, target_reading_before=b.reading(PRIMARY),
+                                 target_reading_after=a.reading(PRIMARY),
+                                 unranked=_unranked(base_rows[r1]) or _unranked(b) or _unranked(a),
+                                 uncounted=sorted(set(b.uncounted) | set(a.uncounted)))
+                e.rebundling = graph == "freedom" and not e.unranked and e.target_reading_after == "tying"
+                g.edges[graph].append(e)
+    for graph in GRAPH_LOAD:
+        out = {r: 0 for r in rules}
+        inn = {r: 0 for r in rules}
+        for e in g.edges[graph]:
+            if not e.unranked:
+                out[e.source] += e.weight
+                inn[e.target] += e.weight
+        g.out_transfer[graph], g.in_transfer[graph] = out, inn
+    for e in g.edges["freedom"]:
+        if e.rebundling:
+            g.rebundling.setdefault(e.source, []).append(e.target)
+    return g
+
+
+def rebundling(inst: InstitutionJSON, r1: str, properties: dict[str, Property], k: int = 6,
+               kinds: dict[str, str] | None = None, graph: TransferGraph | None = None, **run_kw) -> bool:
+    """rebundling(E, r1): deleting r1 raises load_freedom_up of some rule that then reads tying (ranked rows only)."""
+    if r1 not in {r.id for r in inst.rules}:
+        raise KeyError(r1)
+    g = graph or transfer_graph(inst, properties, k, kinds, **run_kw)
+    return bool(g.rebundling.get(r1))
+
+
+def transfer_multi_k(inst: InstitutionJSON, properties: dict[str, Property], ks: tuple[int, ...] = (6, 8),
+                     kinds: dict[str, str] | None = None, **run_kw) -> tuple[dict[int, TransferGraph], dict[str, list]]:
+    """(graph per k, k_disagreement): per graph the (source, target) pairs whose edge weight differs across ks (an
+    edge at one k and none at another counts, weight 0), plus "rebundling" for pairs that are a rebundling edge at
+    one k only."""
+    by_k = {k: transfer_graph(inst, properties, k, kinds, **run_kw) for k in ks}
+    dis: dict[str, list] = {}
+    for graph in GRAPH_LOAD:
+        w = {k: {(e.source, e.target): e.weight for e in g.edges[graph]} for k, g in by_k.items()}
+        pairs = sorted(set().union(*[set(x) for x in w.values()]))
+        dis[graph] = [list(p) for p in pairs if len({w[k].get(p, 0) for k in ks}) > 1]
+    rb = {k: {(s, t) for s, ts in g.rebundling.items() for t in ts} for k, g in by_k.items()}
+    dis["rebundling"] = [list(p) for p in sorted(set().union(*rb.values())) if len({p in rb[k] for k in ks}) > 1]
+    return by_k, dis
+
+
+def transfer_table(g: TransferGraph) -> str:
+    """Readable text: per graph the edges, then out-transfer per rule and the rebundling line."""
+    out = [f"== {g.entry}  transfer graph at k={g.k}  ({len(g.rules)} rules; weight = load(r2 | E minus r1) - load(r2 | E); "
+           "freedom = load_freedom_up, goods = load_goods_primary; deletions only)"]
+    for graph in GRAPH_LOAD:
+        es = g.edges[graph]
+        out.append(f"-- {graph} edges: {len(es)}")
+        if es:
+            rows = [("source", "target", "weight", "before>after", "families added", "target tag", "target reading in E-r1", "flags")]
+            for e in es:
+                flags = [f for f, on in (("rebundling", e.rebundling), ("unranked", e.unranked),
+                                         ("uncounted:" + ",".join(e.uncounted), bool(e.uncounted))) if on]
+                rows.append((e.source, e.target, f"+{e.weight}", f"{e.before}>{e.after}", ",".join(e.families_added) or "-",
+                             e.target_strand or "null", e.target_reading_after, " ".join(flags) or "-"))
+            widths = [max(len(str(r[i])) for r in rows) for i in range(len(rows[0]))]
+            fmt = "   " + "  ".join("{:<%d}" % w for w in widths)
+            out += [fmt.format(*r).rstrip() for r in rows]
+        if g.relief[graph]:
+            out.append("   relief (load fell): " + ", ".join(f"{a}->{b} {w}" for a, b, w in g.relief[graph]))
+        ot = g.out_transfer.get(graph, {})
+        out.append("   out-transfer (ranked edges): " + ", ".join(
+            f"{r}[{g.strands.get(r) or 'null'}]={ot[r]}" for r in sorted(ot, key=lambda r: (-ot[r], _rule_key(r)))))
+    out.append("-- rebundling(E, r1): " + ("; ".join(f"{s} -> {', '.join(ts)}" for s, ts in g.rebundling.items())
+                                           or "no rule"))
+    if g.inconsistent_sources:
+        out.append("   sources whose deletion leaves no compliant trace (no out-edges): " + ", ".join(g.inconsistent_sources))
+    if g.undefined:
+        out.append("   undefined pairs (target load undefined): " + ", ".join(f"{a}->{b}" for a, b in g.undefined))
+    if g.uncounted_pairs:
+        out.append("   pairs with an uncounted property (error / z3 unknown): " + ", ".join(f"{a}->{b}" for a, b in g.uncounted_pairs))
+    if g.unranked_rules:
+        out.append("   deregulated in E (their edges are unranked): " + ", ".join(g.unranked_rules))
+    return "\n".join(out)
+
+
+def derived_check(kind: str, inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
+                  **run_kw) -> PropertyResult:
+    """The PropertyResult of a derived check (schemas_rules.DERIVED_CHECKS) for run_all. `rebundling`: reachable when
+    some rule r1 has rebundling(E, r1) at k (the reason names every rebundling edge), open when none was found at k;
+    z3_unknown is set on an open verdict when some pair had an uncounted property, so it is never read as a flip or
+    as a clean absence. Check kinds for properties without an expectation fall back as in check_source with no
+    majority table (run_all has no view of the other entries)."""
+    if kind != "rebundling":
+        raise ValueError(f"unknown derived check {kind!r}")
+    g = transfer_graph(inst, properties, k, None, **run_kw)
+    pairs = [(e.source, e.target, e.weight, e.families_added) for e in g.edges["freedom"] if e.rebundling]
+    if pairs:
+        return PropertyResult(property="", check="rebundling", verdict="reachable",
+                              reason="; ".join(f"{s} -> {t} (+{w}: {', '.join(f) or '-'})" for s, t, w, f in pairs))
+    unc = bool(g.uncounted_pairs or g.undefined)
+    return PropertyResult(property="", check="rebundling", verdict="open", z3_unknown=unc,
+                          reason=f"no rebundling edge among {len(g.rules)} rules at k={k}"
+                                 + (f"; {len(g.undefined)} undefined pair(s)" if g.undefined else ""))

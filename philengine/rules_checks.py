@@ -33,7 +33,7 @@ import z3
 from . import config
 from . import sexpr as sx
 from .rules_lower import DEFAULT_K, Grounded, LowerError, ground, lower_property, lower_state_formula, resolve_init, trace_of, validate_property
-from .schemas_rules import InstitutionJSON, Property, PropertyResult, QueryTiming, RuleCheckReport, RuleStatus
+from .schemas_rules import DERIVED_CHECKS, InstitutionJSON, Property, PropertyResult, QueryTiming, RuleCheckReport, RuleStatus
 
 if TYPE_CHECKING:
     from .rules_cache import RuleCache
@@ -374,6 +374,24 @@ def run_all(
         p = properties.get(name)
         if p is None:
             rep.results.append(PropertyResult(property=name, check="reachable", verdict="error", reason="unknown property"))
+            continue
+        if p.check in DERIVED_CHECKS:
+            # a derived property (slice 3) has exactly one check, whatever the expectation maps to, and no state
+            # formula: `formal` is documentation and is not parsed. The result is a report over rule ablations.
+            t1 = time.monotonic()
+            if cons.result == "unsat":
+                res = PropertyResult(property=name, check=p.check, verdict="inconsistent", reason="rules have no compliant trace")
+            elif cons.result == "unknown":
+                res = PropertyResult(property=name, check=p.check, verdict="open", z3_unknown=True, reason=f"consistency unknown: {cons.reason}")
+            else:
+                from . import rules_ablate  # lazy: rules_ablate imports this module
+                res = rules_ablate.derived_check(p.check, inst, properties, k=k, init=init, compliance=compliance,
+                                                 step_mode=step_mode, timeout_ms=timeout_ms, retry_unknown=retry_unknown,
+                                                 cache=cache)
+                _drain()
+            res.property = name
+            res.z3_ms = int((time.monotonic() - t1) * 1000)
+            rep.results.append(res)
             continue
         errs, warns = validate_property(p, inst)
         rep.warnings.extend(warns)

@@ -103,5 +103,13 @@
   "gloss": "Persists-shaped twin of subject_cannot_exit for entries where no subject exists at t=0 (companion-*): every subject has no permitted exit. Vacuous before any subject exists, so the persists check cannot fail merely because euthanize removes the subject. Use with the persists check.",
   "formal": "(forall ((s agent)) (=> (is_subject s t) (not (can_exit s t))))",
   "scope": "institution"
+ },
+ {
+  "name": "rebundling",
+  "family": "rebundling",
+  "kind": "failure_mode",
+  "check": "rebundling",
+  "gloss": "Rebundling (RB; ADR 0016 who-pays axis; plans/priority.md slice 3). Derived check, not a trace formula: reachable when deleting some rule r1 raises load_freedom_up of another rule that then reads tying (a transfer-graph edge, ranked rows, deletions only); open when no such edge is found at k. A statement about the encoding's rule set, not about what people do after a reform.",
+  "formal": "derived: exists r1, r2 with load_freedom_up(r2 | E minus r1) > load_freedom_up(r2 | E) and r2 reading tying in E minus r1"
  }
 ]
