@@ -45,6 +45,7 @@ Optional typing / initial-state fields (all additive; absent = the untyped, empt
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -497,6 +498,21 @@ def family_measure_errors(props: dict[str, Property]) -> list[str]:
 
 
 def default_paths() -> tuple[Path, Path]:
+    """(institutions.json, properties.json) when no --institutions/--properties flags are given.
+
+    PHIL_DATA_DIR wins outright: <PHIL_DATA_DIR>/institutions/*.json (the research dataset lives in the private
+    computational-liberation repo, whose data/ is the usual target). Else ./data/institutions/ when the current
+    directory is a private instance that holds one. Else the engine's own small fixture, data/example/, which is
+    what CI and a bare checkout run on."""
     from . import config
-    d = config.data_dir() / "institutions"
-    return d / "institutions.json", d / "properties.json"
+    env = os.environ.get("PHIL_DATA_DIR")
+    if env:
+        d = Path(env).expanduser() / "institutions"
+        return d / "institutions.json", d / "properties.json"
+    d = Path.cwd() / "data" / "institutions"
+    if (d / "institutions.json").is_file() and (d / "properties.json").is_file():
+        return d / "institutions.json", d / "properties.json"
+    return EXAMPLE_DIR / "institutions.json", EXAMPLE_DIR / "properties.json"
+
+
+EXAMPLE_DIR = Path(__file__).resolve().parent.parent / "data" / "example"

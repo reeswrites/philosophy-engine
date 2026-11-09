@@ -38,5 +38,6 @@ def dataset_env(monkeypatch):
 @pytest.fixture(autouse=True)
 def _engine_data_by_default(monkeypatch):
     """PHIL_DATA_DIR names where the *institutions dataset* lives (see helpers.dataset_root); the engine's own data/
-    (phase0 arguments) must resolve regardless, so tests start without it. dataset_env sets it back explicitly."""
+    (phase0 arguments, and the data/example/ fixture that default_paths() falls back to) must resolve regardless, so
+    tests start without it. dataset_env sets it back explicitly."""
     monkeypatch.delenv("PHIL_DATA_DIR", raising=False)

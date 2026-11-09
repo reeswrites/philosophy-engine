@@ -5,13 +5,13 @@ The Python engine behind [computational-liberation](https://github.com/reeswrite
 Two families of input share the pipeline:
 
 - **Arguments** (`data/phase0`): philosophical arguments reconstructed as premises and a conclusion, formalized in first-order logic by a language model, checked for validity with Z3, and compared for shared logical form. This was the engine's first job (Phase 0, done; the developer log below records it).
-- **Institutions** (`data/institutions`): laws, policies and norms encoded as ADICO rules (Ostrom's Institutional Grammar: Attribute, Deontic, aIm, Conditions, Or else), checked for what they permit or force over a bounded number of steps, compared for structural isomorphism, and run under adaptive agents. This is the family computational-liberation uses. The theory, the dataset, the preregistered expectations, the reviews and the claims register live in that repo; this repo supplies the code and keeps a synced copy of the dataset.
+- **Institutions** (`data/example`, fixture; full dataset in computational-liberation): laws, policies and norms encoded as ADICO rules (Ostrom's Institutional Grammar: Attribute, Deontic, aIm, Conditions, Or else), checked for what they permit or force over a bounded number of steps, compared for structural isomorphism, and run under adaptive agents. This is the family computational-liberation uses. The theory, the dataset, the preregistered expectations, the reviews and the claims register live in that (private) repo; this repo supplies the code and ships a four-institution fixture, `data/example/`, that CI and the bare commands run on. To run on the full dataset, set `PHIL_DATA_DIR` to that repo's `data/` or pass `--institutions`/`--properties`.
 
 If you want to know *why* institutions are encoded this way, read [computational-liberation/docs/overview.md](https://github.com/reeswrites/computational-liberation/blob/main/docs/overview.md). If you want to know what a verdict means before you quote one, read [interpreting results](https://github.com/reeswrites/computational-liberation/blob/main/docs/interpreting-results.md).
 
 ## Commands
 
-`uv sync` installs; `uv run pytest -q -m "not llm"` runs the offline tests. Run `uv run phil ...` from inside the repo that holds the `data/` you want (paths resolve from the current directory, or `PHIL_DATA_DIR` / `PHIL_RUNS_DIR`).
+`uv sync` installs; `uv run pytest -q -m "not llm"` runs the offline tests. Run `uv run phil ...` from inside the repo that holds the `data/` you want (paths resolve from the current directory, or `PHIL_DATA_DIR` / `PHIL_RUNS_DIR`); with neither, `phil rules ...` and `phil abm ...` run on the fixture `data/example/`.
 
 | Command | What it does | Exit code |
 |---|---|---|
@@ -69,7 +69,7 @@ The theory this engine serves (a general theory of liberation), its claims regis
 
 - [Decisions (ADRs)](docs/decisions/) | [Glossary](docs/glossary.md) | [Institutions plan](plans/institutions-phase0.md) | [Contributing](CONTRIBUTING.md)
 
-**Two data families.** Arguments (`data/phase0`): Phase 0 done. Institutions (`data/institutions`): in progress, moving to computational-liberation when the ADR 0013 re-encode lands.
+**Two data families.** Arguments (`data/phase0`): Phase 0 done. Institutions: the dataset lives in computational-liberation (private; YAML sources, built to JSON there); this repo keeps only the `data/example/` fixture.
 
 ---
 

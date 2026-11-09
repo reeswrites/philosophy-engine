@@ -16,10 +16,10 @@ Layer-2 ABM commands (`phil abm run/sweep/score/gate`) take `--workers N` (defau
 N forked processes and the results are identical to `--workers 1`; only the reported `timing` moves.
 
 ## Adding an institution
-1. Edit the generator in `data/institutions/` (`_gen_institutions.py`, `_gen_properties.py`); never hand-edit the generated JSON.
+1. Institutions live in the private computational-liberation repo as YAML sources (`data/institutions/src/`) with a build script; edit them there and point this repo at the built JSON with `PHIL_DATA_DIR=<that repo>/data` or `--institutions`/`--properties`. `data/example/` here is a four-institution fixture for CI; it is not the dataset.
 2. Write the expected verdicts **before** running anything. They are preregistrations.
 3. Cite sources for every rule (statute, charter, bylaw). Mark anything you could not confirm `UNVERIFIED`.
-4. Rerun the generator, then the checks and tests.
+4. Rebuild the JSON there, then run the checks and tests against it (`PHIL_DATA_DIR=... uv run phil rules check-all`).
 5. Do not edit expected verdicts to match results. If the engine disagrees, record the disagreement (and why) instead.
 
 ## Review step

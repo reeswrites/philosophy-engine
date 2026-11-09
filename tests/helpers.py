@@ -18,8 +18,10 @@ DATASET_ENV = _os.environ.get("PHIL_DATA_DIR")
 def dataset_root():
     """Directory holding institutions/{institutions,properties}.json, or None when no dataset is available.
 
-    PHIL_DATA_DIR wins outright (so PHIL_DATA_DIR=/nonexistent means "no dataset"); else the engine's own data/ (legacy
-    copy, if still present); else the sibling checkout ../computational-liberation/data."""
+    This is the full research dataset (private repo computational-liberation), which the dataset-dependent tests
+    assert claims about by institution id; the engine's own data/example/ fixture is NOT a candidate (its tests are in
+    test_example_fixture.py). PHIL_DATA_DIR wins outright (so PHIL_DATA_DIR=/nonexistent means "no dataset"); else
+    ./data when the cwd is a private instance; else the sibling checkout ../computational-liberation/data."""
     def ok(p: Path) -> bool:
         return (p / "institutions" / "institutions.json").is_file() and (p / "institutions" / "properties.json").is_file()
 
@@ -27,8 +29,7 @@ def dataset_root():
     if env:
         p = Path(env).expanduser()
         return p if ok(p) else None
-    for p in (Path.cwd() / "data", Path(__file__).resolve().parent.parent / "data",
-              Path(__file__).resolve().parent.parent.parent / "computational-liberation" / "data"):
+    for p in (Path.cwd() / "data", Path(__file__).resolve().parent.parent.parent / "computational-liberation" / "data"):
         if ok(p):
             return p
     return None

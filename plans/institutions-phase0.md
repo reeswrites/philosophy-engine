@@ -86,7 +86,7 @@ they are checked, not just worried about.
 5. **select**: best candidate per institution (faithfulness first, then fewest unexplained implicit rules).
 6. **iso**: canonical skeleton over roles and rules, Z3 equivalence under a role + predicate bijection.
 
-## Dataset (`data/institutions/institutions.json`)
+## Dataset (computational-liberation `data/institutions/institutions.json`; this repo ships only the `data/example/` fixture)
 
 Chosen as clusters and **minimal pairs**, so a correct engine has to tell near-identical rule sets apart.
 
