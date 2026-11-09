@@ -230,3 +230,18 @@ def test_cli_gate_runs_and_reports_findings_on_current_dataset(dataset_env):
     out = subprocess.run([sys.executable, "-m", "philengine.cli", "rules", "gate", "--k", "3"], capture_output=True, text=True)
     assert out.returncode in (0, 1), out.stderr
     assert "criterion" in out.stdout and "GATE" in out.stdout
+
+
+def test_gate_with_cache_equals_uncached_and_second_run_hits(tmp_path):
+    from pathlib import Path
+
+    from philengine.rules_cache import RuleCache
+    d = Path(__file__).resolve().parents[1] / "data" / "example"
+    insts, props = load_institutions(d / "institutions.json"), load_properties(d / "properties.json")
+    plain = rg.run_gate(insts, props)
+    cold = RuleCache(tmp_path)
+    assert rg.run_gate(insts, props, cache=cold) == plain
+    assert cold.misses > 0  # (a same-formal twin property can already hit within the cold run)
+    warm = RuleCache(tmp_path)
+    assert rg.run_gate(insts, props, cache=warm) == plain
+    assert warm.misses == 0 and warm.hits == cold.hits + cold.misses

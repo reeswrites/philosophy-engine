@@ -350,12 +350,15 @@ def crit_f(by: dict, insts: list[InstitutionJSON]) -> Criterion:
 
 
 def run_gate(insts: list[InstitutionJSON], props: dict[str, Property], k: int = rules_checks.DEFAULT_K,
-             init: str | None = None, compliance: str = "strict", step_mode: str = "one") -> GateReport:
+             init: str | None = None, compliance: str = "strict", step_mode: str = "one", cache=None) -> GateReport:
+    """cache: a rules_cache.RuleCache for the per-institution check reports (None = off, the default). Only the
+    run_all results are cached; the iso matching behind (b), (c), (d), (f) is cross-entry and recomputed every run."""
     by = {i.id: i for i in insts}
     reports = {}
     for i in insts:
         try:
-            reports[i.id] = rules_checks.run_all(i, props, k=k, init=init, compliance=compliance, step_mode=step_mode)
+            reports[i.id] = rules_checks.run_all(i, props, k=k, init=init, compliance=compliance, step_mode=step_mode,
+                                                    cache=cache)
         except Exception as e:  # keep the gate running; (e) scores what it can
             reports[i.id] = None
             print(f"warning: check failed for {i.id}: {e}")
