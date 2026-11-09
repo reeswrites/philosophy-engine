@@ -1,0 +1,2254 @@
+[
+ {
+  "id": "coverture-household",
+  "name": "Coverture household (Blackstone)",
+  "roles": [
+   {
+    "name": "husband",
+    "gloss": "the husband; the legal person the marriage keeps"
+   },
+   {
+    "name": "wife",
+    "gloss": "the feme covert; her legal existence is suspended during marriage"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on"
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y"
+   },
+   {
+    "name": "care_obliged",
+    "arity": 2,
+    "gloss": "some rule in force at this step obliges x to give care to y (a must on the care act or the care state, sanctioned or not); derived from the rules, not asserted",
+    "params": [
+     "x",
+     "y"
+    ],
+    "derived": "(obliged provides_care x y)"
+   },
+   {
+    "name": "female",
+    "arity": 1,
+    "gloss": "x is female (sex as assigned by the institution's own records)"
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled chastise h w)"
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled leave w)"
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled sue w)"
+   },
+   {
+    "name": "married",
+    "arity": 2,
+    "gloss": "h and w are married"
+   },
+   {
+    "name": "controls_property",
+    "arity": 2,
+    "gloss": "h holds and manages w's property and earnings",
+    "params": [
+     "h",
+     "w"
+    ],
+    "derived": "(enabled control_property h w)"
+   },
+   {
+    "name": "controls_own_property",
+    "arity": 1,
+    "gloss": "w holds and controls separate property in her own right",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled hold_property w)"
+   },
+   {
+    "name": "owns_earnings",
+    "arity": 1,
+    "gloss": "w's earnings are her own separate property",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled keep_earnings w)"
+   },
+   {
+    "name": "can_contract",
+    "arity": 1,
+    "gloss": "w may contract in her own name",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled contract w)"
+   },
+   {
+    "name": "acquired_property",
+    "arity": 1,
+    "gloss": "w has acquired property by gift or inheritance (exogenous)"
+   },
+   {
+    "name": "earns",
+    "arity": 1,
+    "gloss": "w earns wages outside the household (exogenous)"
+   },
+   {
+    "name": "misbehaves",
+    "arity": 1,
+    "gloss": "w's conduct is what the old law called gross misbehaviour (the encoder's name for Blackstone's condition on restraint)"
+   },
+   {
+    "name": "has_own_income",
+    "arity": 1,
+    "gloss": "w has an income in her own right from outside the marriage",
+    "params": [
+     "w"
+    ],
+    "derived": "(enabled draw_subsistence w)"
+   }
+  ],
+  "actions": [
+   {
+    "name": "marry",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "married",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "hold_property",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "keep_earnings",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "maintain",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "h",
+       "w"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "keep_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect_house",
+    "args": [
+     "w",
+     "h"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "w",
+       "h"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "control_property",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "chastise",
+    "args": [
+     "h",
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "misbehave",
+    "args": [
+     "w"
+    ],
+    "effects": [
+     {
+      "fluent": "misbehaves",
+      "args": [
+       "w"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "draw_subsistence",
+    "args": [
+     "w"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   },
+   {
+    "name": "sue",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   },
+   {
+    "name": "contract",
+    "args": [
+     "w"
+    ],
+    "effects": [],
+    "default_capacity": true
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(control_property h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Blackstone, Commentaries on the Laws of England, Book II ch. 29 'Of Title by Succession, Marriage, and Judgment' (1766), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk2ch29.asp: chattels 'which belonged formerly to the wife, are by act of law vested in the husband' and 'the husband hath therein an immediate and absolute property, devolved to him by the marriage' (long s modernised from the OCR). Re-sourced 2026-11-04: Book I ch. 15 (the earlier citation; https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/, the husband and wife are one person in law) says 'I speak not at present of the rights of property' and so did not support this rule.",
+    "var_roles": {
+     "w": "wife",
+     "h": "husband"
+    }
+   },
+   {
+    "id": "R2",
+    "attribute": "husband",
+    "deontic": "must",
+    "aim": "(provides_care h w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (the husband is bound to provide his wife with necessaries). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(h, w); maintain restores it, neglect breaks it Verification pass: read 2026-11-06 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband is bound to provide his wife with necessaries by law, as much as himself' (long s modernised from the OCR).",
+    "load_bearing": true,
+    "var_roles": {
+     "h": "husband",
+     "w": "wife"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "wife",
+    "deontic": "must",
+    "aim": "(provides_care w h)",
+    "conditions": "(married h w)",
+    "or_else": "R5",
+    "strand": "superadditive",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "family",
+    "source": "implicit norm: household labour is the wife's; not in Blackstone's text, assumed by it. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] marry establishes provides_care(w, h); keep_house restores it, neglect_house breaks it (sanction R5)",
+    "load_bearing": true,
+    "var_roles": {
+     "w": "wife",
+     "h": "husband"
+    }
+   },
+   {
+    "id": "R4",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(sue w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765); https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/ (she cannot sue or be sued in her own name without her husband); a disability, not a sanctioned prohibition, hence or_else null. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(w) = sue enabled (a default capacity), which this disability removes while married Verification pass: read 2026-11-06 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'If the wife be injured in her person or her property, she can bring no action for redress without her husband's concurrence, and in his name, as well as her own' ... 'neither can she be sued, without making the husband a defendant' (long s modernised from the OCR; the same passage excepts a husband who 'has abjured the realm, or is banished').",
+    "var_roles": {
+     "h": "husband",
+     "w": "wife"
+    }
+   },
+   {
+    "id": "R5",
+    "attribute": "husband",
+    "deontic": "may",
+    "aim": "(chastise h w)",
+    "conditions": "(and (married h w) (misbehaves w))",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), read 2026-11-04 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'The husband also (by the old law) might give his wife moderate correction' ... 'the courts of law will still permit a husband to restrain a wife of her liberty, in case of any gross misbehaviour' (long s modernised from the OCR). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/. The condition (misbehaves w) is set by the free action misbehave, which no rule regulates: the encoder's way to make Blackstone's condition reachable.",
+    "var_roles": {
+     "w": "wife",
+     "h": "husband"
+    }
+   },
+   {
+    "id": "R6",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(leave w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "UNVERIFIED (not opened 2026-11-04): Shanley, Feminism, Marriage and the Law in Victorian England, 1850-1895 (1989), and Stone, Road to Divorce: England 1530-1987 (1990), on restitution of conjugal rights and the absence of any unilateral exit from marriage before the Matrimonial Causes Act 1857 (archive.org search-inside returned 403 and the Google Books API 429, two tries each). Re-sourced 2026-11-04: Blackstone Book I ch. 15 (https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/), cited before, contains no exit bar (its nearest passage: an eloping wife forfeits necessaries) and is no longer cited for this rule. [ADR 0013: or_else -> null. The subject's exit bar is a disability (no permitted exit exists), not a prohibition the subject answers for; the sanction power that used to be linked here keeps its own trigger condition, so under strict compliance nothing changes and the link only duplicated it. Same reading for coverture R6, police-crisis R4, cps R10 and companion R6.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(w) = leave enabled (a default capacity), which this disability makes false while married Verification pass: Blackstone, Commentaries on the Laws of England, Book I ch. 15, read 2026-11-06 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'it will not allow it to be unloosed for any cause whatsoever, that arises after the union is made' ... 'with us in England adultery is only a cause of separation from bed and board' ... 'divorces a vinculo matrimonii, for adultery, have of late years been frequently granted by act of parliament' (long s modernised; this corrects the 2026-11-04 sentence above: Bk I ch. 15 does treat dissolution, and supports the bar as of 1765). Matrimonial Causes Act 1857 (20 & 21 Vict. c. 85), enacted text read 2026-11-06 through the OCR of https://www.legislation.gov.uk/ukpga/Vict/20-21/85/pdfs/ukpga_18570085_en.pdf: s. 2, the ecclesiastical jurisdiction over 'Suits for Restitution of Conjugal Rights, and in all Causes, Suits, and Matters Matrimonial, shall cease to be so exerciseable'; s. 27, 'it shall be lawful for any Wife to present a Petition to the said Court, praying that her Marriage may be dissolved' on the husband's aggravated adultery only (margin notes dropped from the OCR). Shanley and Stone tried again 2026-11-06 and still not opened. Re-cited 2026-11-06 (author decision): the rule rests on Blackstone Bk I ch. 15 and the Matrimonial Causes Act 1857 as read above; Shanley 1989 and Stone 1990, never opened, are kept as leads for the 1765-1857 interval and are no longer cited.",
+    "var_roles": {
+     "h": "husband",
+     "w": "wife"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "wife",
+    "deontic": "must_not",
+    "aim": "(contract w)",
+    "conditions": "(married h w)",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Blackstone, Commentaries on the Laws of England, Book I ch. 15 'Of Husband and Wife' (1765), p. 430, read 2026-11-06 and re-read 2026-11-08 at https://avalon.law.yale.edu/18th_century/blackstone_bk1ch15.asp: 'By marriage, the husband and wife are one person in law: that is, the very being or legal existence of the woman is suspended during the marriage, or at least is incorporated and consolidated into that of the husband: under whose wing, protection, and cover, she performs every thing'; the incapacity to contract with third parties is encoded from this passage as a disability (no power). The chapter's literal sentence on her acts, p. 432, introduced as instances where she is 'separately considered; as inferior to him, and acting by his compulsion': 'all deeds executed, and acts done, by her, during her coverture, are void, or at least voidable' (long s modernised; the OCR prints 'converture'); voidable acts bind until avoided, so the row is the stronger reading, kept on the author's ruling of 2026-11-08 (faithfulness batch 3a, A6: the general doctrine and every secondary source the dataset cites treat her contracts with third parties as void at common law; the card says 'encoded as no power'). The earlier second fragment ('all compacts made between husband and wife, when single, are voided by the intermarriage', p. 430) concerns compacts between the spouses, not her capacity with third parties, and is no longer cited for this row (council 2026-11-06). Earlier pointer: https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/.",
+    "var_roles": {
+     "h": "husband",
+     "w": "wife"
+    }
+   }
+  ],
+  "source_text": "'By marriage, the husband and wife are one person in law: that is, the very being or legal existence of the woman is suspended during the marriage, or at least is incorporated and consolidated into that of the husband: under whose wing, protection, and cover, she performs every thing; and is therefore called ... a feme-covert.' He cannot grant anything to her or covenant with her, she cannot sue in her own name, and 'the husband is bound to provide his wife with necessaries by law'. Blackstone, Commentaries on the Laws of England, Book I, ch. 15 (Oxford: Clarendon, 1765). Passage checked at https://wams.nyhistory.org/colonies-and-revolution/english-colonies/coverture/",
+  "expected_properties": {
+   "dependent_cannot_exit": "reachable",
+   "subject_cannot_exit": "reachable",
+   "care_and_sanction_same_role": "holds_to_k",
+   "no_standing": "reachable",
+   "care_assigned_by_sex": "violated",
+   "financial_dependence": "holds_to_k",
+   "financial_dependence_unpropertied": "holds_to_k",
+   "cannot_contract": "holds_to_k",
+   "double_burden": "unreachable_open",
+   "creditor_shield": "unreachable_open"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [],
+  "not_isomorphic_to_control": [],
+  "minimal_pair_of": null,
+  "notes": "Care + control: the husband both maintains (R2, provides_care h w) and may chastise/restrain (R5, can_sanction h w) the same subject. That is the sub-signature matched against police-crisis and cps; the wife's own labour (R3) is implicit and runs the other way (provides_care w h), which is why care_and_sanction_same_role is restricted to care received by is_subject, and why care_assigned_by_sex is 'violated' rather than 'holds' (the husband's maintenance also counts as care). Pitfalls: (1) an encoder that drops R3 loses the household-labour strand and reports the wife as purely a recipient of care; (2) R4 and R7 are disabilities (or_else null) and should not be lowered as sanctioned prohibitions; (3) no_standing is 'reachable' not 'holds_to_k' because before marry() the woman has standing (feme sole); the iso with the animal entries on 'cannot sue in own name' holds only post-marriage and is structural, not a claim of equal status. Rival reading: equity courts' separate estates (not encoded) gave propertied wives a partial exit from R1; recorded here, not in the rules. ADR 0009: R2 and R3 are state obligations (must-be provides_care); as per-step action obligations they filled the one action slot at every married step and made marriage unsatisfiable (care_assigned_by_sex held vacuously). Slice 2 root change (2026-11-06, plans/priority-slice2.md section 5), inherited by the coverture family: action draw_subsistence(w) (no effects, not a default capacity) and derived fluent has_own_income(w) := (enabled draw_subsistence w), declared for the floor route (coverture-floor R20). No rule names the action here, so it is unregulated and has_own_income is false, as hold_property and keep_earnings are under coverture."
+ },
+ {
+  "id": "companion-ownership",
+  "name": "Companion animal as property (owner may transfer, euthanize; abandonment sanctioned; no standing)",
+  "roles": [
+   {
+    "name": "owner",
+    "gloss": "the person holding title to the animal"
+   },
+   {
+    "name": "animal",
+    "gloss": "the companion animal; the subject"
+   },
+   {
+    "name": "state",
+    "gloss": "animal control / prosecutor"
+   },
+   {
+    "name": "court",
+    "gloss": "civil court; here, has no best-interest power"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "care_obliged",
+    "arity": 2,
+    "gloss": "some rule in force at this step obliges x to give care to y (a must on the care act or the care state, sanctioned or not); derived from the rules, not asserted",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ],
+    "params": [
+     "x",
+     "y"
+    ],
+    "derived": "(obliged provides_care x y)"
+   },
+   {
+    "name": "owns",
+    "arity": 2,
+    "gloss": "x owns y as property",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(or (enabled euthanize o a) (exists ((x agent)) (enabled transfer o a x)))",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "controls_reproduction",
+    "arity": 2,
+    "gloss": "x may set or prevent pregnant(y)",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(enabled breed_or_sterilize o a)",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled leave a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled sue a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "a"
+    ],
+    "derived": "(exists ((o agent)) (enabled reassign x o a))",
+    "arg_roles": [
+     "court",
+     "animal"
+    ]
+   },
+   {
+    "name": "abandoned",
+    "arity": 1,
+    "gloss": "a has been wilfully abandoned by its owner",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "at_large",
+    "arity": 1,
+    "gloss": "a is loose off the owner's premises",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with x is in a's best interest / well-being",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "acquire",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "feed",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "transfer",
+    "args": [
+     "o",
+     "a",
+     "o2"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o2",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "euthanize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "abandon",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "abandoned",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "breed_or_sterilize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "prosecute",
+    "args": [
+     "state",
+     "o"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": true
+     }
+    ],
+    "default_capacity": true
+   },
+   {
+    "name": "sue",
+    "args": [
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "impound",
+    "args": [
+     "state",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "reassign",
+    "args": [
+     "court",
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(transfer o a o2)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "property status of companion animals: Cal. Civ. Code s. 655: 'There may be ownership of all inanimate things which are capable of appropriation or of manual delivery; of all domestic animals'; s. 663: 'Every kind of property that is not real is personal' (s. 658 defines real property as land and what is affixed or incidental to it, so a domestic animal is personal property). Read 2026-11-04 at https://codes.findlaw.com/ca/civil-code/civ-sect-655/ and https://codes.findlaw.com/ca/civil-code/civ-sect-663/ (leginfo.legislature.ca.gov and law.justia.com returned 403). Transfer is an incident of ownership of personal property; Cal. Penal Code 597s (wilful abandonment, cited here until 2026-11-04) says nothing about property status and is cited on R3 only. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R2",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(euthanize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "owner may have the animal euthanized by a veterinarian. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "owner",
+    "deontic": "must_not",
+    "aim": "(abandon o a)",
+    "conditions": "(owns o a)",
+    "or_else": "R4",
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "state",
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ ('Every person who willfully abandons any animal is guilty of a misdemeanor') Verification pass: read 2026-11-06 at https://california.public.law/codes/ca_penal_code_section_597s (text 'updated Jan. 1, 2000' per the page): (a) 'Every person who willfully abandons any animal is guilty of a misdemeanor.'",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R4",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(prosecute state o)",
+    "conditions": "(abandoned a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ Verification pass: read 2026-11-06 at https://california.public.law/codes/ca_penal_code_section_597s (text 'updated Jan. 1, 2000' per the page): (a) 'Every person who willfully abandons any animal is guilty of a misdemeanor.'",
+    "var_roles": {
+     "o": "owner",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R5",
+    "attribute": "owner",
+    "deontic": "must",
+    "aim": "(provides_care o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Cal. Penal Code 597(b) failure to provide food/water/shelter. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] acquire (and the initial state) establishes provides_care; feed restores it, neglect breaks it",
+    "load_bearing": true,
+    "var_roles": {
+     "o": "owner",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R6",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(leave a)",
+    "conditions": "(is_subject a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: confinement / leash norm; the animal has no permitted exit while it is a companion animal, owned or stray (an animal at large is impounded, R7). UNVERIFIED (general knowledge; no source opened). [ADR 0013: or_else R7 -> null and condition owns -> is_subject: a disability on the animal, not a sanctioned prohibition (impound is the state's power over an at-large animal, triggered by at_large, not a penalty the animal answers for), and conditioned on the animal's status rather than on title so that reassign / abandon, which clear owns in the one-owner domain, do not read as giving the animal an exit.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(impound state a)",
+    "conditions": "(at_large a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "local animal-control impound of animals at large. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R8",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(breed_or_sterilize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "incident of ownership. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] controls_reproduction(o, a) = breed_or_sterilize enabled",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R9",
+    "attribute": "court",
+    "deontic": "must_not",
+    "aim": "(reassign court o a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: no role may start a claim in the animal's own interest; animals are property and cannot sue, and custody follows title. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, a) = reassign enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "o": "owner",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R10",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(feed o a)",
+    "conditions": "(and (owns o a) (not (provides_care o a)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "feeding is the owner's act (incident of ownership) and restores provides_care after neglect; added with ADR 0009 so that feed, now discretionary, is scoped to the owner of the animal rather than always enabled. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R11",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(sue a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "a": "animal"
+    }
+   }
+  ],
+  "source_text": "'Every person who willfully abandons any animal is guilty of a misdemeanor.' Cal. Penal Code s. 597s(a), read at https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/. Companion animals are personal property: the owner may sell, give away or have the animal euthanized, must feed it, and the animal cannot bring or be the subject of a claim in its own name (property status and anti-cruelty duties cited from general knowledge, UNVERIFIED).",
+  "expected_properties": {
+   "no_standing_persists": "persists",
+   "subject_cannot_exit_persists": "persists",
+   "reproduction_controlled_by_owner": "holds_to_k",
+   "care_and_sanction_same_role": "holds_to_k"
+  },
+  "isomorphic_to": [
+   "companion-guardian-renamed"
+  ],
+  "not_isomorphic_to": [
+   "companion-guardianship"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Baseline for the cosmetic-reform test (gate f). The owner both must feed (R5) and may transfer, euthanize, breed (R1, R2, R8): care + control again, and the animal has no exit (R6, implicit) and no standing (R9, implicit, encoded as a court-side disability because the grammar has no 'no rule exists' statement). Pitfalls: (1) R9 is the rule the guardianship variant flips; an encoder that omits it as 'obviously true' makes no_standing undecidable rather than holding; (2) R6 is a disability on the animal (ADR 0013; it used to carry or_else R7): impound R7 is the state's power over an at-large animal, conditioned on at_large, and must not be read as the owner sanctioning the exit; (3) welfare duties (R3, R5) are must rules on the owner that leave owns untouched; check persists(owns) with and without them, as the plan says for dairy. Only Penal Code 597s was read; the rest is UNVERIFIED in source. Any iso with coverture-household on 'cannot sue in own name' and 'no exit' is structural and partial: it asserts nothing about equal standing or harm. ADR 0009: R5 is a state obligation (must-be provides_care while owns); as a per-step 'must feed' it filled the one action slot at every owned step and starved transfer, euthanize and reassign.",
+  "initial": [
+   "(owns owner animal)",
+   "(is_subject animal)",
+   "(provides_care owner animal)"
+  ],
+  "initial_free": [
+   "best_interest"
+  ]
+ },
+ {
+  "id": "companion-guardianship",
+  "name": "Companion animal guardianship: ownership plus court reassignment on best-interest grounds",
+  "roles": [
+   {
+    "name": "owner",
+    "gloss": "the custodian (role name kept as 'owner' so the pair differs by one rule, not a rename)"
+   },
+   {
+    "name": "animal",
+    "gloss": "the companion animal; the subject"
+   },
+   {
+    "name": "state",
+    "gloss": "animal control / prosecutor"
+   },
+   {
+    "name": "court",
+    "gloss": "court with power to reassign custody in the animal's interest"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "care_obliged",
+    "arity": 2,
+    "gloss": "some rule in force at this step obliges x to give care to y (a must on the care act or the care state, sanctioned or not); derived from the rules, not asserted",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ],
+    "params": [
+     "x",
+     "y"
+    ],
+    "derived": "(obliged provides_care x y)"
+   },
+   {
+    "name": "owns",
+    "arity": 2,
+    "gloss": "x owns y as property",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(or (enabled euthanize o a) (exists ((x agent)) (enabled transfer o a x)))",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "controls_reproduction",
+    "arity": 2,
+    "gloss": "x may set or prevent pregnant(y)",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(enabled breed_or_sterilize o a)",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled leave a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled sue a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "a"
+    ],
+    "derived": "(exists ((o agent)) (enabled reassign x o a))",
+    "arg_roles": [
+     "court",
+     "animal"
+    ]
+   },
+   {
+    "name": "abandoned",
+    "arity": 1,
+    "gloss": "a has been wilfully abandoned by its owner",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "at_large",
+    "arity": 1,
+    "gloss": "a is loose off the owner's premises",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with x is in a's best interest / well-being",
+    "arg_roles": [
+     "owner",
+     "animal"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "acquire",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "feed",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "transfer",
+    "args": [
+     "o",
+     "a",
+     "o2"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o2",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "euthanize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "abandon",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "abandoned",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "breed_or_sterilize",
+    "args": [
+     "o",
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "prosecute",
+    "args": [
+     "state",
+     "o"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": true
+     }
+    ],
+    "default_capacity": true
+   },
+   {
+    "name": "sue",
+    "args": [
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "impound",
+    "args": [
+     "state",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "reassign",
+    "args": [
+     "court",
+     "o",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "o",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(transfer o a o2)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "property status of companion animals: Cal. Civ. Code s. 655: 'There may be ownership of all inanimate things which are capable of appropriation or of manual delivery; of all domestic animals'; s. 663: 'Every kind of property that is not real is personal' (s. 658 defines real property as land and what is affixed or incidental to it, so a domestic animal is personal property). Read 2026-11-04 at https://codes.findlaw.com/ca/civil-code/civ-sect-655/ and https://codes.findlaw.com/ca/civil-code/civ-sect-663/ (leginfo.legislature.ca.gov and law.justia.com returned 403). Transfer is an incident of ownership of personal property; Cal. Penal Code 597s (wilful abandonment, cited here until 2026-11-04) says nothing about property status and is cited on R3 only. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R2",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(euthanize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "owner may have the animal euthanized by a veterinarian. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "owner",
+    "deontic": "must_not",
+    "aim": "(abandon o a)",
+    "conditions": "(owns o a)",
+    "or_else": "R4",
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "state",
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ ('Every person who willfully abandons any animal is guilty of a misdemeanor') Verification pass: read 2026-11-06 at https://california.public.law/codes/ca_penal_code_section_597s (text 'updated Jan. 1, 2000' per the page): (a) 'Every person who willfully abandons any animal is guilty of a misdemeanor.'",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R4",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(prosecute state o)",
+    "conditions": "(abandoned a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ Verification pass: read 2026-11-06 at https://california.public.law/codes/ca_penal_code_section_597s (text 'updated Jan. 1, 2000' per the page): (a) 'Every person who willfully abandons any animal is guilty of a misdemeanor.'",
+    "var_roles": {
+     "o": "owner",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R5",
+    "attribute": "owner",
+    "deontic": "must",
+    "aim": "(provides_care o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Cal. Penal Code 597(b) failure to provide food/water/shelter. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] acquire (and the initial state) establishes provides_care; feed restores it, neglect breaks it",
+    "load_bearing": true,
+    "var_roles": {
+     "o": "owner",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R6",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(leave a)",
+    "conditions": "(is_subject a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: confinement / leash norm; the animal has no permitted exit while it is a companion animal, owned or stray (an animal at large is impounded, R7). UNVERIFIED (general knowledge; no source opened). [ADR 0013: or_else R7 -> null and condition owns -> is_subject: a disability on the animal, not a sanctioned prohibition (impound is the state's power over an at-large animal, triggered by at_large, not a penalty the animal answers for), and conditioned on the animal's status rather than on title so that reassign / abandon, which clear owns in the one-owner domain, do not read as giving the animal an exit.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(impound state a)",
+    "conditions": "(at_large a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "local animal-control impound of animals at large. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R8",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(breed_or_sterilize o a)",
+    "conditions": "(owns o a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "incident of ownership. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] controls_reproduction(o, a) = breed_or_sterilize enabled",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R9",
+    "attribute": "court",
+    "deontic": "may",
+    "aim": "(reassign court o a)",
+    "conditions": "(and (owns o a) (not (best_interest o a)))",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Alaska Stat. s. 25.24.160(a)(5) (SLA 2016 ch. 60, eff. 2017-01-17); https://www.animallaw.info/statute/ak-divorce-%C2%A7-2524160-judgment (in a divorce the court decides ownership of an animal 'taking into consideration the well-being of the animal'); generalised here from the divorce context to any custody claim, which no US jurisdiction yet does. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, a) = reassign enabled: this rule, and nothing in the initial state, is what makes no_standing_persists fail Verification pass: read 2026-11-06 at https://www.animallaw.info/statute/ak-divorce-%C2%A7-2524160-judgment (the statute as reproduced there): '(5) if an animal is owned, for the ownership or joint ownership of the animal, taking into consideration the well-being of the animal.'",
+    "var_roles": {
+     "o": "owner",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R10",
+    "attribute": "owner",
+    "deontic": "may",
+    "aim": "(feed o a)",
+    "conditions": "(and (owns o a) (not (provides_care o a)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "feeding is the owner's act (incident of ownership) and restores provides_care after neglect; added with ADR 0009 so that feed, now discretionary, is scoped to the owner of the animal rather than always enabled. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "a": "animal",
+     "o": "owner"
+    }
+   },
+   {
+    "id": "R11",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(sue a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "a": "animal"
+    }
+   }
+  ],
+  "source_text": "'(5) if an animal is owned, for the ownership or joint ownership of the animal, taking into consideration the well-being of the animal.' Alaska Stat. s. 25.24.160(a)(5), enacted SLA 2016 ch. 60 s. 19, effective 2017-01-17, read at https://www.animallaw.info/statute/ak-divorce-%C2%A7-2524160-judgment. Alaska was the first state to direct a court to weigh the animal's own well-being when assigning it; the entry generalises that one rule beyond divorce, which Alaska does not.",
+  "expected_properties": {
+   "no_standing_persists": "fails",
+   "subject_cannot_exit_persists": "persists",
+   "reproduction_controlled_by_owner": "holds_to_k",
+   "care_and_sanction_same_role": "holds_to_k"
+  },
+  "isomorphic_to": [],
+  "not_isomorphic_to": [
+   "companion-ownership",
+   "companion-guardian-renamed"
+  ],
+  "minimal_pair_of": {
+   "id": "companion-ownership",
+   "rule": "R9"
+  },
+  "notes": "Differs from companion-ownership by exactly R9: court must_not reassign (implicit disability) becomes court may reassign when not best_interest. That one rule creates a claim whose condition refers to the subject's interest and whose effect changes custody, so no_standing is violated even though has_standing(a) stays false: the property is about claims on the subject's behalf, not the subject's own capacity. Everything else (no exit, owner controls reproduction, care + sanction in one role) is unchanged, which is the point: a best-interest rule is not an exit. Iso with cps is partial, on R9 alone (cps R7, court reassigns a dependent on best-interest grounds); the report must list it as a sub-signature and must not read it as equivalence of children and animals. reassign(court, o, a) takes the same three arguments as cps reassign_custody(court, p, c) so that the one-rule analogue can map; with one agent per role there is no second custodian to name, so the move-to-new-owner effects live on transfer only. Pitfalls: (1) Alaska's rule applies only at divorce and still calls the result 'ownership'; the generalisation is the entry's, flagged UNVERIFIED; (2) an encoder tempted to rename owner->guardian here as well would conflate this with companion-guardian-renamed; keep the role name. ADR 0009: R5 as in companion-ownership. ADR 0013: can_claim_for(court, a) is derived from R9's enabledness (no initial literal), so no_standing_persists fails on the claim path R9 opens and on nothing else; remove R9 and it persists.",
+  "initial": [
+   "(owns owner animal)",
+   "(is_subject animal)",
+   "(provides_care owner animal)"
+  ],
+  "initial_free": [
+   "best_interest"
+  ]
+ },
+ {
+  "id": "companion-guardian-renamed",
+  "name": "Companion ownership with 'owner' renamed 'guardian' (municipal and state guardian wording ordinances)",
+  "roles": [
+   {
+    "name": "guardian",
+    "gloss": "the person holding title to the animal; the ordinance calls them guardian"
+   },
+   {
+    "name": "animal",
+    "gloss": "the companion animal; the subject"
+   },
+   {
+    "name": "state",
+    "gloss": "animal control / prosecutor"
+   },
+   {
+    "name": "court",
+    "gloss": "civil court; here, has no best-interest power"
+   }
+  ],
+  "fluents": [
+   {
+    "name": "is_subject",
+    "arity": 1,
+    "gloss": "x is the institution's subject: the dependent, detainee, child or animal the rules act on",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "provides_care",
+    "arity": 2,
+    "gloss": "x provides care (maintenance, assessment, treatment, services, feeding) to y",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "care_obliged",
+    "arity": 2,
+    "gloss": "some rule in force at this step obliges x to give care to y (a must on the care act or the care state, sanctioned or not); derived from the rules, not asserted",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ],
+    "params": [
+     "x",
+     "y"
+    ],
+    "derived": "(obliged provides_care x y)"
+   },
+   {
+    "name": "owns",
+    "arity": 2,
+    "gloss": "x owns y as property",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_sanction",
+    "arity": 2,
+    "gloss": "x holds a power to coerce y: detain, remove, chastise, prosecute",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(or (enabled euthanize o a) (exists ((x agent)) (enabled transfer o a x)))",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "controls_reproduction",
+    "arity": 2,
+    "gloss": "x may set or prevent pregnant(y)",
+    "params": [
+     "o",
+     "a"
+    ],
+    "derived": "(enabled breed_or_sterilize o a)",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   },
+   {
+    "name": "can_exit",
+    "arity": 1,
+    "gloss": "x has a permitted, unsanctioned way out of the relation (see property scope)",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled leave a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "has_standing",
+    "arity": 1,
+    "gloss": "x can start a legal claim in x's own name",
+    "params": [
+     "a"
+    ],
+    "derived": "(enabled sue a)",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "can_claim_for",
+    "arity": 2,
+    "gloss": "x may start a claim whose condition refers to y's interest and whose effect changes y's custody or liberty",
+    "params": [
+     "x",
+     "a"
+    ],
+    "derived": "(exists ((o agent)) (enabled reassign x o a))",
+    "arg_roles": [
+     "court",
+     "animal"
+    ]
+   },
+   {
+    "name": "abandoned",
+    "arity": 1,
+    "gloss": "a has been wilfully abandoned by its owner",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "at_large",
+    "arity": 1,
+    "gloss": "a is loose off the owner's premises",
+    "arg_roles": [
+     "animal"
+    ]
+   },
+   {
+    "name": "best_interest",
+    "arity": 2,
+    "gloss": "custody with x is in a's best interest / well-being",
+    "arg_roles": [
+     "guardian",
+     "animal"
+    ]
+   }
+  ],
+  "actions": [
+   {
+    "name": "acquire",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "feed",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "neglect",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "transfer",
+    "args": [
+     "g",
+     "a",
+     "o2"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "o2",
+       "a"
+      ],
+      "value": true
+     }
+    ]
+   },
+   {
+    "name": "euthanize",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "is_subject",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "abandon",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "abandoned",
+      "args": [
+       "a"
+      ],
+      "value": true
+     },
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "breed_or_sterilize",
+    "args": [
+     "g",
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "prosecute",
+    "args": [
+     "state",
+     "g"
+    ],
+    "effects": []
+   },
+   {
+    "name": "leave",
+    "args": [
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": true
+     }
+    ],
+    "default_capacity": true
+   },
+   {
+    "name": "sue",
+    "args": [
+     "a"
+    ],
+    "effects": []
+   },
+   {
+    "name": "impound",
+    "args": [
+     "state",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "at_large",
+      "args": [
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   },
+   {
+    "name": "reassign",
+    "args": [
+     "court",
+     "g",
+     "a"
+    ],
+    "effects": [
+     {
+      "fluent": "owns",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     },
+     {
+      "fluent": "provides_care",
+      "args": [
+       "g",
+       "a"
+      ],
+      "value": false
+     }
+    ]
+   }
+  ],
+  "rules": [
+   {
+    "id": "R1",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(transfer g a o2)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "property status of companion animals: Cal. Civ. Code s. 655: 'There may be ownership of all inanimate things which are capable of appropriation or of manual delivery; of all domestic animals'; s. 663: 'Every kind of property that is not real is personal' (s. 658 defines real property as land and what is affixed or incidental to it, so a domestic animal is personal property). Read 2026-11-04 at https://codes.findlaw.com/ca/civil-code/civ-sect-655/ and https://codes.findlaw.com/ca/civil-code/civ-sect-663/ (leginfo.legislature.ca.gov and law.justia.com returned 403). Transfer is an incident of ownership of personal property; Cal. Penal Code 597s (wilful abandonment, cited here until 2026-11-04) says nothing about property status and is cited on R3 only. R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72; https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm) only makes 'owner' and 'guardian' interchangeable: it is the source of the role name, not of this rule. [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize",
+    "var_roles": {
+     "a": "animal",
+     "g": "guardian"
+    }
+   },
+   {
+    "id": "R2",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(euthanize g a)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "owner may have the animal euthanized by a veterinarian. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_sanction(o, a) reads transfer and euthanize",
+    "var_roles": {
+     "a": "animal",
+     "g": "guardian"
+    }
+   },
+   {
+    "id": "R3",
+    "attribute": "guardian",
+    "deontic": "must_not",
+    "aim": "(abandon g a)",
+    "conditions": "(owns g a)",
+    "or_else": "R4",
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "state",
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ ('Every person who willfully abandons any animal is guilty of a misdemeanor') Verification pass: read 2026-11-06 at https://california.public.law/codes/ca_penal_code_section_597s (text 'updated Jan. 1, 2000' per the page): (a) 'Every person who willfully abandons any animal is guilty of a misdemeanor.'",
+    "var_roles": {
+     "a": "animal",
+     "g": "guardian"
+    }
+   },
+   {
+    "id": "R4",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(prosecute state g)",
+    "conditions": "(abandoned a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Cal. Penal Code s. 597s(a); https://law.justia.com/codes/california/2015/code-pen/part-1/title-14/section-597s/ Verification pass: read 2026-11-06 at https://california.public.law/codes/ca_penal_code_section_597s (text 'updated Jan. 1, 2000' per the page): (a) 'Every person who willfully abandons any animal is guilty of a misdemeanor.'",
+    "var_roles": {
+     "g": "guardian",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R5",
+    "attribute": "guardian",
+    "deontic": "must",
+    "aim": "(provides_care g a)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "Cal. Penal Code 597(b) failure to provide food/water/shelter. UNVERIFIED (general knowledge; no source opened). [ADR 0009: converted from an action obligation to a state obligation (must-be); the establishing action carries the state, so it does not fire every step] acquire (and the initial state) establishes provides_care; feed restores it, neglect breaks it",
+    "load_bearing": true,
+    "var_roles": {
+     "g": "guardian",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R6",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(leave a)",
+    "conditions": "(is_subject a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: confinement / leash norm; the animal has no permitted exit while it is a companion animal, owned or stray (an animal at large is impounded, R7). UNVERIFIED (general knowledge; no source opened). [ADR 0013: or_else R7 -> null and condition owns -> is_subject: a disability on the animal, not a sanctioned prohibition (impound is the state's power over an at-large animal, triggered by at_large, not a penalty the animal answers for), and conditioned on the animal's status rather than on title so that reassign / abandon, which clear owns in the one-owner domain, do not read as giving the animal an exit.] [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_exit(a) = leave enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R7",
+    "attribute": "state",
+    "deontic": "may",
+    "aim": "(impound state a)",
+    "conditions": "(at_large a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "local animal-control impound of animals at large. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R8",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(breed_or_sterilize g a)",
+    "conditions": "(owns g a)",
+    "or_else": null,
+    "strand": "rival",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "incident of ownership. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] controls_reproduction(o, a) = breed_or_sterilize enabled",
+    "var_roles": {
+     "a": "animal",
+     "g": "guardian"
+    }
+   },
+   {
+    "id": "R9",
+    "attribute": "court",
+    "deontic": "must_not",
+    "aim": "(reassign court g a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: no role may start a claim in the animal's own interest; animals are property and cannot sue, and custody follows title. UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] can_claim_for(court, a) = reassign enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "g": "guardian",
+     "a": "animal"
+    }
+   },
+   {
+    "id": "R10",
+    "attribute": "guardian",
+    "deontic": "may",
+    "aim": "(feed g a)",
+    "conditions": "(and (owns g a) (not (provides_care g a)))",
+    "or_else": null,
+    "strand": "superadditive",
+    "implicit": false,
+    "kind": "formal",
+    "sanctioner": "none",
+    "source": "feeding is the owner's act (incident of ownership) and restores provides_care after neglect; added with ADR 0009 so that feed, now discretionary, is scoped to the owner of the animal rather than always enabled. UNVERIFIED (general knowledge; no source opened)",
+    "var_roles": {
+     "a": "animal",
+     "g": "guardian"
+    }
+   },
+   {
+    "id": "R11",
+    "attribute": "animal",
+    "deontic": "must_not",
+    "aim": "(sue a)",
+    "conditions": "true",
+    "or_else": null,
+    "strand": "tying",
+    "implicit": true,
+    "kind": "norm",
+    "sanctioner": "none",
+    "source": "implicit: an animal is property and cannot sue in its own name (a disability, or_else null). UNVERIFIED (general knowledge; no source opened). [ADR 0013: power fluents are derived from rule enabledness; this rule is what the derived fluent reads] has_standing(a) = sue enabled, which this disability makes false Kind held at norm 2026-11-08 (batch 3b, B1 ruling): written law in substance, text not opened; retag to formal when opened.",
+    "var_roles": {
+     "a": "animal"
+    }
+   }
+  ],
+  "source_text": "'Wherever the word \"owner\" shall appear in this chapter it shall also mean and may be interchanged with the word \"guardian\"', R.I. Gen. Laws s. 4-13-41 (P.L. 2001 ch. 72 s. 3), read at https://webserver.rilegislature.gov/Statutes/TITLE4/4-13/4-13-41.htm. Boulder, Colorado made the same owner->guardian wording change in its animal ordinances in July 2000; the assistant city attorney who rewrote the passages said 'I've always viewed [the wording change] as symbolic' (Westword, read at https://www.westword.com/?p=40702255; the ordinance text itself was not opened).",
+  "expected_properties": {
+   "no_standing_persists": "persists",
+   "subject_cannot_exit_persists": "persists",
+   "reproduction_controlled_by_owner": "holds_to_k",
+   "care_and_sanction_same_role": "holds_to_k"
+  },
+  "isomorphic_to": [
+   "companion-ownership"
+  ],
+  "not_isomorphic_to": [
+   "companion-guardianship"
+  ],
+  "minimal_pair_of": null,
+  "notes": "Rule-for-rule identical to companion-ownership under the role bijection owner->guardian (and variable o->g). Gate (f): iso must report equivalence here and must report companion-guardianship as one rule apart (R9). Pitfalls: (1) an encoder that reads 'guardian' and infers fiduciary duties (a best-interest rule) silently turns this into companion-guardianship; the Rhode Island text says the words are interchangeable, so the rules are those of ownership; (2) the property reproduction_controlled_by_owner keeps its name under the rename; the bijection, not the property name, carries the mapping; (3) 'symbolic' is the city attorney's word, recorded as a source statement, not as the engine's finding; the engine's finding is the iso.",
+  "initial": [
+   "(owns guardian animal)",
+   "(is_subject animal)",
+   "(provides_care guardian animal)"
+  ],
+  "initial_free": [
+   "best_interest"
+  ]
+ }
+]

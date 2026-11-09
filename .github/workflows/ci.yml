@@ -13,6 +13,8 @@ jobs:
       - run: uv python install 3.14
       - run: uv sync --python 3.14
       - run: uv run pytest -q -m "not llm"
+      # no path flags: default_paths() resolves to the engine's fixture, data/example/ (the research dataset lives in
+      # the private computational-liberation repo; point PHIL_DATA_DIR at its data/ to run on it)
       - run: uv run phil rules check-all
 
   gate:
@@ -24,4 +26,4 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv python install 3.14
       - run: uv sync --python 3.14
-      - run: uv run phil rules gate
+      - run: uv run phil rules gate  # on data/example/: criteria whose institutions the fixture lacks report FAIL/deferred
