@@ -453,7 +453,8 @@
    "financial_dependence_unpropertied": "holds_to_k",
    "cannot_contract": "holds_to_k",
    "double_burden": "unreachable_open",
-   "creditor_shield": "unreachable_open"
+   "creditor_shield": "unreachable_open",
+   "rebundling": "unreachable_open"
   },
   "isomorphic_to": [],
   "not_isomorphic_to": [],
