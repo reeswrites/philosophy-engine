@@ -41,7 +41,7 @@ def test_fixture_loads_and_is_self_contained():
 def test_check_all_agrees_on_the_fixture(capsys):
     assert main(["rules", "check-all"]) == 0
     out = capsys.readouterr().out
-    assert "agreement: 22/22 = 100%" in out
+    assert "agreement: 23/23 = 100%" in out
 
 
 def test_gate_runs_end_to_end_on_the_fixture():

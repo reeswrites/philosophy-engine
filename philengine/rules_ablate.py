@@ -1034,15 +1034,16 @@ def transfer_table(g: TransferGraph) -> str:
 
 
 def derived_check(kind: str, inst: InstitutionJSON, properties: dict[str, Property], k: int = 6,
-                  **run_kw) -> PropertyResult:
+                  kinds: dict[str, str] | None = None, **run_kw) -> PropertyResult:
     """The PropertyResult of a derived check (schemas_rules.DERIVED_CHECKS) for run_all. `rebundling`: reachable when
     some rule r1 has rebundling(E, r1) at k (the reason names every rebundling edge), open when none was found at k;
     z3_unknown is set on an open verdict when some pair had an uncounted property, so it is never read as a flip or
-    as a clean absence. Check kinds for properties without an expectation fall back as in check_source with no
-    majority table (run_all has no view of the other entries)."""
+    as a clean absence. `kinds` is the majority table of check kinds (check_kinds over every entry); the CLI
+    passes it, so the check and `phil rules transfer` read the same graph. Without it a property that has neither an
+    explicit check nor an expectation in this entry falls back to suffix / default (check_source)."""
     if kind != "rebundling":
         raise ValueError(f"unknown derived check {kind!r}")
-    g = transfer_graph(inst, properties, k, None, **run_kw)
+    g = transfer_graph(inst, properties, k, kinds, **run_kw)
     pairs = [(e.source, e.target, e.weight, e.families_added) for e in g.edges["freedom"] if e.rebundling]
     if pairs:
         return PropertyResult(property="", check="rebundling", verdict="reachable",

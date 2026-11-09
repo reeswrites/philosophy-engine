@@ -168,3 +168,15 @@ def test_cli_transfer(tmp_path, capsys):
     a = build_parser().parse_args(["rules", "transfer", "--entry", "nope", "--institutions", str(tmp_path / "i.json"),
                                    "--properties", str(tmp_path / "p.json")])
     assert a.fn(a) == 2
+
+
+def test_derived_check_reads_the_majority_check_kinds(monkeypatch):
+    """run_all hands `kinds` to the derived check, so it ablates under the same check kinds as `phil rules transfer`."""
+    inst, props = keeper((DUP,))
+    props["rebundling"] = REB
+    seen = []
+    real = ra.transfer_graph
+    monkeypatch.setattr(ra, "transfer_graph", lambda i, p, k, kinds=None, **kw: (seen.append(kinds), real(i, p, k, kinds, **kw))[1])
+    rc.run_all(inst, props, k=K, which={"rebundling": ["reachable"]}, kinds={"held_reachable": "reachable"})
+    rc.run_all(inst, props, k=K, which={"rebundling": ["reachable"]})
+    assert seen == [{"held_reachable": "reachable"}, None]

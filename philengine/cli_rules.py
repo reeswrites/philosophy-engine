@@ -152,7 +152,7 @@ def cmd_check(a) -> int:
         which = {a.prop: [c] if c else list(rules_checks.CHECKS)}
     cache = _make_cache(a)
     rep = rules_checks.run_all(inst, props, k=a.k, which=which, init=a.init, compliance=a.compliance, step_mode=a.step_mode,
-                               cache=cache)
+                               cache=cache, kinds=rules_ablate.check_kinds(insts))
     if a.json:
         print(rep.model_dump_json(indent=1))
         return 0
@@ -172,9 +172,10 @@ def cmd_check_all(a) -> int:
     insts, props = _load(a)
     rows, warns, reps = [], [], []
     cache = _make_cache(a)
+    kinds = rules_ablate.check_kinds(insts)
     for inst in insts:
         rep = rules_checks.run_all(inst, props, k=a.k, init=a.init, compliance=a.compliance, step_mode=a.step_mode,
-                                   cache=cache)
+                                   cache=cache, kinds=kinds)
         reps.append(rep)
         rows.extend(_rows(inst, rep))
         warns.extend(f"{inst.id}: {w}" for w in rep.warnings)
@@ -192,8 +193,9 @@ def cmd_check_all(a) -> int:
 
 def _run_reports(a, insts, props, k, init, compliance, step_mode):
     cache = _make_cache(a)
-    return [rules_checks.run_all(i, props, k=k, init=init, compliance=compliance, step_mode=step_mode, cache=cache)
-            for i in insts]
+    kinds = rules_ablate.check_kinds(insts)
+    return [rules_checks.run_all(i, props, k=k, init=init, compliance=compliance, step_mode=step_mode, cache=cache,
+                                 kinds=kinds) for i in insts]
 
 
 def _scoreboard_row(command: str, reps, t0: float, changes) -> dict:
